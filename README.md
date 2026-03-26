@@ -16,7 +16,7 @@ El usuario principal es el equipo de marketing y contenido. La fuente de datos d
 
 | Componente | Tecnología |
 |---|---|
-| Lenguaje | Python 3.12 |
+| Lenguaje | Python 3.14 |
 | Gestor de dependencias | uv |
 | Despliegue | Docker en VPS (contenedor efímero + cron externo) |
 | Persistencia | SQLite (fichero en volumen Docker) |

@@ -7,7 +7,7 @@ Para decisiones de producto, ver `docs/product/product.md`.
 
 ## 1. Stack principal
 
-- **Lenguaje**: Python 3.12
+- **Lenguaje**: Python 3.14
 - **Gestor de dependencias**: uv
 - **Despliegue**: Docker en VPS
 

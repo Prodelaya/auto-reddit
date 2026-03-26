@@ -36,3 +36,24 @@ node_modules/
 .ruff_cache/
 .mypy_cache/
 .pytest_cache/
+.cache/
+
+# uv
+.uv/
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Logs
+*.log
+
+# Versión de Python
+# .python-version  # descomenta si no quieres commitear la versión fijada
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
