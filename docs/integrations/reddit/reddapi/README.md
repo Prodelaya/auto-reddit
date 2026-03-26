@@ -1,105 +1,206 @@
 # reddapi
 
-**URL:** https://rapidapi.com/SeasonedCode/api/reddapi  
-**Proveedor:** SeasonedCode  
-**Plataforma:** RapidAPI
+## Fuentes verificadas
 
----
+- Documentacion publica: `https://reddapi.online/docs/`
+- Documentacion de API: `https://reddapi.online/api/docs`
 
-## Resumen
+Este documento resume solo lo verificado con documentacion publica y pruebas reales sobre endpoints utiles para `auto-reddit`.
 
-La API más documentada públicamente de las cuatro. Tiene un conjunto amplio de endpoints concretos verificados que cubren tanto lectura como escritura. La documentación pública y snippets indexados permiten verificar endpoints reales con sus rutas exactas.
+## Veredicto
 
----
+ReddAPI es la mejor candidata actual para la integracion de lectura de Reddit en `auto-reddit`.
 
-## Plan gratuito
+La razon no es que sea perfecta, sino que combina dos cosas que ahora mismo pesan mas que el resto:
 
-| Concepto | Límite |
-|---|---|
-| Requests/mes | 70 (hard limit) |
-| Rate limit | 1000 req/hora |
-| Bandwidth | 10240 MB/mes |
-| Coste extra | +$0.001 por 1 MB adicional |
+- documentacion publica verificable
+- pruebas reales positivas sobre los endpoints que necesita el pipeline
 
-**Estimación de viabilidad:** con ~21 requests/día de consumo estimado, el plan gratuito dura aproximadamente **3-4 días**. No viable para uso real continuo.
+## Que endpoints sirven realmente para auto-reddit
 
----
+### 1. Candidate collection
 
-## Autenticación
+Endpoint:
 
-Vía RapidAPI (header `X-RapidAPI-Key`). Pendiente de verificar si requiere credenciales adicionales de Reddit.
+`GET /api/scrape/new`
 
----
+Uso en `auto-reddit`:
 
-## Endpoints relevantes
+- recoger posts nuevos de `r/Odoo`
+- ordenar o filtrar por fecha de creacion usando `created_utc`
+- guardar `id` nativo de Reddit como `post_id`
+- capturar contenido y metadatos suficientes para el primer slice
 
-### Lectura — Posts
-| Endpoint | Descripción |
-|---|---|
-| `GET /api/scrape` | Posts de un subreddit |
-| `GET /api/scrape/new` | Posts "new" de un subreddit |
-| `GET /api/scrape/top` | Posts "top" de un subreddit |
-| `GET /api/rising_posts` | Rising posts de un subreddit |
-| `GET /api/scrape_post` | Título y contenido de un post |
+Prueba real verificada:
 
-### Lectura — Comentarios
-| Endpoint | Descripción |
-|---|---|
-| `GET /api/scrape_post_comments` | Comentarios de un post dado |
-| `GET /api/scrape_new_comments_and_its_post_content` | Comentarios nuevos + contenido del post para una URL dada |
+`GET /api/scrape/new?subreddit=odoo&limit=10`
 
-### Lectura — Usuarios y subreddits
-| Endpoint | Descripción |
-|---|---|
-| `GET /api/user_info` | Información de un usuario en JSON |
-| Búsqueda subreddits | Lista de subreddits con cursor de paginación |
+Resultado observado:
 
-### Escritura (fuera del scope de auto-reddit)
-| Endpoint | Descripción |
-|---|---|
-| `POST /api/comment` | Comentar en un post |
-| `POST /api/upvote` | Upvotear un post |
-| `POST /api/downvote` | Downvotear un post |
-| `POST /api/post_to_subreddit` | Publicar en un subreddit |
-| `POST /api/create_account` | Crear cuenta |
-| `POST /api/login` | Login |
-| Y otros... | |
+- `200 OK`
+- ~`2604 ms`
+- `proxy` no fue necesario en la practica
 
----
+Shape real confirmado:
 
-## Ejemplos de requests
+```json
+{
+  "success": true,
+  "cursor": "...",
+  "posts": [
+    {
+      "kind": "t3",
+      "data": {
+        "id": "1s4l6x4",
+        "title": "...",
+        "selftext": "...",
+        "author": "...",
+        "num_comments": 1,
+        "url": "https://www.reddit.com/...",
+        "permalink": "/r/Odoo/comments/...",
+        "created": 1774562157,
+        "created_utc": 1774562157,
+        "subreddit": "Odoo",
+        "subreddit_name_prefixed": "r/Odoo"
+      }
+    }
+  ]
+}
+```
 
-Pendiente de pruebas reales contra `r/Odoo`.
+Por que sirve:
 
----
+- devuelve posts nuevos del subreddit objetivo
+- incluye `created_utc`, asi que SI permite trabajar con orden temporal real
+- incluye `id`, `url`, `selftext` y metadatos suficientes para iniciar el pipeline sin otra llamada inmediata
 
-## Ejemplos de responses
+### 2. Thread context extraction
 
-Pendiente de pruebas reales.
+Endpoint:
 
----
+`GET /api/scrape_new_comments_and_its_post_content`
 
-## Riesgos / dudas
+Uso en `auto-reddit`:
 
-- Plan gratuito insuficiente para uso real continuo (70 req/mes)
-- Los endpoints de escritura existen pero están fuera del scope del proyecto (auto-reddit no publica)
-- Pendiente verificar si `GET /api/scrape` soporta filtrado por fecha de creación o solo devuelve los más recientes
-- Pendiente verificar el formato exacto del JSON de respuesta para posts y comentarios
+- obtener en una sola llamada el contenido del post y los comentarios usados como contexto del hilo
+- reducir round-trips en el pipeline
+- simplificar la extraccion de contexto para evaluacion posterior
 
----
+Prueba real verificada:
 
-## Encaje con auto-reddit
+`GET /api/scrape_new_comments_and_its_post_content?post_url=...&comments_num=10`
 
-**Veredicto provisional: candidata principal**
+Resultado observado:
 
-Es la única con endpoints verificados explícitamente para los dos casos de uso clave:
-1. **Posts de subreddit:** `GET /api/scrape`, `/api/scrape/new`, `/api/scrape/top` → cubre obtener posts de `r/Odoo`
-2. **Comentarios de post:** `GET /api/scrape_post_comments` y `GET /api/scrape_new_comments_and_its_post_content` → cubre obtener comentarios
+- `200 OK`
+- ~`890 ms` en una prueba
+- ~`2080 ms` en otra
+- `proxy` no fue necesario
 
-El endpoint de escritura `POST /api/comment` no se usará — auto-reddit solo lee y el humano publica manualmente.
+Shape real confirmado:
 
-**Próxima validación:** prueba real de `GET /api/scrape` contra `r/Odoo` para verificar estructura de respuesta y disponibilidad de `created_at` para ordenar por fecha de creación.
+```json
+{
+  "success": true,
+  "data": {
+    "post content": {
+      "subreddit": "r/Odoo",
+      "title": "...",
+      "text": "..."
+    },
+    "top comments": [
+      {
+        "comment": "...",
+        "author": "...",
+        "user_id": "t2_...",
+        "score": 24
+      }
+    ]
+  }
+}
+```
 
----
+Lo importante aqui es la semantica real:
 
-> `raw/` contiene material sin procesar: capturas, JSONs de prueba y notas de investigación.
+- aunque el nombre del endpoint habla de `new comments`, la respuesta devuelve la clave `top comments`
+- por comparacion manual con Reddit, los comentarios recuperados coinciden con top comments, no con los mas nuevos
+- `comments_num=10` no se respeto estrictamente: devolvio 11 comentarios
+
+Por que sirve igualmente:
+
+- para v1 reduce a una sola llamada el contexto del post + comentarios
+- en `r/Odoo` es raro encontrar posts con muchos comentarios
+- por eso, en la mayoria de casos, la diferencia entre top comments y comentarios recientes probablemente no afectara mucho
+
+Decision de producto:
+
+- el objetivo ideal del producto sigue siendo usar comentarios recientes si una API fiable los expone en el futuro
+- para ReddAPI se trabajara pragmaticamente con los comentarios que realmente devuelve la API, que en la practica son top comments
+
+### 3. Endpoint auxiliar de comentarios
+
+Endpoint:
+
+`GET /api/scrape_post_comments`
+
+Uso en `auto-reddit`:
+
+- endpoint auxiliar de contraste o fallback
+- sirve para validar o comparar la salida de comentarios frente al endpoint combinado
+
+Prueba real verificada:
+
+`GET /api/scrape_post_comments?post_url=...&comments_num=10`
+
+Resultado observado:
+
+- `200 OK`
+- ~`1386 ms`
+- `proxy` no fue necesario
+
+Shape real confirmado:
+
+```json
+{
+  "success": true,
+  "comments": [
+    {
+      "comment": "...",
+      "author": "...",
+      "user_id": "t2_...",
+      "score": 23
+    }
+  ]
+}
+```
+
+Limitaciones observadas:
+
+- devuelve comentarios en un formato simple y util
+- no devuelve `comment_id`, `created_utc` ni permalink
+- `comments_num=10` tampoco se respeto estrictamente: devolvio 11 comentarios
+
+## Como se usara en el pipeline
+
+### Flujo previsto para v1
+
+1. `GET /api/scrape/new` para recoger candidatos nuevos de `r/Odoo`
+2. guardar `post_id` desde `data.id` y usar `created_utc` para el orden temporal
+3. `GET /api/scrape_new_comments_and_its_post_content` para extraer contexto del hilo en una sola llamada
+4. usar `GET /api/scrape_post_comments` solo como contraste o fallback cuando convenga validar la salida de comentarios
+
+## Riesgos y limites que hay que asumir
+
+- la semantica de `new comments` no es fiable en `GET /api/scrape_new_comments_and_its_post_content`
+- `comments_num` no es exacto
+- faltan campos importantes en comentarios, como `created_utc`, permalink o un `comment_id` util
+- aun asi, la API sigue siendo la mejor candidata actual por combinacion de documentacion publica y pruebas reales positivas
+
+## Que queda claro para auto-reddit
+
+- `GET /api/scrape/new` SI sirve para candidate collection
+- `GET /api/scrape_new_comments_and_its_post_content` SI sirve para thread context extraction
+- `GET /api/scrape_post_comments` SI sirve como apoyo, contraste o fallback
+- la integracion debe modelarse con la semantica real observada, no con el nombre idealizado del endpoint
+
+> `raw/` contiene material sin procesar: capturas, JSONs de prueba y notas de investigacion.

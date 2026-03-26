@@ -36,7 +36,7 @@ El plan gratuito solo sirve para pruebas puntuales y validación técnica.
 | API | Documentación pública | Endpoints verificados posts | Endpoints verificados comentarios | Cobertura usuarios | Cobertura búsqueda |
 |---|---|---|---|---|---|
 | `reddit3` | Muy escasa | Indicios (posts + URL) | Indicios (1 endpoint basado en URL) | Desconocida | Indicios (search) |
-| `reddit34` | Buena descripción, sin catálogo completo | Posts por subreddit/usuario, ordenaciones múltiples | Post comments, comments by user/subreddit, top comments | Sí (profiles, stats, overview) | Sí (posts, subreddits, users) |
+| `reddit34` | Catalogo publico util y dos pruebas reales positivas | `getPostsBySubreddit` probado con `sort=new` y shape valido para candidate collection | `getPostCommentsWithSort` probado con `sort=new`; ahora mismo es la mejor candidata para comentarios recientes | Si (profiles, stats, overview) | Si (posts, subreddits, users) |
 | `reddapi` | La más completa y verificable | /api/scrape, /api/scrape/new, /api/scrape/top, /api/rising_posts, /api/scrape_post | /api/scrape_post_comments, /api/scrape_new_comments_and_its_post_content | Sí (/api/user_info) | Sí (subreddits con paginación) |
 | `reddit-com` | Muy escasa | Desconocida | Desconocida | Desconocida | Desconocida |
 
@@ -46,8 +46,8 @@ El plan gratuito solo sirve para pruebas puntuales y validación técnica.
 
 | API | Veredicto | Motivo |
 |---|---|---|
-| `reddapi` | **Candidata principal** | Mejor cobertura verificable, endpoints concretos de posts y comentarios |
-| `reddit34` | **Candidata secundaria** | Buena cobertura funcional, pero sin catálogo verificable completo |
+| `reddapi` | **Muy buena candidata para posts y contexto general** | Sigue teniendo buena cobertura verificable y encaja bien para scraping de posts y contexto alrededor del post |
+| `reddit34` | **Candidata muy fuerte, especialmente para comentarios** | Ya tiene prueba real positiva para posts nuevos y prueba real positiva para comentarios recientes con `sort=new` |
 | `reddit3` | Exploratoria | Escasa información pública, bajo límite gratuito |
 | `reddit-com` | Exploratoria | Muy poca información pública verificable |
 
@@ -68,23 +68,20 @@ El sistema no ejecuta sábados ni domingos. La lógica de día laborable vive en
 
 ## Estrategia de uso de APIs
 
-Se usará la **Opción A: API principal + fallback** en cadena:
+La estrategia final sigue abierta. Con lo verificado hasta ahora, no conviene cerrar aun una asignacion fija de posts y comentarios por API.
 
-| Prioridad | API | Requests/mes | Rol |
-|---|---|---|---|
-| 1 | `reddapi` | 70 | Principal |
-| 2 | `reddit3` | 100 | Fallback 1 |
-| 3 | `reddit-com` | 100 | Fallback 2 |
-| 4 | `reddit34` | 50 | Fallback 3 (último por menor cupo) |
-| **Total** | | **320** | |
+Nota de trabajo provisional:
 
-El sistema usará `reddapi` por defecto. Solo pasará al siguiente cuando el cupo del anterior se haya agotado.
+- `ReddAPI` sigue siendo muy buena candidata para posts y contexto general
+- `reddit34` es la mejor candidata actual para comentarios recientes
+- la arquitectura final podria combinar APIs distintas para posts y comentarios si eso optimiza cobertura y cuota mensual
+- la decision final queda abierta hasta investigar `reddit3` y `reddit-com`
 
 ## Decisión
 
-- **Estado:** pendiente de validación con pruebas reales
-- **API principal:** `reddapi` — única con endpoints verificados para posts y comentarios
-- **Cadena de fallback:** `reddapi` → `reddit3` → `reddit-com` → `reddit34`
-- **Motivo del orden:** reddapi es la más fiable documentalmente; reddit34 queda al final por tener el menor cupo gratuito (50/mes)
-- **Riesgo principal:** si una API devuelve formato distinto a las demás, la normalización debe cubrir todos los casos
-- **Siguiente validación:** prueba real de `reddapi GET /api/scrape` contra `r/Odoo` para verificar estructura de respuesta
+- **Estado:** abierto; ya hay validacion real positiva de `reddit34`, pero faltan `reddit3` y `reddit-com`
+- **Posts nuevos:** `reddit34` ya demuestra que puede servir; `ReddAPI` sigue bien posicionada para posts/contexto general
+- **Comentarios recientes:** `reddit34` pasa a ser la mejor candidata actual por la prueba real de `sort=new`
+- **Estrategia final:** no cerrada; podria haber reparto por responsabilidades entre APIs
+- **Riesgo principal:** la normalizacion puede tener que soportar contratos distintos si se termina combinando mas de una API
+- **Siguiente validacion:** investigar `reddit3` y `reddit-com` antes de fijar API principal o reparto definitivo
