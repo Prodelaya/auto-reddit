@@ -1,5 +1,38 @@
-.DS_Store
-node_modules/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+.eggs/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Distribución
 dist/
+build/
+
+# Variables de entorno y secretos
 .env
 .env.*
+
+# Base de datos SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+
+# Caché de herramientas
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/

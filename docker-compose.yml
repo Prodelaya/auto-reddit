@@ -1,0 +1,10 @@
+services:
+  auto-reddit:
+    build: .
+    env_file: .env
+    volumes:
+      - sqlite_data:/data
+    restart: "no"
+
+volumes:
+  sqlite_data:

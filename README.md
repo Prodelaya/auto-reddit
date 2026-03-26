@@ -48,16 +48,39 @@ docker compose up
 
 ```
 auto-reddit/
+├── src/
+│   └── auto_reddit/
+│       ├── __init__.py
+│       ├── main.py               # orquestador del proceso diario
+│       ├── reddit/               # extracción de candidatos y contexto
+│       │   └── client.py
+│       ├── evaluation/           # evaluación IA con DeepSeek
+│       │   └── evaluator.py
+│       ├── delivery/             # entrega por Telegram
+│       │   └── telegram.py
+│       ├── persistence/          # memoria operativa SQLite
+│       │   └── store.py
+│       ├── shared/               # contratos Pydantic compartidos
+│       │   └── contracts.py
+│       └── config/               # settings con pydantic-settings
+│           └── settings.py
+├── tests/
+│   ├── test_reddit/
+│   ├── test_evaluation/
+│   ├── test_delivery/
+│   └── test_persistence/
 ├── docs/
-│   ├── architecture.md       # decisiones arquitectónicas
+│   ├── architecture.md           # decisiones arquitectónicas
 │   ├── product/
-│   │   ├── product.md        # fuente de verdad del producto
-│   │   └── ai-style.md       # comportamiento y estilo de la IA
-│   └── discovery/            # documentación histórica de ideación
-├── openspec/                 # planning SDD por changes
-│   ├── changes/              # un directorio por change
-│   └── specs/                # specs globales del sistema
-├── TFM/                      # documentación académica del proyecto
+│   │   ├── product.md            # fuente de verdad del producto
+│   │   └── ai-style.md           # comportamiento y estilo de la IA
+│   └── discovery/                # documentación histórica de ideación
+├── openspec/                     # planning SDD por changes
+├── TFM/                          # documentación académica del proyecto
+├── pyproject.toml
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
 └── README.md
 ```
 
