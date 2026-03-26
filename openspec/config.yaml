@@ -1,0 +1,25 @@
+schema: spec-driven
+
+context: |
+  Project: auto-reddit
+  Current state: planning/docs only, implementation stack not fixed yet
+  Product truth: docs/product/product.md
+  AI behavior guide: docs/product/ai-style.md
+  Planning method: file-based OpenSpec with ordered changes
+
+rules:
+  proposal:
+    - Capture objective, scope, dependencies, and done criteria
+    - Keep product decisions aligned with docs/product/product.md and docs/product/ai-style.md
+  specs:
+    - Use Given/When/Then scenarios when a change moves into specification
+    - Stay at product and behavior level before technical design is approved
+  design:
+    - Document architecture decisions separately from product intent
+    - Avoid detailed implementation until dependencies are clarified
+  tasks:
+    - Break work into thin vertical slices with explicit dependencies
+    - Keep tasks independently verifiable
+  verify:
+    - Verify artifacts against docs/product/product.md and identified change order
+    - Confirm document references remain discoverable after moves

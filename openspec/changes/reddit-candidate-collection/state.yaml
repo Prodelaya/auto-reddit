@@ -1,0 +1,8 @@
+change: reddit-candidate-collection
+status: identified
+sequence: 1
+phase: identified
+dependencies: []
+notes:
+  - Foundation slice for all later changes
+  - Keeps focus on product behavior, not implementation design

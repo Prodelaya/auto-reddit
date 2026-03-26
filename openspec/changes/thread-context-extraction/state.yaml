@@ -1,0 +1,10 @@
+change: thread-context-extraction
+status: identified
+sequence: 3
+phase: identified
+dependencies:
+  - reddit-candidate-collection
+  - candidate-memory-and-uniqueness
+notes:
+  - Prepares evaluation inputs without deciding opportunity validity
+  - Must stay compact and product-driven

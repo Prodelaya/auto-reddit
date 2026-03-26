@@ -1,0 +1,11 @@
+change: ai-opportunity-evaluation
+status: identified
+sequence: 4
+phase: identified
+dependencies:
+  - reddit-candidate-collection
+  - candidate-memory-and-uniqueness
+  - thread-context-extraction
+notes:
+  - Product and AI style docs are both required references
+  - Keeps technical model choices open for later design

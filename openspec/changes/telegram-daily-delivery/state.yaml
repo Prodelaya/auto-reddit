@@ -1,0 +1,12 @@
+change: telegram-daily-delivery
+status: identified
+sequence: 5
+phase: identified
+dependencies:
+  - reddit-candidate-collection
+  - candidate-memory-and-uniqueness
+  - thread-context-extraction
+  - ai-opportunity-evaluation
+notes:
+  - Final slice of the first operational flow
+  - Delivery rules come from product, not technical implementation
