@@ -24,15 +24,17 @@ Crear un sistema que ayude al equipo de marketing y contenido a detectar, cada d
 
 ## 5. Objetivo operativo del primer slice
 
-Cada día, el sistema revisa los 20 posts no enviados más recientes de `r/Odoo`, ordenados por fecha de creación, y selecciona oportunidades válidas para enviar al equipo por Telegram.
+Cada día, el sistema revisa los 10 posts no enviados más recientes de `r/Odoo`, ordenados por fecha de creación, y selecciona oportunidades válidas para enviar al equipo por Telegram.
 
 La entrega diaria debe priorizar utilidad operativa y criterio de intervención, no volumen.
+
+> **Nota:** los límites de revisión diaria (10 posts) y envío diario (10 oportunidades) son provisionales y están sujetos a revisión tras las pruebas reales con las APIs de Reddit. Una vez validado el comportamiento y formato de respuesta de cada API, estos valores se ajustarán si es necesario.
 
 ## 6. Flujo del producto
 
 1. Obtener los posts de `r/Odoo`.
 2. Filtrar para considerar solo posts cuya creación o comentarios estén dentro de los últimos 7 días.
-3. Tomar para revisión diaria los 20 posts no enviados más recientes ordenados por fecha de creación.
+    3. Tomar para revisión diaria los 10 posts no enviados más recientes ordenados por fecha de creación.
 4. Evaluar cada uno con IA para decidir si representa una oportunidad válida.
 5. Excluir posts resueltos, cerrados, redundantes o no aptos para intervención.
 6. Generar la información de oportunidad para los posts válidos.
@@ -41,28 +43,32 @@ La entrega diaria debe priorizar utilidad operativa y criterio de intervención,
 
 ## 7. Reglas de selección
 
-### 7.1 Ventana temporal
+### 7.1 Días de ejecución
+
+El sistema solo ejecuta de lunes a viernes. Si la ejecución se lanza un sábado o domingo, termina sin hacer ninguna llamada a APIs ni enviar nada a Telegram. Esta lógica vive en `main.py`, no en el cron externo.
+
+### 7.3 Ventana temporal
 
 Solo se consideran posts cuya creación o comentarios estén dentro de los últimos 7 días.
 
-### 7.2 Tamaño de la revisión diaria
+### 7.4 Tamaño de la revisión diaria
 
-Cada día se revisan con IA los 20 posts no enviados más recientes ordenados por fecha de creación, no por última actividad.
+Cada día se revisan con IA los 10 posts no enviados más recientes ordenados por fecha de creación, no por última actividad.
 
-### 7.3 Límite de envío diario
+### 7.5 Límite de envío diario
 
-- Se envían como máximo 15 oportunidades al día.
-- Si de los 20 revisados solo hay 3 válidos, se envían solo 3.
+- Se envían como máximo 10 oportunidades al día.
+- Si de los 10 revisados solo hay 3 válidos, se envían solo 3.
 
-### 7.4 Regla de unicidad
+### 7.6 Regla de unicidad
 
 Cada post solo se envía una vez.
 
 Esto requiere un histórico operativo mínimo para recordar qué posts ya fueron enviados. Ese mínimo operativo sí forma parte del slice, pero no se considera almacenamiento histórico largo como feature de producto.
 
-### 7.5 Regla de corte cuando haya más de 15 válidos
+### 7.7 Regla de corte cuando haya más de 10 válidos
 
-Si hubiese más de 15 posts válidos en la revisión diaria, el corte se resuelve así:
+Si hubiese más de 8 posts válidos en la revisión diaria, el corte se resuelve así:
 
 1. Priorizar primero los no resueltos.
 2. Dentro de ese grupo, priorizar por recencia.
@@ -120,8 +126,8 @@ La respuesta sugerida debe ir en el idioma original del post.
 
 - Revisión diaria de `r/Odoo`.
 - Filtrado por actividad en los últimos 7 días.
-- Evaluación diaria de los 20 posts no enviados más recientes ordenados por fecha de creación.
-- Selección y envío de hasta 15 oportunidades válidas al día.
+- Evaluación diaria de los 10 posts no enviados más recientes ordenados por fecha de creación.
+- Selección y envío de hasta 10 oportunidades válidas al día.
 - Entrega por Telegram con formato resumido y accionable.
 - Generación de respuesta sugerida cuando aporte valor real.
 - Memoria operativa mínima para no reenviar posts ya enviados.
@@ -139,12 +145,12 @@ El primer slice se considera correcto cuando:
 
 - Usa `r/Odoo` como fuente inicial.
 - Entrega diariamente oportunidades por Telegram al equipo de marketing y contenido.
-- Revisa cada día los 20 posts no enviados más recientes ordenados por fecha de creación.
+- Revisa cada día los 10 posts no enviados más recientes ordenados por fecha de creación.
 - Solo considera posts cuya creación o comentarios estén dentro de los últimos 7 días.
-- No envía más de 15 oportunidades al día.
+- No envía más de 10 oportunidades al día.
 - Si hay menos oportunidades válidas, envía solo las válidas detectadas.
 - No reenvía un mismo post más de una vez.
-- Si hay más de 15 válidas, prioriza no resueltos y después recencia.
+- Si hay más de 10 válidas, prioriza no resueltos y después recencia.
 - Excluye hilos resueltos o cerrados según la definición de este documento.
 - El mensaje inicial de Telegram incluye fecha, número de oportunidades y número de posts revisados.
 - El campo `tipo de oportunidad` usa la lista cerrada definida en este documento.

@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     telegram_bot_token: str
     telegram_chat_id: str
     reddit_api_key: str
-    max_daily_opportunities: int = 15
+    max_daily_opportunities: int = 10
     review_window_days: int = 7
-    daily_review_limit: int = 20
+    daily_review_limit: int = 10
 
     model_config = {"env_file": ".env"}
 

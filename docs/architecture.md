@@ -57,9 +57,9 @@ src/auto_reddit/
 - **Validacion al arrancar**: si falta una variable, el proceso no empieza.
 - **Variables necesarias**: `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `REDDIT_API_KEY` (y las que correspondan a las APIs de Reddit).
 - **Parametros de producto configurables**:
-  - `max_daily_opportunities`: 15
+  - `max_daily_opportunities`: 10 _(provisional — revisable tras pruebas reales con APIs de Reddit)_
   - `review_window_days`: 7
-  - `daily_review_limit`: 20
+  - `daily_review_limit`: 10 _(provisional — revisable tras pruebas reales con APIs de Reddit)_
 
 ## 7. Logging y trazabilidad
 
