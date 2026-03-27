@@ -1,7 +1,7 @@
 change: candidate-memory-and-uniqueness
-status: identified
+status: in-progress
 sequence: 2
-phase: identified
+phase: tasked
 dependencies:
   - reddit-candidate-collection
 notes:
