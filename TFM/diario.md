@@ -323,3 +323,37 @@ trazado en `openspec/discovery/reddit-candidate-collection.md`.
 Queda pendiente decidir la estrategia exacta de paginacion o batching para
 recorrer toda la ventana real de 7 dias cuando se hagan pruebas contra los
 endpoints de Reddit.
+
+---
+
+## Entrada 6
+
+**Fecha:** 27/03/2026
+
+### Revalidacion tecnica del change 1
+
+Antes de pasar a `sdd-tasks`, se cerro una ronda adicional de evidencia tecnica
+para confirmar que la estrategia del change 1 aguanta en condiciones reales de
+cuota y de integracion con RapidAPI.
+
+### Ajustes y validaciones cerradas
+
+- Se bajo el cap operativo downstream de 10 a 8 por tension real de cuotas: el
+  happy path queda en unas 198 requests/mes y deja alrededor de 22 requests/mes
+  de margen sobre unas 220 utiles actuales.
+- Se creo y ejecuto `scripts/reddit_api_raw_snapshot.py` para generar raws JSON
+  directos de las APIs y dejar evidencia reproducible.
+- Durante esa captura se detecto un bug con `reddapi`: Cloudflare bloqueaba la
+  firma por defecto y se corrigio usando `User-Agent: RapidAPI Playground`.
+- Con los raws reanalizados, se revalido la estrategia operativa: posts por
+  `reddit3 -> reddit34 -> reddapi`; comentarios por `reddit34 -> reddit3 ->
+  reddapi`, dejando `reddapi` como fallback degradado para comentarios.
+- Tambien se redacto el design de `reddit-candidate-collection` en
+  `openspec/changes/reddit-candidate-collection/design.md`, revisando tanto los
+  artefactos del change como la documentacion viva y la evidencia raw.
+
+### Resultado
+
+El change 1 queda mejor aterrizado para entrar en `sdd-tasks`: ya no solo hay
+direccion funcional, sino tambien evidencia tecnica reciente, ajuste de
+capacidad y un design apoyado en pruebas reales.
