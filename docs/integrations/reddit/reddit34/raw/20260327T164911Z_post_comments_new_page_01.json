@@ -1,0 +1,173 @@
+{
+  "provider": "reddit34",
+  "endpoint": "/getPostCommentsWithSort",
+  "call_name": "post_comments_new",
+  "description": "Primary comments source with verified sort=new behavior.",
+  "timestamp_utc": "2026-03-27T16:49:11.143644+00:00",
+  "request": {
+    "method": "GET",
+    "url": "https://reddit34.p.rapidapi.com/getPostCommentsWithSort?post_url=https%3A%2F%2Fwww.reddit.com%2Fr%2FOdoo%2Fcomments%2F1s4l6x4%2Fodoo_mcp_server%2F&sort=new",
+    "params": {
+      "post_url": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/odoo_mcp_server/",
+      "sort": "new"
+    }
+  },
+  "response_status": 200,
+  "duration_ms": 1380,
+  "response_raw": {
+    "success": true,
+    "data": {
+      "cursor": null,
+      "comments": [
+        {
+          "author": "MusiqueMacabre",
+          "created": "2026-03-27T13:46:04.000000+0000",
+          "depth": 0,
+          "id": "t1_ocrsax8",
+          "media": [],
+          "parent_id": "",
+          "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocrsax8/",
+          "replies": [],
+          "score": 1,
+          "text": "I\u2019d like to keep an eye on this! Not a priority now but would have been helpful a month ago, will be helpful in the future."
+        },
+        {
+          "author": "ohplzstfu",
+          "created": "2026-03-27T09:43:06.738000+0000",
+          "depth": 0,
+          "id": "t1_ocqqub4",
+          "media": [],
+          "parent_id": "",
+          "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocqqub4/",
+          "replies": [
+            {
+              "author": "cetmix_team",
+              "created": "2026-03-27T11:59:54.273000+0000",
+              "depth": 1,
+              "id": "t1_ocr90ad",
+              "media": [],
+              "parent_id": "t1_ocqqub4",
+              "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocr90ad/",
+              "replies": [
+                {
+                  "author": "ohplzstfu",
+                  "created": "2026-03-27T13:11:39.997000+0000",
+                  "depth": 2,
+                  "id": "t1_ocrloe2",
+                  "media": [],
+                  "parent_id": "t1_ocr90ad",
+                  "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocrloe2/",
+                  "replies": [
+                    {
+                      "author": "cetmix_team",
+                      "created": "2026-03-27T14:09:38.213000+0000",
+                      "depth": 3,
+                      "id": "t1_ocrx4t4",
+                      "media": [],
+                      "parent_id": "t1_ocrloe2",
+                      "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocrx4t4/",
+                      "replies": [],
+                      "score": 1,
+                      "text": "Absolutely no, this is why I prefer open-source solutions wherever it's possible."
+                    }
+                  ],
+                  "score": 1,
+                  "text": "Are you sure that this commercial one does not have such?\nUsing MCP always has the risk, but naturally it does what the API and the user running API has rights to do, nothing more."
+                }
+              ],
+              "score": 1,
+              "text": "Are you sure that the code you created by claude doesn't have any security breaches or things that can lead to the data loss?"
+            }
+          ],
+          "score": 1,
+          "text": "Claude created and set up official MCP server in two minutes for free. What are you guys paying for? Most likely the APIs are exactly the same or?\nAfter Claude setting up the MCP server, I can chat with Claude to do basically anything that is allowed or connect it as an agent, chat. I tested it lightly and it fetched all the data I needed and even did some AR matching through MCP that I didn't even know how to do in UI. It offered me to build reporting pipelines to any reporting system I might want.\nSo once again, what's the upside of using commercial ones that Claude can't create in few minutes."
+        },
+        {
+          "author": "telenieko",
+          "created": "2026-03-27T06:34:09.876000+0000",
+          "depth": 0,
+          "id": "t1_ocq6k6u",
+          "media": [],
+          "parent_id": "",
+          "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocq6k6u/",
+          "replies": [],
+          "score": 1,
+          "text": "I have been playing around with both Skills and MCP approach to enable AI usage of odoo,\nhttps://www.marcfargas.com/~odoo-toolbox/ (the MCP is in GitHub not yet in the just released new docs site)\nSkills with a code sandbox gives amazing results. Agents can introspect the target odoo instance and adapt writing their own scripts.\nBut then, even with odoo-cli in place (same repo), I see my agent constantly crafting ad-hoc scripts to pull what it needs, because sometimes a quick 5 line script is better than a dozen cli calls with transforms.  This is a clear indicator to me that the library + skills is a much more powerful fit for Odoo, albeit more dangeorus!\nSo, there are really three options on the table: Skill + CLI, Skill + odoo-client and MCP. I went with the first two; But explored the three:\nThings are evolving though, which is why  I am reevaluating the MCP possibility, but a code sandbox still has the advantage, and the library has several guardrails to try to make it safe to use.. but one must be careful!"
+        },
+        {
+          "author": "ODOOITYOURSELF",
+          "created": "2026-03-27T03:29:59.078000+0000",
+          "depth": 0,
+          "id": "t1_ocpj8ye",
+          "media": [],
+          "parent_id": "",
+          "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocpj8ye/",
+          "replies": [],
+          "score": 1,
+          "text": "Very cool! Be cool to see what you\u2019re doing with it!"
+        },
+        {
+          "author": "ctadlock",
+          "created": "2026-03-27T01:43:33.676000+0000",
+          "depth": 0,
+          "id": "t1_ocp1i4n",
+          "media": [],
+          "parent_id": "",
+          "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocp1i4n/",
+          "replies": [],
+          "score": 1,
+          "text": "It took us a couple hours to write a mcp server module for odoo, works great."
+        },
+        {
+          "author": "Apeirate",
+          "created": "2026-03-27T00:40:54.513000+0000",
+          "depth": 0,
+          "id": "t1_ocoqaq4",
+          "media": [],
+          "parent_id": "",
+          "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocoqaq4/",
+          "replies": [],
+          "score": 0,
+          "text": ""
+        },
+        {
+          "author": "Codemarchant",
+          "created": "2026-03-26T23:21:23.229000+0000",
+          "depth": 0,
+          "id": "t1_ocobl47",
+          "media": [],
+          "parent_id": "",
+          "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocobl47/",
+          "replies": [
+            {
+              "author": "Codemarchant",
+              "created": "2026-03-27T04:18:09.860000+0000",
+              "depth": 1,
+              "id": "t1_ocpq9tw",
+              "media": [],
+              "parent_id": "t1_ocobl47",
+              "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/ocpq9tw/",
+              "replies": [],
+              "score": 5,
+              "text": "for clarity, there 'not trying to sell anything just curious' link, navigates to a paid module titled 'Odoo MCP Studio' by KSRO Labs that i captured in waybackmachine in case they edit it https://web.archive.org/web/20260326233441/https://apps.odoo.com/apps/modules/19.0/mcp_server_odoo\nfor context i developed a module named 'Odoo MCP Studio' here that i have done extensive marketing / branding for under this name for over a month including youtube vids and blog posts. https://apps.odoo.com/apps/modules/19.0/odoo_remote_mcp\nCheeky rats have the audacity to copy my module brand name exactly, rip a random theme park use case example i personally demo on youtube and put in there module description under the same module builder feature my app also has, along with clearly being \"heavily inspired\" by a lot of my modules other features as well like portal page builder tools that have technical patterns that look familiar to mine. Probably repackaged half my code.\nOnce odoo respond to my ticket in 6 months im sure these guys will be put on a naughty list, and might even be forced to change the module name to 'Odoo MCP hub' if i get lucky."
+            }
+          ],
+          "score": 2,
+          "text": "Peekaboo \ud83d\udc40 I see you've been experimenting with \"Odoo MCP Studio\" too!\nlove one of the highlighted examples on your module page 'Create a theme park management module with a kanban view and access groups.'\nBrings back memories of me when i demoed that exact thing myself a month ago what a coincidence \ud83d\ude02 https://www.youtube.com/watch?v=xVPUBMo24UY&t=1498s"
+        },
+        {
+          "author": "Rub3nC",
+          "created": "2026-03-26T22:47:59.999000+0000",
+          "depth": 0,
+          "id": "t1_oco5612",
+          "media": [],
+          "parent_id": "",
+          "permalink": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/comment/oco5612/",
+          "replies": [],
+          "score": 1,
+          "text": "We bought this one for a client https://github.com/ivnvxd/mcp-server-odoo, been having good results so far, you can buy the module or use the github in Yolo mode (which is basically a connection via json rpc).\nThe connection with claude is stable. We only gave it read-only permissions but will try some actions later this month."
+        }
+      ]
+    }
+  }
+}

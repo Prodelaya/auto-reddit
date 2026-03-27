@@ -1,0 +1,70 @@
+{
+  "provider": "reddapi",
+  "endpoint": "/api/scrape_post_comments",
+  "call_name": "post_comments_simple",
+  "description": "Auxiliary comment endpoint for contrast against the combined thread response.",
+  "timestamp_utc": "2026-03-27T16:49:13.646117+00:00",
+  "request": {
+    "method": "GET",
+    "url": "https://reddapi.p.rapidapi.com/api/scrape_post_comments?post_url=https%3A%2F%2Fwww.reddit.com%2Fr%2FOdoo%2Fcomments%2F1s4l6x4%2Fodoo_mcp_server%2F&comments_num=10",
+    "params": {
+      "post_url": "https://www.reddit.com/r/Odoo/comments/1s4l6x4/odoo_mcp_server/",
+      "comments_num": "10"
+    }
+  },
+  "response_status": 200,
+  "duration_ms": 1175,
+  "response_raw": {
+    "success": true,
+    "comments": [
+      {
+        "comment": "Peekaboo \ud83d\udc40 I see you've been experimenting with \"Odoo MCP Studio\" too!\n\nlove one of the highlighted examples on your module page 'Create a theme park management module with a kanban view and access groups.'\n\nBrings back memories of me when i demoed that exact thing myself a month ago what a coincidence \ud83d\ude02\nhttps://www.youtube.com/watch?v=xVPUBMo24UY&amp;t=1498s",
+        "author": "Codemarchant",
+        "user_id": "t2_26c5dh7o51",
+        "score": 2
+      },
+      {
+        "comment": "We bought this one for a client https://github.com/ivnvxd/mcp-server-odoo, been having good results so far, you can buy the module or use the github in Yolo mode (which is basically a connection via json rpc). \n\nThe connection with claude is stable. We only gave it read-only permissions but will try some actions later this month. ",
+        "author": "Rub3nC",
+        "user_id": "t2_69i5e",
+        "score": 1
+      },
+      {
+        "comment": "It took us a couple hours to write a mcp server module for odoo, works great.",
+        "author": "ctadlock",
+        "user_id": "t2_dmgmx",
+        "score": 1
+      },
+      {
+        "comment": "Very cool! Be cool to see what you\u2019re doing with it!",
+        "author": "ODOOITYOURSELF",
+        "user_id": "t2_7wdoplfd",
+        "score": 1
+      },
+      {
+        "comment": "I have been playing around with both Skills and MCP approach to enable AI usage of odoo,\n\nhttps://www.marcfargas.com/~odoo-toolbox/ (the MCP is in GitHub not yet in the just released new docs site)\n\nSkills with a code sandbox gives amazing results. Agents can introspect the target odoo instance and adapt writing their own scripts.\n\nBut then, even with odoo-cli in place (same repo), I see my agent constantly crafting ad-hoc scripts to pull what it needs, because sometimes a quick 5 line script is better than a dozen cli calls with transforms.  This is a clear indicator to me that the library + skills is a much more powerful fit for Odoo, albeit more dangeorus!\n\nSo, there are really three options on the table: Skill + CLI, Skill + odoo-client and MCP. I went with the first two; But explored the three:\n\n1. MCP (until very recently) expose all the schema and methods from the first moment. This can eat up all context specially in something like Odoo that you can have dozens of models, hundreds of fields. etc. \n2. MCP forces the introspection phase to happen early and has limitations on later changes to the model (ie, if the agent \"learns\" a lesson during the session)\n3. MCP did not allow for \"documentation as tests\", early odoo-toolbox used the skills themselves as testing\nAlso\n\nThings are evolving though, which is why  I am reevaluating the MCP possibility, but a code sandbox still has the advantage, and the library has several guardrails to try to make it safe to use.. but one must be careful!",
+        "author": "telenieko",
+        "user_id": "t2_mj5bpwm",
+        "score": 1
+      },
+      {
+        "comment": "Claude created and set up official MCP server in two minutes for free. What are you guys paying for? Most likely the APIs are exactly the same or?  \n  \nAfter Claude setting up the MCP server, I can chat with Claude to do basically anything that is allowed or connect it as an agent, chat. I tested it lightly and it fetched all the data I needed and even did some AR matching through MCP that I didn't even know how to do in UI. It offered me to build reporting pipelines to any reporting system I might want.\n\nSo once again, what's the upside of using commercial ones that Claude can't create in few minutes.",
+        "author": "ohplzstfu",
+        "user_id": "t2_7f797",
+        "score": 1
+      },
+      {
+        "comment": "I\u2019d like to keep an eye on this! Not a priority now but would have been helpful a month ago, will be helpful in the future. ",
+        "author": "MusiqueMacabre",
+        "user_id": "t2_l27wlc4t",
+        "score": 1
+      },
+      {
+        "comment": "1. No",
+        "author": "Apeirate",
+        "user_id": "t2_5gr8h3c",
+        "score": 0
+      }
+    ]
+  }
+}

@@ -35,7 +35,7 @@ Veredicto sugerido: `principal actual para posts nuevos de r/Odoo y fallback uti
 | Bandwidth | 10240 MB/mes |
 | Coste extra | +$0.001 por 1 MB adicional |
 
-**Estimación de viabilidad:** con el modelo operativo actual (10 posts/día laborable y comentarios solo para posts seleccionados), no basta por sí sola para operación continua, pero sí encaja como API principal de posts dentro de una estrategia combinada.
+**Estimación de viabilidad:** con el modelo operativo vigente (8 posts/día laborable y comentarios solo para posts seleccionados), no basta por sí sola para operación continua, pero sí encaja como API principal de posts dentro de una estrategia combinada.
 
 ---
 

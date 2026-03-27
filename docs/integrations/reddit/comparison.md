@@ -13,21 +13,21 @@
 
 Cada ejecución diaria de auto-reddit necesita como mínimo:
 - 1 request para traer posts del subreddit
-- hasta 10 requests para traer comentarios de los posts seleccionados aguas arriba (1 por post como máximo)
-- **Total estimado: ~11 requests/día**
-- **Total mensual estimado: ~242 requests/mes**
+- hasta 8 requests para traer comentarios de los posts seleccionados aguas arriba (1 por post como máximo)
+- **Total estimado: ~9 requests/día**
+- **Total mensual estimado: ~198 requests/mes**
 
 ### Conclusión de viabilidad gratuita
 
 | API | Requests gratuitas | Días que aguanta | Viable en gratuito |
 |---|---|---|---|
-| `reddit3` | 100 | ~9 días laborables | Parcial / con apoyo |
-| `reddit34` | 50 | ~4-5 días laborables | Parcial / con apoyo |
-| `ReddAPI` | 70 | ~6 días laborables | Parcial / con apoyo |
-| `reddit-com` | 100 | ~9 días laborables | Reserva |
+| `reddit3` | 100 | ~11 días laborables | Parcial / con apoyo |
+| `reddit34` | 50 | ~5 días laborables | Parcial / con apoyo |
+| `ReddAPI` | 70 | ~7-8 días laborables | Parcial / con apoyo |
+| `reddit-com` | 100 | ~11 días laborables | Reserva |
 
-**Ninguna API es suficiente por si sola para uso continuo, pero la combinacion de varias APIs si encaja en el modelo operativo actual de 10/10.**
-El plan gratuito combinado sirve para el slice actual mientras se mantenga la estrategia documentada en `docs/integrations/reddit/api-strategy.md`.
+**La suma nominal de cuotas sigue siendo 320 req/mes, pero la evidencia operativa ya NO sostiene el modelo 10/10 en gratuito y obliga a bajar la referencia vigente a 8/8.**
+Con las probes del 27/03/2026, `reddapi` vuelve a ser util solo si el cliente envia un `User-Agent` aceptado por Cloudflare; eso deja 220 req/mes realmente utilizables para el flujo principal ampliado (`reddit3` + `reddit34` + `reddapi`), aunque parte de esa capacidad recuperada solo aporta un fallback degradado para comentarios.
 
 ---
 
@@ -35,10 +35,10 @@ El plan gratuito combinado sirve para el slice actual mientras se mantenga la es
 
 | API | Documentacion publica | Endpoints verificados posts | Endpoints verificados comentarios | Cobertura usuarios | Cobertura busqueda |
 |---|---|---|---|---|---|
-| `reddit3` | Muy escasa, pero con 3 pruebas reales positivas | `GET /v1/reddit/posts?url=...&filter=new` probado con `200 OK` y shape valido para candidate collection; `GET /v1/reddit/post?url=...` devuelve post completo | `GET /v1/reddit/post?url=...` devuelve comentarios del hilo; `GET /v1/reddit/subreddit/comments?subreddit=odoo` devuelve comentarios recientes del subreddit | Desconocida | No verificada en esta ronda |
-| `reddit34` | Catalogo publico util y dos pruebas reales positivas | `getPostsBySubreddit` probado con `sort=new` y shape valido para candidate collection | `getPostCommentsWithSort` probado con `sort=new`; ahora mismo es la mejor candidata para comentarios recientes por post | Si (profiles, stats, overview) | Si (posts, subreddits, users) |
-| `ReddAPI` | Bien documentada y util | `/api/scrape`, `/api/scrape/new`, `/api/scrape/top`, `/api/rising_posts`, `/api/scrape_post` | `/api/scrape_post_comments`, `/api/scrape_new_comments_and_its_post_content` | Si (`/api/user_info`) | Si (subreddits con paginacion) |
-| `reddit-com` | Escasa, pero ya con una prueba real de busqueda global | `GET /posts/search-posts?query=odoo&sort=new&time=week` devuelve `200 OK` y un shape rico para posts | No verificado como fuente util de comentarios recientes ni de collection por subreddit | Desconocida | Si, via busqueda global por query |
+| `reddit3` | Muy escasa, pero con varias pruebas reales positivas y una senal contradictoria a resolver | `GET /v1/reddit/posts?url=...&filter=new` probado con `200 OK`, `meta.total=25` y `cursor`; `GET /v1/reddit/post?url=...` devuelve post completo | `GET /v1/reddit/post?url=...` devuelve hilo completo con `created_utc`, pero el orden no es estrictamente cronologico; `GET /v1/reddit/subreddit/comments?subreddit=odoo` mostro primero `success=false` y despues `body` real con `cursor`, asi que existe evidencia de inestabilidad de contrato | Desconocida | No verificada en esta ronda |
+| `reddit34` | Catalogo publico util y dos pruebas reales positivas | `getPostsBySubreddit` probado con `sort=new` y shape valido para candidate collection | `getPostCommentsWithSort` probado con `sort=new`; ahora mismo es la mejor candidata para comentarios recientes por post, aunque en la muestra hay al menos un comentario con `text` vacio | Si (profiles, stats, overview) | Si (posts, subreddits, users) |
+| `ReddAPI` | Bien documentada en catalogo y operativa con condicion de cliente | `/api/scrape/new` devuelve `200 OK` y `cursor` si la llamada incluye un `User-Agent` aceptado por Cloudflare; sin ese header cae en `403 Error 1010` | `/api/scrape_new_comments_and_its_post_content` y `/api/scrape_post_comments` tambien devuelven `200 OK` con ese `User-Agent`, pero hoy entregan una seleccion plana de `top comments`, sin timestamps, ids de comentario, permalinks ni replies; sin ese header, Cloudflare responde `403 Error 1010` | Si en papel, no verificado operativamente ahora | Si en papel, no verificado operativamente ahora |
+| `reddit-com` | Escasa, pero con una prueba real util para descarte | `GET /posts/search-posts?query=odoo&sort=new&time=week` devuelve `200 OK` y shape rico, incluyendo posts de `r/Odoo` entre resultados | No verificado como fuente util de comentarios recientes ni de collection por subreddit | Desconocida | Si, pero siempre como busqueda global por query con ruido de otros subreddits y crossposts |
 
 ---
 
@@ -46,25 +46,26 @@ El plan gratuito combinado sirve para el slice actual mientras se mantenga la es
 
 | API | Veredicto | Motivo |
 |---|---|---|
-| `reddit34` | **Mejor candidata actual para comentarios recientes por post** | Ya tiene prueba real positiva para posts nuevos y prueba real positiva para comentarios recientes con `sort=new` |
-| `reddit3` | **Candidata fuerte y versatil** | Ya tiene prueba real positiva para posts nuevos, post + comentarios y comentarios recientes del subreddit |
-| `ReddAPI` | **Bien documentada y util como fallback** | Mantiene buena cobertura verificable, pero ahora mismo encaja peor que `reddit34` y `reddit3` para el flujo principal actual basado en posts recientes por fecha de creacion y comentarios por post |
-| `reddit-com` | **Util para busqueda global, poco adecuada para candidate collection del MVP** | La prueba real confirma busqueda global rica por query, pero no una via limpia para recuperar directamente `r/Odoo` |
+| `reddit34` | **Mejor candidata actual para comentarios recientes por post** | La prueba real sigue confirmando `sort=new`, replies anidadas y metadata suficiente para reconstruir contexto; su caveat actual es puntual (`text` vacio en al menos un comentario), no de semantica global |
+| `reddit3` | **Fuente operativa mas fuerte para posts y fallback de comentarios** | La prueba real confirma posts de `r/Odoo` y hilo completo, pero obliga a corregir que el orden de comentarios no viene garantizado y que el endpoint de comentarios por subreddit sigue siendo contradictorio |
+| `ReddAPI` | **Fallback util, pero degradado y condicionado por `User-Agent`** | Las probes nuevas funcionan solo con un `User-Agent` aceptado por Cloudflare; ademas, en comentarios la evidencia actual apunta a `top comments` sin metadata suficiente para recencia fina |
+| `reddit-com` | **Util para exploracion, no para candidate collection del MVP** | La prueba real confirma busqueda global rica por query, pero mezcla `r/Odoo` con otros subreddits y crossposts |
 
 ---
 
 ## Estimación de consumo ajustada
 
-Con `daily_review_limit = 10` y ejecución solo días laborables (lunes-viernes, ~22 días/mes):
+Con `daily_review_limit = 8` y ejecucion solo dias laborables (lunes-viernes, ~22 dias/mes):
 - 1 llamada para traer lista de posts
-- 10 llamadas para comentarios
-- **Total: 11 llamadas/día → ~242 req/mes**
-- Total disponible combinando las 4 APIs: **320 req/mes**
-- **Margen: ~78 llamadas/mes**
+- 8 llamadas para comentarios
+- **Total: 9 llamadas/día → ~198 req/mes**
+- Total nominal catalogado combinando las 4 APIs: **320 req/mes**
+- Total operativo realmente util hoy para el flujo principal ampliado: **220 req/mes**
+- **Margen operativo: ~22 llamadas/mes** antes de sumar paginacion adicional
 
-El sistema no ejecuta sábados ni domingos. La lógica de día laborable vive en `main.py`, no en el cron externo.
+El sistema no ejecuta sabados ni domingos. La logica de dia laborable vive en `main.py`, no en el cron externo.
 
-**Revisable** tras pruebas reales con las APIs para ajustar el límite según cobertura y calidad de respuesta.
+**Decision documental vigente para design**: el modelo gratuito 10/10 queda descartado; la referencia operativa pasa a 8/8 para dejar ~22 req/mes de margen antes de paginacion adicional. Si se quisiera volver a subir, haria falta mas cuota o aceptar cobertura parcial/degradada.
 
 ## Conclusion provisional
 
@@ -74,7 +75,7 @@ A dia de hoy:
 
 - `reddit3` es la principal para recoger posts nuevos de `r/Odoo`
 - `reddit34` es la principal para comentarios por post
-- `ReddAPI` queda como fallback general
+- `ReddAPI` queda disponible como fallback condicionado a enviar un `User-Agent` aceptado por Cloudflare, con matiz importante: posts si, comentarios solo en modo degradado
 - `reddit-com` queda fuera del flujo principal y solo conserva valor exploratorio
 
 Este documento se conserva como comparativa historica y tecnica de apoyo.

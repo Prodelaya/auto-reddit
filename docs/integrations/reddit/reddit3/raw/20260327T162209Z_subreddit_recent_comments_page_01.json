@@ -1,0 +1,20 @@
+{
+  "provider": "reddit3",
+  "endpoint": "/v1/reddit/subreddit/comments",
+  "call_name": "subreddit_recent_comments",
+  "description": "Exploratory subreddit comments endpoint kept for provider comparison.",
+  "timestamp_utc": "2026-03-27T16:22:09.173476+00:00",
+  "request": {
+    "method": "GET",
+    "url": "https://reddit3.p.rapidapi.com/v1/reddit/subreddit/comments?subreddit=odoo",
+    "params": {
+      "subreddit": "odoo"
+    }
+  },
+  "response_status": 200,
+  "duration_ms": 3478,
+  "response_raw": {
+    "success": false,
+    "message": "Please enter a valid subReddit URL."
+  }
+}

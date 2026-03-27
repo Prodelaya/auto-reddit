@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SUBREDDIT = "odoo"
 DEFAULT_SUBREDDIT_URL = "https://www.reddit.com/r/Odoo/"
 DEFAULT_POST_URL = "https://www.reddit.com/r/Odoo/comments/1s4l6x4/odoo_mcp_server/"
+REDDAPI_USER_AGENT = "RapidAPI Playground"
 
 
 @dataclass(frozen=True)
@@ -322,8 +323,11 @@ def save_snapshot(
     page_number: int,
     url: str,
     params: dict[str, str],
+    request_headers: dict[str, str],
     status_code: int | None,
     duration_ms: int,
+    response_url: str | None,
+    response_headers: dict[str, str],
     payload: Any,
 ) -> Path:
     spec.raw_directory.mkdir(parents=True, exist_ok=True)
@@ -342,15 +346,43 @@ def save_snapshot(
             "method": "GET",
             "url": url,
             "params": params,
+            "headers": request_headers,
         },
         "response_status": status_code,
         "duration_ms": duration_ms,
+        "response_url": response_url,
+        "response_headers": response_headers,
         "response_raw": payload,
     }
     destination.write_text(
         json.dumps(document, indent=2, ensure_ascii=True), encoding="utf-8"
     )
     return destination
+
+
+def build_request_headers(spec: EndpointSpec, api_key: str) -> dict[str, str]:
+    headers = {
+        "X-RapidAPI-Key": api_key,
+        "X-RapidAPI-Host": parse.urlparse(spec.base_url).netloc,
+        "Accept": "application/json",
+    }
+    if spec.provider == "reddapi":
+        headers["User-Agent"] = REDDAPI_USER_AGENT
+    return headers
+
+
+def redact_headers(headers: dict[str, str]) -> dict[str, str]:
+    redacted: dict[str, str] = {}
+    for key, value in headers.items():
+        if key.lower() == "x-rapidapi-key":
+            redacted[key] = "<redacted>"
+            continue
+        redacted[key] = value
+    return redacted
+
+
+def header_items_to_dict(items: Any) -> dict[str, str]:
+    return {str(key): str(value) for key, value in items}
 
 
 def fetch_endpoint(
@@ -367,26 +399,29 @@ def fetch_endpoint(
     for page_number in range(1, page_limit + 1):
         timestamp = datetime.now(UTC)
         url = build_request_url(spec.base_url, spec.path, params)
+        request_headers = build_request_headers(spec, api_key)
         req = request.Request(
             url,
-            headers={
-                "X-RapidAPI-Key": api_key,
-                "X-RapidAPI-Host": parse.urlparse(spec.base_url).netloc,
-                "Accept": "application/json",
-            },
+            headers=request_headers,
             method="GET",
         )
 
         started_at = time.perf_counter()
         status_code: int | None = None
+        response_url: str | None = None
+        response_headers: dict[str, str] = {}
         payload: Any
         try:
             with request.urlopen(req, timeout=timeout) as response:
                 status_code = response.getcode()
+                response_url = response.geturl()
+                response_headers = header_items_to_dict(response.getheaders())
                 raw_body = response.read().decode("utf-8")
                 payload = json.loads(raw_body)
         except error.HTTPError as exc:
             status_code = exc.code
+            response_url = exc.geturl()
+            response_headers = header_items_to_dict(exc.headers.items())
             raw_body = exc.read().decode("utf-8", errors="replace")
             try:
                 payload = json.loads(raw_body)
@@ -405,8 +440,11 @@ def fetch_endpoint(
                 page_number=page_number,
                 url=url,
                 params=dict(params),
+                request_headers=redact_headers(request_headers),
                 status_code=status_code,
                 duration_ms=duration_ms,
+                response_url=response_url,
+                response_headers=response_headers,
                 payload=payload,
             )
         )
