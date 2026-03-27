@@ -1,6 +1,29 @@
 """Contratos Pydantic compartidos entre módulos. Ningún módulo importa de otro; solo de aquí y de config/."""
 
+from enum import Enum
+
 from pydantic import BaseModel, computed_field
+
+
+class PostDecision(str, Enum):
+    """Decisiones de negocio finales y estado operativo pre-envío para un post."""
+
+    sent = "sent"
+    rejected = "rejected"
+    pending_delivery = "pending_delivery"
+
+
+class PostRecord(BaseModel):
+    """Registro persistido de un post con su estado de decisión.
+
+    - `sent` / `rejected`: decisiones finales de negocio.
+    - `pending_delivery`: estado operativo transitorio (IA aceptó, Telegram aún no confirma).
+    """
+
+    post_id: str
+    status: PostDecision
+    opportunity_data: str | None = None
+    decided_at: int  # Unix timestamp
 
 
 class RedditCandidate(BaseModel):

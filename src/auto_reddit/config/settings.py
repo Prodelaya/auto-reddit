@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     max_daily_opportunities: int = 8
     review_window_days: int = 7
     daily_review_limit: int = 8
+    db_path: str = "auto_reddit.db"
 
     model_config = {"env_file": ".env"}
 
