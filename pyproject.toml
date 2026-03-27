@@ -6,6 +6,7 @@ dependencies = [
     "pydantic",
     "pydantic-settings",
     "openai",
+    "httpx",
 ]
 
 [project.optional-dependencies]
@@ -23,3 +24,4 @@ packages = ["src/auto_reddit"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
