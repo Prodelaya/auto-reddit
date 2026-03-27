@@ -151,3 +151,16 @@ Una buena respuesta sugerida:
 - sonar agresivamente comercial
 - regalar trabajo técnico completo en temas de desarrollo
 - defender a Odoo de forma forzada cuando no toca
+
+## 13. Modelo de IA recomendado
+
+El modelo recomendado para producción es **`deepseek-chat`** (DeepSeek-V3), consumido a través de la API oficial de DeepSeek (`model="deepseek-chat"`).
+
+**Motivos técnicos y de producto para priorizar el modo *non-thinking*:**
+
+- **Naturaleza de la tarea:** El flujo requiere comprensión de lenguaje natural, clasificación en una taxonomía cerrada, síntesis bilingüe y juicio editorial. No se necesita lógica formal, matemáticas ni razonamiento profundo prolongado (*Chain-of-Thought*) donde `deepseek-reasoner` (R1) destacaría.
+- **Salida estructurada:** Ofrece excelente soporte para salidas en JSON (`response_format: {"type": "json_object"}`), algo crítico para no romper la validación estricta de los contratos Pydantic del módulo de evaluación.
+- **Control del estilo y tono:** Es mucho más fácil de guiar para que mantenga la brevedad, la prudencia y el tono pragmático exigido. Los modelos de razonamiento tienden a sobreexplicar y a generar código extenso, lo cual viola la prohibición de regalar trabajo técnico completo.
+- **Eficiencia operativa:** Ofrece latencias muy bajas, ideales para la ejecución efímera diaria del contenedor. Además, su costo es marginal en este volumen y se beneficia enormemente del *cache hit* del *system prompt* estático.
+
+El uso de `deepseek-reasoner` se reserva exclusivamente como herramienta de apoyo secundario para análisis manuales de casos límite, *debugging* de falsos positivos/negativos o pruebas de *prompt*.
