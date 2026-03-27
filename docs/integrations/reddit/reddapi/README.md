@@ -9,12 +9,14 @@ Este documento resume solo lo verificado con documentacion publica y pruebas rea
 
 ## Veredicto
 
-ReddAPI es la mejor candidata actual para la integracion de lectura de Reddit en `auto-reddit`.
+ReddAPI ya no es la mejor candidata actual para la integracion principal de lectura de Reddit en `auto-reddit`.
 
-La razon no es que sea perfecta, sino que combina dos cosas que ahora mismo pesan mas que el resto:
+La razon es operativa: `docs/integrations/reddit/api-strategy.md` fija hoy a `reddit3` como principal para posts y a `reddit34` como principal para comentarios por post. ReddAPI queda como fallback general valioso por dos cosas:
 
 - documentacion publica verificable
 - pruebas reales positivas sobre los endpoints que necesita el pipeline
+
+> Estado actual: para decisiones vigentes manda `docs/integrations/reddit/api-strategy.md`. Este README se conserva como soporte tecnico e historico de la investigacion.
 
 ## Que endpoints sirven realmente para auto-reddit
 
@@ -132,10 +134,11 @@ Por que sirve igualmente:
 - en `r/Odoo` es raro encontrar posts con muchos comentarios
 - por eso, en la mayoria de casos, la diferencia entre top comments y comentarios recientes probablemente no afectara mucho
 
-Decision de producto:
+Decision actual:
 
-- el objetivo ideal del producto sigue siendo usar comentarios recientes si una API fiable los expone en el futuro
-- para ReddAPI se trabajara pragmaticamente con los comentarios que realmente devuelve la API, que en la practica son top comments
+- el flujo principal vigente usa `reddit34` para comentarios por post
+- en ReddAPI se asume la semantica real observada: top comments, no comentarios recientes
+- por tanto, este endpoint queda como fallback aceptable, no como referencia ideal del producto
 
 ### 3. Endpoint auxiliar de comentarios
 
@@ -182,11 +185,11 @@ Limitaciones observadas:
 
 ## Como se usara en el pipeline
 
-### Flujo previsto para v1
+### Flujo previsto para v1 en caso de fallback
 
-1. `GET /api/scrape/new` para recoger candidatos nuevos de `r/Odoo`
+1. `GET /api/scrape/new` para recoger candidatos nuevos de `r/Odoo` cuando fallen las APIs principales
 2. guardar `post_id` desde `data.id` y usar `created_utc` para el orden temporal
-3. `GET /api/scrape_new_comments_and_its_post_content` para extraer contexto del hilo en una sola llamada
+3. `GET /api/scrape_new_comments_and_its_post_content` para extraer contexto del hilo en una sola llamada cuando haga falta fallback de comentarios
 4. usar `GET /api/scrape_post_comments` solo como contraste o fallback cuando convenga validar la salida de comentarios
 
 ## Riesgos y limites que hay que asumir
@@ -194,12 +197,12 @@ Limitaciones observadas:
 - la semantica de `new comments` no es fiable en `GET /api/scrape_new_comments_and_its_post_content`
 - `comments_num` no es exacto
 - faltan campos importantes en comentarios, como `created_utc`, permalink o un `comment_id` util
-- aun asi, la API sigue siendo la mejor candidata actual por combinacion de documentacion publica y pruebas reales positivas
+- aun asi, la API sigue siendo un fallback muy util por combinacion de documentacion publica y pruebas reales positivas
 
 ## Que queda claro para auto-reddit
 
-- `GET /api/scrape/new` SI sirve para candidate collection
-- `GET /api/scrape_new_comments_and_its_post_content` SI sirve para thread context extraction
+- `GET /api/scrape/new` SI sirve para candidate collection como fallback
+- `GET /api/scrape_new_comments_and_its_post_content` SI sirve para thread context extraction como fallback
 - `GET /api/scrape_post_comments` SI sirve como apoyo, contraste o fallback
 - la integracion debe modelarse con la semantica real observada, no con el nombre idealizado del endpoint
 

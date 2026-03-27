@@ -35,10 +35,11 @@ src/auto_reddit/
 ## 4. Persistencia minima
 
 - **Motor**: SQLite (fichero en volumen Docker).
-- **Modelo de 3 estados** por post:
-  - `sent`: aprobado y enviado. No se reenvia ni reevalua.
-  - `approved`: aprobado pero no enviado (supero limite de 15). Candidato para el dia siguiente SIN reevaluar con IA.
-  - `rejected`: descartado por la IA. No se reenvia ni reevalua.
+- **Modelo operativo minimo** por post:
+  - `sent`: ya enviado a Telegram. No se reenvia ni vuelve a competir.
+  - `rejected`: descartado por la IA en la ejecucion actual o registrado como no elegible segun la estrategia operativa minima.
+- **Sin backlog explicito**: no existe estado `approved` ni cola editorial persistente.
+- **Regla de ventana**: si un post no se envia hoy pero sigue dentro de la ventana de 7 dias y no esta marcado como `sent`, manana vuelve a competir normalmente desde la ventana temporal.
 - **Clave**: `post_id` nativo de Reddit (ej: `1s49yam`).
 - **TTL**: fecha de creacion del post + 7 dias. Se purgan al inicio de cada ejecucion.
 - **Esquema minimo**: `post_id | status | created_at`
@@ -70,7 +71,7 @@ src/auto_reddit/
   - X candidatos encontrados
   - X ya enviados, descartados
   - X enviados a evaluacion IA
-  - X aprobados, X rechazados
+  - X validos, X descartados
   - X oportunidades enviadas a Telegram
   - Errores solo si algo falla
 
@@ -78,10 +79,10 @@ src/auto_reddit/
 
 | Modulo | Responsabilidad | NO hace |
 |---|---|---|
-| `reddit/` | Conectar con APIs, traer posts y comentarios, normalizar al contrato compartido. | NO decide si un post es oportunidad, NO filtra, NO evalua, NO guarda estado. |
+| `reddit/` | Conectar con APIs, traer posts de `r/Odoo`, filtrar por fecha de creacion <= 7 dias, recuperar comentarios solo para posts ya seleccionados aguas arriba y normalizar al contrato compartido. | NO decide si un post es oportunidad, NO mantiene backlog editorial, NO evalua, NO guarda estado por si solo. |
 | `evaluation/` | Recibir candidatos normalizados, conectar con DeepSeek (via SDK de OpenAI), aplicar reglas de elegibilidad, devolver resultado estructurado. | NO trae posts, NO envia a Telegram, NO guarda estado. |
 | `delivery/` | Recibir oportunidades evaluadas, formatear mensajes, enviar a Telegram. | NO evalua, NO filtra, NO decide que se envia. |
-| `persistence/` | Guardar/consultar/purgar registros de posts procesados, gestionar 3 estados, aplicar TTL. | NO conecta con Reddit, NO evalua, NO envia. |
+| `persistence/` | Guardar/consultar/purgar memoria operativa minima para unicidad e idempotencia, aplicar TTL. | NO conecta con Reddit, NO mantiene backlog editorial, NO evalua, NO envia. |
 | `shared/` | Contratos Pydantic compartidos, tipos comunes. | NO contiene logica de negocio. |
 | `config/` | Settings con pydantic-settings, carga de `.env`. | NO contiene logica. |
 | `main.py` | Orquesta el flujo diario completo. | NO contiene logica de negocio de ningun modulo. |

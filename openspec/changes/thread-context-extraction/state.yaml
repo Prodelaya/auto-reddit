@@ -8,3 +8,6 @@ dependencies:
 notes:
   - Prepares evaluation inputs without deciding opportunity validity
   - Must stay compact and product-driven
+  - Fetch comments ONLY for posts selected upstream
+  - Keep scope aligned with the current 10-post daily downstream cap
+  - Old-but-alive thread recovery is out of scope for the current slice

@@ -2,7 +2,11 @@
 
 ## 1. Resumen ejecutivo
 
-El proyecto usa 4 APIs no oficiales de Reddit en RapidAPI con planes gratuitos. Ninguna es viable sola. La estrategia combina las 4 para cubrir el consumo estimado de ~242 req/mes (10 posts/dia x lunes-viernes x 22 dias), con ~78 req de margen sobre un total disponible de 320 req/mes.
+Este documento es la fuente operativa vigente para la integracion con Reddit.
+
+El flujo principal recoge SOLO posts de `r/Odoo`, filtra por `created_at` dentro de los ultimos 7 dias, prioriza por posts mas recientes, NO incluye comentarios en `reddit-candidate-collection` y recupera comentarios SOLO para los posts seleccionados aguas arriba en `thread-context-extraction`.
+
+El proyecto evalua 4 APIs no oficiales de Reddit en RapidAPI, pero el flujo principal actual usa 3 de ellas (`reddit3`, `reddit34`, `reddapi`). `reddit-com` queda fuera del flujo principal. Ninguna API es suficiente por si sola, asi que la estrategia combinada sigue siendo necesaria.
 
 ## 2. Autenticacion
 
@@ -13,11 +17,18 @@ El proyecto usa 4 APIs no oficiales de Reddit en RapidAPI con planes gratuitos. 
 
 ## 3. Asignacion de responsabilidades
 
+### Regla operativa de unicidad
+
+- No existe backlog explicito ni estado `approved`.
+- Si un post no se envia hoy pero sigue dentro de la ventana de 7 dias y no esta marcado como enviado, manana vuelve a competir normalmente desde la ventana.
+- Change 2 se centra en unicidad, memoria de enviados e idempotencia operativa minima, no en una cola editorial.
+
 ### Paso 1 — Posts nuevos de r/Odoo
 
 - **Principal**: `reddit3` → `GET /v1/reddit/posts?url=https://www.reddit.com/r/Odoo/&filter=new`
 - **Fallback 1**: `reddapi` → `GET /api/scrape/new?subreddit=odoo&limit=10`
 - **Fallback 2**: `reddit34` → `GET getPostsBySubreddit?subreddit=odoo&sort=new`
+- **Reglas de este paso**: solo `r/Odoo`, filtro por fecha de creacion dentro de 7 dias, maximo 10 posts por ejecucion para el flujo posterior, sin comentarios en esta fase.
 - **Justificacion**: reddit3 tiene el doble de cuota (100 vs 50), shape mas plano, prueba real positiva.
 
 ### Paso 2 — Comentarios por post
@@ -25,6 +36,7 @@ El proyecto usa 4 APIs no oficiales de Reddit en RapidAPI con planes gratuitos. 
 - **Principal**: `reddit34` → `GET getPostCommentsWithSort?post_url=...&sort=new`
 - **Fallback 1**: `reddit3` → `GET /v1/reddit/post?url=...` (post + comentarios, orden cronologico verificado)
 - **Fallback 2**: `reddapi` → `GET /api/scrape_new_comments_and_its_post_content?post_url=...`
+- **Regla de alcance**: este paso solo se ejecuta para posts ya seleccionados aguas arriba. El caso `post antiguo pero vivo` queda fuera del alcance actual.
 - **Justificacion**: reddit34 es la unica con `sort=new` verificado para comentarios recientes reales.
 
 ### reddit-com
@@ -33,17 +45,13 @@ Descartada del flujo principal. Solo busqueda global con ruido de multiples subr
 
 ## 4. Cuotas y reparto mensual
 
-| API | Req gratuitas/mes | Rol principal | Ruta feliz/mes | Fallback/mes | Reserva |
-|---|---|---|---|---|---|
-| reddit3 | 100 | Posts nuevos | ~22 | ~10 | ~68 |
-| reddit34 | 50 | Comentarios recientes | ~44 | 0 | ~6 |
-| reddapi | 70 | Fallback general | 0 | ~42 | ~28 |
-| reddit-com | 100 | Reserva/exploracion | 0 | 0 | 100 |
-| **Total** | **320** | | **~66** | **~52** | **~202** |
+Escenario de referencia para planning: modelo 10/10, ejecucion de lunes a viernes (~22 dias/mes), hasta 1 llamada diaria para posts y hasta 10 llamadas diarias de comentarios para los posts que sigan aguas arriba.
 
-Ruta feliz: ~66 req/mes. Margen total: ~254 req/mes.
+- Consumo de referencia: `~242 req/mes`
+- Cuota total disponible combinando las 4 APIs: `320 req/mes`
+- Margen combinado estimado: `~78 req/mes`
 
-reddit34 es la mas ajustada (44 de 50). Cuando se agote, reddit3 absorbe con su endpoint de post + comentarios.
+La presion de cuota se concentra sobre todo en comentarios por post. Por eso `reddit34` actua como principal solo mientras tenga margen y `reddit3` + `reddapi` quedan preparados como absorcion de fallback.
 
 ## 5. Cadena de fallback
 
@@ -141,7 +149,7 @@ Nota: reddapi no devuelve `comment_id`, `created_utc` ni `permalink` en comentar
 - Mas versatil de las 4
 - `GET /v1/reddit/post?url=...` devuelve post + comentarios en una llamada
 - Orden de comentarios verificado como cronologico
-- `GET /v1/reddit/subreddit/comments` util para detectar actividad pero lento (~8900 ms)
+- `GET /v1/reddit/subreddit/comments` existe, pero queda fuera del flujo principal actual porque `old but alive` no entra en alcance
 
 ### reddit-com
 
@@ -162,4 +170,4 @@ Se ha considerado crear multiples cuentas RapidAPI para multiplicar cuota. De mo
 
 ## 13. Estado del documento
 
-Este documento refleja decisiones tomadas el 27/03/2026 y es provisional. Los valores de cuota, asignaciones y limits se revisaran tras las primeras semanas de uso real.
+Este documento refleja las decisiones operativas vigentes tomadas el 27/03/2026. Los valores de cuota y reparto podran revisarse tras uso real, pero el modelo actual de alcance es: `r/Odoo` solo, ventana de 7 dias por fecha de creacion, priorizacion por recencia, comentarios solo para posts seleccionados y limite 10/10.

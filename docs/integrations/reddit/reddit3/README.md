@@ -15,12 +15,14 @@
 
 Ya no es una opcion opaca: hay 3 pruebas reales positivas que confirman cobertura util para `auto-reddit`.
 
+> Estado actual: para decisiones operativas vigentes, manda `docs/integrations/reddit/api-strategy.md`. Este README queda como soporte tecnico de la investigacion.
+
 Lo verificado hasta ahora:
 - comentarios recientes de un subreddit: `GET /v1/reddit/subreddit/comments?subreddit=odoo`
 - post completo + comentarios por URL: `GET /v1/reddit/post?url=...`
 - posts del subreddit con `filter=new`: `GET /v1/reddit/posts?url=https://www.reddit.com/r/Odoo/&filter=new`
 
-Veredicto sugerido: `candidata fuerte y versatil, especialmente util si se quiere combinar deteccion de actividad por comentarios + post completo`.
+Veredicto sugerido: `principal actual para posts nuevos de r/Odoo y fallback util para contexto por post`.
 
 ---
 
@@ -33,7 +35,7 @@ Veredicto sugerido: `candidata fuerte y versatil, especialmente util si se quier
 | Bandwidth | 10240 MB/mes |
 | Coste extra | +$0.001 por 1 MB adicional |
 
-**Estimación de viabilidad:** con ~21 requests/día de consumo estimado, el plan gratuito dura aproximadamente **5 días**. No viable para uso real continuo.
+**Estimación de viabilidad:** con el modelo operativo actual (10 posts/día laborable y comentarios solo para posts seleccionados), no basta por sí sola para operación continua, pero sí encaja como API principal de posts dentro de una estrategia combinada.
 
 ---
 
@@ -88,8 +90,10 @@ Resultado verificado:
 Conclusiones verificadas:
 - sirve para detectar actividad reciente del subreddit a nivel comentario
 - devuelve comentarios recientes del subreddit con referencia al post al que pertenecen
-- puede ser util para detectar posts activos aunque no sean recien creados
 - es el endpoint mas lento probado hasta ahora (`~8904 ms`)
+
+Nota de alcance actual:
+- este endpoint NO forma parte del flujo principal vigente del MVP, porque el caso `post antiguo pero vivo` queda fuera de alcance
 
 ### 2. Post + comentarios por URL
 
@@ -191,16 +195,16 @@ Catalogo completo: sigue sin estar bien documentado publicamente, pero estos 3 e
 
 1. traer posts nuevos del subreddit para candidate collection
 2. traer un post concreto con sus comentarios en una sola llamada
-3. detectar actividad reciente a nivel subreddit a traves de comentarios recientes
+3. exponer una capacidad adicional de comentarios recientes a nivel subreddit, hoy fuera del flujo principal
 
-Esto lo hace mas versatil de lo esperado porque permite cubrir tanto discovery por posts nuevos como discovery por actividad reciente en comentarios.
+Esto lo hace mas versatil de lo esperado porque cubre tanto recogida de posts nuevos como recuperacion de contexto por URL.
 
 En especial:
 - `GET /v1/reddit/posts?...&filter=new` encaja con el primer slice de seleccion de candidatos
 - `GET /v1/reddit/post?url=...` encaja con enriquecimiento de un hilo concreto
-- `GET /v1/reddit/subreddit/comments?...` encaja con deteccion de posts activos aunque no sean recien creados
+- `GET /v1/reddit/subreddit/comments?...` queda como capacidad exploratoria, no como parte del flujo principal actual
 
-La combinacion de post completo + actividad reciente por comentarios le da un valor diferencial frente a APIs que solo cubren uno de los dos planos.
+La combinacion de post completo + comentarios por URL le da un valor diferencial frente a APIs que solo cubren uno de los dos planos.
 
 ---
 
@@ -215,7 +219,7 @@ La combinacion de post completo + actividad reciente por comentarios le da un va
 
 ## Encaje con auto-reddit
 
-**Veredicto provisional: candidata fuerte y versatil, especialmente util si se quiere combinar deteccion de actividad por comentarios + post completo**
+**Veredicto provisional: principal actual para posts nuevos y fallback para contexto por post**
 
 Encaje actual:
 - ya hay prueba real positiva para posts nuevos del subreddit
@@ -224,11 +228,11 @@ Encaje actual:
 
 Eso deja a `reddit3` como una opcion real para una arquitectura mixta donde distintas APIs cubran responsabilidades diferentes.
 
-Decision aun abierta:
-- puede servir para posts nuevos
-- puede servir para traer el hilo completo de un candidato
-- puede servir para detectar actividad reciente a nivel subreddit
-- aun falta decidir si conviene usarla tambien para comentarios por post frente a `reddit34`, que sigue siendo la mejor candidata actual para comentarios recientes por post
+Decision vigente:
+- sirve como principal para posts nuevos de `r/Odoo`
+- sirve como fallback para traer el hilo completo de un candidato
+- la deteccion por actividad reciente a nivel subreddit queda fuera del alcance actual
+- `reddit34` sigue siendo la principal para comentarios por post
 
 ---
 

@@ -13,21 +13,21 @@
 
 Cada ejecución diaria de auto-reddit necesita como mínimo:
 - 1 request para traer posts del subreddit
-- hasta 20 requests para traer comentarios (1 por post revisado)
-- **Total estimado: ~21 requests/día**
-- **Total mensual estimado: ~630 requests/mes**
+- hasta 10 requests para traer comentarios de los posts seleccionados aguas arriba (1 por post como máximo)
+- **Total estimado: ~11 requests/día**
+- **Total mensual estimado: ~242 requests/mes**
 
 ### Conclusión de viabilidad gratuita
 
 | API | Requests gratuitas | Días que aguanta | Viable en gratuito |
 |---|---|---|---|
-| `reddit3` | 100 | ~5 días | NO |
-| `reddit34` | 50 | ~2-3 días | NO |
-| `ReddAPI` | 70 | ~3-4 dias | NO |
-| `reddit-com` | 100 | ~5 días | NO |
+| `reddit3` | 100 | ~9 días laborables | Parcial / con apoyo |
+| `reddit34` | 50 | ~4-5 días laborables | Parcial / con apoyo |
+| `ReddAPI` | 70 | ~6 días laborables | Parcial / con apoyo |
+| `reddit-com` | 100 | ~9 días laborables | Reserva |
 
-**Ninguna API es viable en plan gratuito para uso real continuo.**
-El plan gratuito solo sirve para pruebas puntuales y validación técnica.
+**Ninguna API es suficiente por si sola para uso continuo, pero la combinacion de varias APIs si encaja en el modelo operativo actual de 10/10.**
+El plan gratuito combinado sirve para el slice actual mientras se mantenga la estrategia documentada en `docs/integrations/reddit/api-strategy.md`.
 
 ---
 
@@ -48,7 +48,7 @@ El plan gratuito solo sirve para pruebas puntuales y validación técnica.
 |---|---|---|
 | `reddit34` | **Mejor candidata actual para comentarios recientes por post** | Ya tiene prueba real positiva para posts nuevos y prueba real positiva para comentarios recientes con `sort=new` |
 | `reddit3` | **Candidata fuerte y versatil** | Ya tiene prueba real positiva para posts nuevos, post + comentarios y comentarios recientes del subreddit |
-| `ReddAPI` | **Bien documentada y util, pero peor para semantica de comentarios recientes** | Mantiene buena cobertura verificable, pero ahora mismo encaja peor que `reddit34` y `reddit3` para el flujo principal basado en actividad reciente y comentarios |
+| `ReddAPI` | **Bien documentada y util como fallback** | Mantiene buena cobertura verificable, pero ahora mismo encaja peor que `reddit34` y `reddit3` para el flujo principal actual basado en posts recientes por fecha de creacion y comentarios por post |
 | `reddit-com` | **Util para busqueda global, poco adecuada para candidate collection del MVP** | La prueba real confirma busqueda global rica por query, pero no una via limpia para recuperar directamente `r/Odoo` |
 
 ---
@@ -68,14 +68,13 @@ El sistema no ejecuta sábados ni domingos. La lógica de día laborable vive en
 
 ## Conclusion provisional
 
-La decision final de reparto entre APIs sigue abierta.
+La estrategia operativa mas reciente y fiable ya esta cerrada en `docs/integrations/reddit/api-strategy.md`.
 
 A dia de hoy:
 
-- `reddit34` y `reddit3` concentran el mayor valor para el flujo principal
-- `reddit34` es la mejor candidata actual para comentarios recientes por post
-- `reddit3` es una candidata fuerte y versatil para posts nuevos, post + comentarios y actividad por comentarios
-- `ReddAPI` queda como candidata secundaria o fallback util
-- `reddit-com` queda relegada a exploracion o casos de busqueda global
+- `reddit3` es la principal para recoger posts nuevos de `r/Odoo`
+- `reddit34` es la principal para comentarios por post
+- `ReddAPI` queda como fallback general
+- `reddit-com` queda fuera del flujo principal y solo conserva valor exploratorio
 
-Todavia no conviene cerrar la arquitectura final sin terminar de validar el reparto exacto de responsabilidades y el coste operativo de combinar contratos distintos.
+Este documento se conserva como comparativa historica y tecnica de apoyo.

@@ -8,7 +8,7 @@
 
 `reddit34` ya tiene dos pruebas reales positivas relevantes para `auto-reddit`: una para posts por subreddit con `sort=new` y otra para comentarios de un post con `sort=new`. A dia de hoy es una candidata muy fuerte, especialmente para comentarios, porque devuelve comentarios recientes de forma util y con un shape procesable.
 
-Todavia no debe declararse API principal definitiva: faltan por investigar `reddit3` y `reddit-com`, y la decision final de reparto entre APIs sigue abierta.
+> Estado actual: la decision operativa vigente ya esta cerrada en `docs/integrations/reddit/api-strategy.md`. Este README se conserva como soporte tecnico de la investigacion.
 
 ## Plan gratuito
 
@@ -19,7 +19,7 @@ Todavia no debe declararse API principal definitiva: faltan por investigar `redd
 | Bandwidth | 10240 MB/mes |
 | Coste extra | +$0.001 por 1 MB adicional |
 
-Con el consumo estimado del proyecto, este plan gratuito no sirve para uso continuo. Sigue siendo util para validacion tecnica puntual.
+Con el modelo operativo actual, este plan gratuito no sirve por si solo para uso continuo, pero si encaja como API principal de comentarios dentro de una estrategia combinada.
 
 ## Autenticacion
 
@@ -158,19 +158,18 @@ Sirve bien para dos necesidades clave del sistema:
 1. coleccion de candidatos desde `r/Odoo`, porque la prueba real de posts por subreddit ya confirma `sort=new` y un contrato util para extraer fecha, texto, URL y metadatos
 2. analisis de comentarios recientes por post, porque la prueba real de comentarios confirma ordenacion por novedad y campos utiles para filtrar, enlazar y recorrer hilos
 
-Ahora mismo es mejor candidata que `ReddAPI` para comentarios recientes. Eso no significa cerrar aun la arquitectura final: todavia falta investigar `reddit3` y `reddit-com`, y podria terminar encajando una combinacion de APIs distintas para posts y comentarios.
+Ahora mismo es la API principal vigente para comentarios por post dentro del flujo actual.
 
 ## Riesgos / dudas
 
 - el plan gratuito sigue siendo muy pequeno para operacion continua
 - solo hay parametros verificados en los endpoints probados; no conviene asumir parametros del resto del catalogo sin test real
-- faltan pruebas reales de `reddit3` y `reddit-com` antes de cerrar una decision final
 - aunque el shape de posts se parece mucho al nativo de Reddit, hay que validar mas casos reales si esta API termina entrando en produccion
 
 ## Encaje con auto-reddit
 
-**Veredicto provisional: candidata muy fuerte, especialmente para comentarios**
+**Veredicto vigente: principal para comentarios por post**
 
-Encaja muy bien como fuente de comentarios recientes y ya encaja de forma convincente para candidate collection de posts. A dia de hoy mejora la posicion comparativa frente a `ReddAPI` en el caso de comentarios, pero la API principal definitiva o el reparto final entre APIs queda abierto hasta completar la investigacion de `reddit3` y `reddit-com`.
+Encaja muy bien como fuente de comentarios recientes y queda establecida como la API principal para `thread-context-extraction`. Su uso para candidate collection queda como capacidad secundaria, no como la opcion operativa elegida.
 
 > `raw/` contiene material sin procesar: capturas, JSONs de prueba y notas de investigacion.

@@ -4,6 +4,8 @@
 
 Este documento es la fuente de verdad del producto para el primer slice de `auto-reddit`.
 
+Para la estrategia operativa de APIs de Reddit, la referencia vigente es `docs/integrations/reddit/api-strategy.md`.
+
 Las reglas de comportamiento, tono y criterios de intervención de la IA se mantienen en un documento separado: `docs/product/ai-style.md`. Ese documento complementa este artefacto, pero no sustituye las decisiones de producto definidas aquí.
 
 ## 2. Visión
@@ -24,7 +26,7 @@ Crear un sistema que ayude al equipo de marketing y contenido a detectar, cada d
 
 ## 5. Objetivo operativo del primer slice
 
-Cada día, el sistema revisa los 10 posts no enviados más recientes de `r/Odoo`, ordenados por fecha de creación, y selecciona oportunidades válidas para enviar al equipo por Telegram.
+Cada día, el sistema recoge posts SOLO de `r/Odoo`, filtra por `created_at` dentro de los últimos 7 días, toma para revisión los 10 posts no enviados más recientes por fecha de creación y selecciona oportunidades válidas para enviar al equipo por Telegram.
 
 La entrega diaria debe priorizar utilidad operativa y criterio de intervención, no volumen.
 
@@ -33,13 +35,14 @@ La entrega diaria debe priorizar utilidad operativa y criterio de intervención,
 ## 6. Flujo del producto
 
 1. Obtener los posts de `r/Odoo`.
-2. Filtrar para considerar solo posts cuya creación o comentarios estén dentro de los últimos 7 días.
-    3. Tomar para revisión diaria los 10 posts no enviados más recientes ordenados por fecha de creación.
+2. Filtrar para considerar solo posts cuya creación esté dentro de los últimos 7 días.
+3. Tomar para revisión diaria los 10 posts no enviados más recientes ordenados por fecha de creación.
 4. Evaluar cada uno con IA para decidir si representa una oportunidad válida.
-5. Excluir posts resueltos, cerrados, redundantes o no aptos para intervención.
-6. Generar la información de oportunidad para los posts válidos.
-7. Enviar por Telegram un resumen inicial del lote diario y después un mensaje por cada oportunidad seleccionada.
-8. Registrar memoria operativa mínima para no reenviar posts ya enviados.
+5. Recuperar comentarios SOLO para los posts seleccionados aguas arriba cuando haga falta contexto de hilo para la evaluación.
+6. Excluir posts resueltos, cerrados, redundantes o no aptos para intervención.
+7. Generar la información de oportunidad para los posts válidos.
+8. Enviar por Telegram un resumen inicial del lote diario y después un mensaje por cada oportunidad seleccionada.
+9. Registrar memoria operativa mínima para no reenviar posts ya enviados.
 
 ## 7. Reglas de selección
 
@@ -49,11 +52,13 @@ El sistema solo ejecuta de lunes a viernes. Si la ejecución se lanza un sábado
 
 ### 7.3 Ventana temporal
 
-Solo se consideran posts cuya creación o comentarios estén dentro de los últimos 7 días.
+Solo se consideran posts cuya creación esté dentro de los últimos 7 días.
 
 ### 7.4 Tamaño de la revisión diaria
 
 Cada día se revisan con IA los 10 posts no enviados más recientes ordenados por fecha de creación, no por última actividad.
+
+No existe un backlog editorial explícito ni un estado `approved`. Si un post no se envía hoy pero sigue dentro de la ventana de 7 días y no está marcado como enviado, mañana vuelve a competir normalmente desde la ventana.
 
 ### 7.5 Límite de envío diario
 
@@ -68,7 +73,7 @@ Esto requiere un histórico operativo mínimo para recordar qué posts ya fueron
 
 ### 7.7 Regla de corte cuando haya más de 10 válidos
 
-Si hubiese más de 8 posts válidos en la revisión diaria, el corte se resuelve así:
+Si hubiese más de 10 posts válidos en la revisión diaria, el corte se resuelve así:
 
 1. Priorizar primero los no resueltos.
 2. Dentro de ese grupo, priorizar por recencia.
@@ -131,8 +136,9 @@ La salida debe priorizar operatividad interna sin bloquear la adaptación al con
 ### Dentro de alcance
 
 - Revisión diaria de `r/Odoo`.
-- Filtrado por actividad en los últimos 7 días.
+- Filtrado por fecha de creación en los últimos 7 días.
 - Evaluación diaria de los 10 posts no enviados más recientes ordenados por fecha de creación.
+- Recuperación de comentarios solo para los posts ya seleccionados para el flujo posterior.
 - Selección y envío de hasta 10 oportunidades válidas al día.
 - Entrega por Telegram con formato resumido y accionable.
 - Generación de respuesta sugerida cuando aporte valor real.
@@ -143,6 +149,7 @@ La salida debe priorizar operatividad interna sin bloquear la adaptación al con
 - Almacenamiento histórico largo.
 - Scoring o priorización avanzada.
 - Seguimiento automático de posts.
+- Caso `post antiguo pero vivo`.
 - Autopublicación.
 
 ## 12. Criterios de aceptación
@@ -152,10 +159,11 @@ El primer slice se considera correcto cuando:
 - Usa `r/Odoo` como fuente inicial.
 - Entrega diariamente oportunidades por Telegram al equipo de marketing y contenido.
 - Revisa cada día los 10 posts no enviados más recientes ordenados por fecha de creación.
-- Solo considera posts cuya creación o comentarios estén dentro de los últimos 7 días.
+- Solo considera posts cuya creación esté dentro de los últimos 7 días.
 - No envía más de 10 oportunidades al día.
 - Si hay menos oportunidades válidas, envía solo las válidas detectadas.
 - No reenvía un mismo post más de una vez.
+- Si un post no se envía en una ejecución pero sigue dentro de los 7 días y no fue enviado, vuelve a competir normalmente al día siguiente.
 - Si hay más de 10 válidas, prioriza no resueltos y después recencia.
 - Excluye hilos resueltos o cerrados según la definición de este documento.
 - El mensaje inicial de Telegram incluye fecha, número de oportunidades y número de posts revisados.

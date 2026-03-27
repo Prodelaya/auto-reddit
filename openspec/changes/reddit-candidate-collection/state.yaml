@@ -6,3 +6,9 @@ dependencies: []
 notes:
   - Foundation slice for all later changes
   - Keeps focus on product behavior, not implementation design
+  - Current scope: collect ONLY posts from r/Odoo
+  - Filter by post created_at within the last 7 days
+  - Prioritize the most recent posts first
+  - Do not include comments in this change
+  - Current daily cap aligned with product: maximum 10 posts per run for downstream flow
+  - Old-but-alive threads are explicitly out of scope

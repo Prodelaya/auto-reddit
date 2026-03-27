@@ -239,3 +239,53 @@ util. Entre los documentos mas relevantes creados o actualizados estan:
 El proyecto ya no solo tiene producto, arquitectura y scaffolding. Ahora
 tambien tiene una estrategia concreta y documentada para el uso realista de las
 APIs de Reddit dentro de los limites de sus cuotas gratuitas.
+
+---
+
+## Entrada 4
+
+**Fecha:** 27/03/2026
+
+### Alineacion documental con decisiones cerradas del discovery
+
+Se hizo una pasada de consolidacion para alinear la documentacion viva del repo
+con las decisiones ya cerradas del discovery y evitar contradicciones entre
+documentos operativos, historicos y de planificacion.
+
+### Decisiones reafirmadas como fuente de verdad
+
+- `reddit-candidate-collection` recoge SOLO posts de `r/Odoo`.
+- La ventana temporal se calcula por `created_at` dentro de los ultimos 7 dias.
+- La priorizacion operativa es por posts mas recientes.
+- La coleccion inicial NO incluye comentarios.
+- `thread-context-extraction` recupera comentarios SOLO para los posts
+  seleccionados aguas arriba.
+- Se procesan como maximo 10 posts por ejecucion diaria para el flujo
+  posterior.
+- El caso `post antiguo pero vivo` queda fuera del alcance actual.
+- No existe backlog explicito ni estado `approved`.
+- Si un post no se envia hoy pero sigue dentro de los 7 dias y no esta marcado
+  como enviado, manana vuelve a competir normalmente desde la ventana.
+
+### Documentacion afectada
+
+Se actualizaron como documentos vivos:
+
+- `docs/integrations/reddit/api-strategy.md`
+- `docs/product/product.md`
+- `docs/architecture.md`
+- `README.md`
+- `docs/README.md`
+- documentacion comparativa y READMEs tecnicos de APIs bajo
+  `docs/integrations/reddit/`
+
+Y se mantuvieron como historicos con avisos de supersesion:
+
+- `docs/discovery/idea-inicial.md`
+- `docs/discovery/ideas.md`
+
+### Resultado
+
+Queda explicitado que el sistema actual trabaja con un modelo 10/10, ventana de
+7 dias por fecha de creacion, sin backlog editorial persistente y con
+comentarios recuperados solo despues de la seleccion aguas arriba.

@@ -12,6 +12,8 @@ API no oficial de Reddit en RapidAPI (`reddit-com`). Antes solo se habia verific
 
 La prueba real util de esta ronda confirma que la API expone al menos un endpoint de busqueda global por texto con respuesta rica, pero NO orientada de forma directa a collection por subreddit especifico.
 
+> Estado actual: `docs/integrations/reddit/api-strategy.md` deja esta API fuera del flujo principal. Este README queda como soporte historico de investigacion.
+
 ---
 
 ## Plan gratuito
@@ -23,7 +25,7 @@ La prueba real util de esta ronda confirma que la API expone al menos un endpoin
 | Bandwidth | 10240 MB/mes |
 | Coste extra | +$0.001 por 1 MB adicional |
 
-**Estimacion de viabilidad:** con ~21 requests/dia de consumo estimado, el plan gratuito dura aproximadamente **5 dias**. No viable para uso real continuo.
+**Estimacion de viabilidad:** la limitacion principal ya no es solo la cuota, sino el mal encaje funcional con el flujo actual centrado exclusivamente en `r/Odoo`.
 
 ---
 
