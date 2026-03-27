@@ -106,6 +106,7 @@ Cada oportunidad debe incluir estos campos:
 
 - título del post
 - link
+- idioma del post
 - tipo de oportunidad
 - resumen breve del post
 - resumen breve de comentarios
@@ -118,7 +119,12 @@ La taxonomía actual de tipos de oportunidad se mantiene como lista cerrada. Los
 - dudas sobre si merece la pena Odoo
 - comparativas con otras opciones
 
-La respuesta sugerida debe ir en el idioma original del post.
+La salida debe priorizar operatividad interna sin bloquear la adaptación al contexto real del hilo.
+
+- El sistema identifica y muestra el idioma original del post.
+- Los resúmenes operativos del post y de los comentarios se entregan en español para el equipo interno.
+- La respuesta sugerida se genera en dos versiones equivalentes: español e inglés.
+- La publicación final y la adaptación de la respuesta al hilo siguen siendo decisión humana.
 
 ## 11. Alcance del primer slice
 
@@ -155,6 +161,8 @@ El primer slice se considera correcto cuando:
 - El mensaje inicial de Telegram incluye fecha, número de oportunidades y número de posts revisados.
 - El campo `tipo de oportunidad` usa la lista cerrada definida en este documento.
 - Solo genera respuesta sugerida cuando puede aportar algo relevante, contextual y no redundante.
-- Cada oportunidad incluye título, link, tipo, resumen del post, resumen de comentarios y respuesta sugerida.
-- La respuesta sugerida está en el idioma original del post.
+- Cada oportunidad incluye título, link, idioma del post, tipo, resumen del post, resumen de comentarios y respuesta sugerida.
+- Los resúmenes operativos se entregan en español para el equipo interno.
+- La respuesta sugerida se entrega en versión española e inglesa.
+- La publicación final y la adaptación al hilo siguen siendo decisión humana.
 - Las reglas de estilo y comportamiento de IA quedan referenciadas y separadas en `ai-style.md`.

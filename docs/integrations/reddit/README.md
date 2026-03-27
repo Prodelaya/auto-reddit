@@ -9,6 +9,9 @@ This folder contains external integration documentation for unofficial Reddit AP
 - `reddapi` - https://rapidapi.com/SeasonedCode/api/reddapi
 - `reddit-com` - https://rapidapi.com/things4u-api4upro/api/reddit-com
 
-The file `comparison.md` will be used to compare coverage, authentication, limits, and usefulness for this project.
+## Documents
+
+- [`comparison.md`](comparison.md) — Comparativa de cobertura, autenticacion, limites y utilidad de cada API
+- [`api-strategy.md`](api-strategy.md) — Plan de estrategia: asignacion de APIs, cadena de fallback, cuotas, normalizacion y retry policy
 
 Each `raw/` folder is intended for raw documentation, screenshots, or unprocessed examples.

@@ -24,7 +24,7 @@ El usuario principal es el equipo de marketing y contenido. La fuente de datos d
 | Configuración y secretos | pydantic-settings + `.env` |
 | Evaluación IA | DeepSeek vía SDK de OpenAI |
 | Notificaciones | Telegram Bot API |
-| Fuente de datos | Reddit APIs REST |
+| Fuente de datos | RapidAPI (reddit3, reddit34, reddapi, reddit-com) |
 
 El modelo operativo es un contenedor efímero: arranca, ejecuta el proceso diario completo y muere. No hay proceso persistente corriendo en segundo plano. El cron externo en el VPS se encarga de la planificación.
 
@@ -71,6 +71,10 @@ auto-reddit/
 │   └── test_persistence/
 ├── docs/
 │   ├── architecture.md           # decisiones arquitectónicas
+│   ├── integrations/
+│   │   └── reddit/
+│   │       ├── comparison.md     # comparativa de APIs evaluadas
+│   │       └── api-strategy.md   # estrategia vigente de selección y fallback
 │   ├── product/
 │   │   ├── product.md            # fuente de verdad del producto
 │   │   └── ai-style.md           # comportamiento y estilo de la IA
@@ -90,7 +94,7 @@ auto-reddit/
 
 - **Detección diaria de oportunidades en `r/Odoo`**: cada día el sistema revisa los 20 posts no enviados más recientes con actividad en los últimos 7 días.
 - **Filtrado por categorías de oportunidad**: los posts se clasifican en una taxonomía cerrada: funcionalidad y configuración de Odoo, desarrollo, dudas sobre si merece la pena Odoo, y comparativas con otras opciones.
-- **Evaluación por IA**: DeepSeek evalúa cada candidato para decidir si representa una oportunidad válida, genera un resumen del post y sus comentarios, y propone una respuesta sugerida en el idioma original del post.
-- **Entrega diaria por Telegram**: el equipo recibe un mensaje de resumen con la fecha, el número de posts revisados y el número de oportunidades detectadas, seguido de un mensaje por cada oportunidad con título, enlace, tipo, resumen y respuesta sugerida.
+- **Evaluación por IA**: DeepSeek evalúa cada candidato para decidir si representa una oportunidad válida, resume el contexto en español para el equipo interno e incluye una respuesta sugerida en español y otra en inglés para revisión humana.
+- **Entrega diaria por Telegram**: el equipo recibe un mensaje de resumen con la fecha, el número de posts revisados y el número de oportunidades detectadas, seguido de un mensaje por cada oportunidad con título, enlace, idioma del post, tipo, resumen y respuesta sugerida.
 - **Control de duplicados**: cada post se registra y se envía una sola vez. Los posts ya enviados, aprobados o rechazados no se vuelven a evaluar.
 - **Gestión de cola diaria**: si en una jornada se detectan más oportunidades válidas de las que se pueden enviar (máximo 15 al día), los posts aprobados pendientes se retoman al día siguiente sin necesidad de reevaluar con IA.

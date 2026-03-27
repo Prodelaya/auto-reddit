@@ -55,7 +55,7 @@ src/auto_reddit/
 
 - **pydantic-settings** con `.env`.
 - **Validacion al arrancar**: si falta una variable, el proceso no empieza.
-- **Variables necesarias**: `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `REDDIT_API_KEY` (y las que correspondan a las APIs de Reddit).
+- **Variables necesarias**: `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `REDDIT_API_KEY` (se mantiene este nombre por compatibilidad, pero representa la API key de RapidAPI compartida para las APIs de Reddit consumidas por el proyecto).
 - **Parametros de producto configurables**:
   - `max_daily_opportunities`: 10 _(provisional — revisable tras pruebas reales con APIs de Reddit)_
   - `review_window_days`: 7
@@ -90,7 +90,7 @@ src/auto_reddit/
 
 | Servicio | Mecanismo |
 |---|---|
-| Reddit | APIs REST no oficiales (por definir en el change correspondiente). |
+| Reddit | Varias APIs no oficiales de Reddit consumidas via RapidAPI; la estrategia concreta de seleccion y fallback vive en `docs/integrations/reddit/api-strategy.md`. |
 | IA | DeepSeek via SDK de OpenAI (compatible, apuntando a `https://api.deepseek.com`). |
 | Telegram | Bot API para envio de mensajes. |
 

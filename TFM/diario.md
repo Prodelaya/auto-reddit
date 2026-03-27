@@ -149,3 +149,93 @@ El proyecto paso de tener solo una idea general a tener:
 
 El siguiente paso es lanzar el primer change (`reddit-candidate-collection`)
 con el subagente de proposals para empezar la cadena SDD.
+
+---
+
+## Entrada 3
+
+**Fecha:** 27/03/2026
+
+### Investigacion de APIs de Reddit
+
+En esta sesion se paso de una idea abstracta de "usar APIs no oficiales" a una
+investigacion tecnica y comparativa real sobre 4 APIs de RapidAPI:
+
+- `reddapi`
+- `reddit34`
+- `reddit3`
+- `reddit-com`
+
+La validacion no se baso solo en documentacion publica. Tambien se hicieron
+llamadas reales a endpoints para comprobar disponibilidad, shape de respuesta,
+tiempos de respuesta y utilidad real para el caso de uso del proyecto:
+detectar posts y comentarios recientes en `r/Odoo` dentro de los limites de las
+cuotas gratuitas.
+
+### Resultados tecnicos de la investigacion
+
+La comparativa permitio bajar la discusion a comportamiento tecnico verificado
+en vez de quedarse en promesas de catalogo:
+
+- `reddapi` quedo bien documentada y demostro servir para posts nuevos y para
+  recuperar contexto general del hilo, pero no devuelve comentarios realmente
+  recientes aunque uno de sus endpoints lo sugiera por nombre.
+- `reddit34` demostro ser la mejor candidata actual para comentarios recientes
+  por post gracias a `getPostCommentsWithSort?sort=new`, con campos ricos como
+  `id`, `created`, `permalink`, `depth` y `replies`.
+- `reddit3` resulto ser mucho mas util de lo esperado: permite obtener posts
+  nuevos, post + comentarios por URL y actividad reciente del subreddit
+  mediante comentarios recientes.
+- `reddit-com` quedo relegada a exploracion o busqueda global, porque devuelve
+  demasiado ruido para el MVP.
+
+### Decision estrategica provisional sobre APIs
+
+A raiz de esta investigacion se cerro una estrategia de uso de APIs documentada
+en [`docs/integrations/reddit/api-strategy.md`](/docs/integrations/reddit/api-strategy.md).
+
+Las decisiones provisionales quedaron asi:
+
+- **Posts nuevos de `r/Odoo`:** principal `reddit3`, fallback `reddapi`,
+  segundo fallback `reddit34`.
+- **Comentarios por post:** principal `reddit34`, fallback `reddit3`, segundo
+  fallback `reddapi`.
+- **`reddit-com`:** fuera del flujo principal.
+- **Control operativo:** contador interno de cuota por API y deteccion de
+  errores HTTP como mecanismo de control.
+- **Reintentos:** 2 retries con backoff de 2s y 4s.
+- **Fallo total:** si todas las APIs fallan, el sistema no envia nada y lo
+  reintenta al dia siguiente.
+
+### Replanteamiento de limites operativos del producto
+
+Al analizar las cuotas gratuitas reales, se detecto que el diseno original era
+demasiado agresivo para el volumen disponible. Por eso se reviso el producto
+para adaptarlo a una operativa realista en gratuito:
+
+- ejecutar solo de lunes a viernes
+- revisar 10 posts al dia
+- enviar como maximo 10 oportunidades al dia
+
+Estos valores quedan como provisionales y revisables cuando haya uso real y se
+pueda medir cobertura, estabilidad y consumo efectivo.
+
+### Documentacion generada o actualizada
+
+Esta fase no solo sirvio para decidir, sino tambien para dejar trazabilidad
+util. Entre los documentos mas relevantes creados o actualizados estan:
+
+- `docs/integrations/reddit/comparison.md`
+- `docs/integrations/reddit/api-strategy.md`
+- `docs/integrations/reddit/reddapi/README.md`
+- `docs/integrations/reddit/reddit34/README.md`
+- `docs/integrations/reddit/reddit3/README.md`
+- `docs/integrations/reddit/reddit-com/README.md`
+- `README.md`
+- `docs/architecture.md`
+
+### Resultado de la sesion
+
+El proyecto ya no solo tiene producto, arquitectura y scaffolding. Ahora
+tambien tiene una estrategia concreta y documentada para el uso realista de las
+APIs de Reddit dentro de los limites de sus cuotas gratuitas.

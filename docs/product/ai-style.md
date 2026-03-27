@@ -114,6 +114,7 @@ Cuando una oportunidad sea válida, la salida esperada para esa oportunidad debe
 
 - título del post
 - link
+- idioma del post
 - tipo de oportunidad
 - resumen breve del post
 - resumen breve de comentarios
@@ -121,7 +122,13 @@ Cuando una oportunidad sea válida, la salida esperada para esa oportunidad debe
 
 El campo `tipo de oportunidad` debe usar la taxonomía actual como lista cerrada.
 
-La respuesta sugerida debe ir en el idioma original del post.
+La política de idioma debe seguir estas reglas:
+
+- la IA identifica el idioma original del post y lo expone como dato operativo
+- resume el contexto del post y de los comentarios en español para el equipo interno
+- genera una respuesta sugerida en español
+- genera una segunda respuesta sugerida equivalente en inglés
+- la finalidad es apoyar la revisión humana, no publicar automáticamente
 
 ## 11. Qué debe conseguir una buena respuesta sugerida
 
