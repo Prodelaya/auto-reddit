@@ -94,7 +94,7 @@ auto-reddit/
 
 ## Funcionalidades principales
 
-- **Detección diaria de oportunidades en `r/Odoo`**: cada día el sistema recoge todos los posts de `r/Odoo` dentro de los últimos 7 días, los normaliza para el pipeline interno y, aguas abajo, revisa como máximo 10 candidatos elegibles priorizados por recencia.
+- **Detección diaria de oportunidades en `r/Odoo`**: cada día el sistema recoge todos los posts de `r/Odoo` dentro de los últimos 7 días, los normaliza para el pipeline interno y, aguas abajo, revisa como máximo 8 candidatos elegibles priorizados por recencia.
 - **Filtrado por categorías de oportunidad**: los posts se clasifican en una taxonomía cerrada: funcionalidad y configuración de Odoo, desarrollo, dudas sobre si merece la pena Odoo, y comparativas con otras opciones.
 - **Evaluación por IA**: DeepSeek evalúa cada candidato para decidir si representa una oportunidad válida, resume el contexto en español para el equipo interno e incluye una respuesta sugerida en español y otra en inglés para revisión humana.
 - **Entrega diaria por Telegram**: el equipo recibe un mensaje de resumen con la fecha, el número de posts revisados y el número de oportunidades detectadas, seguido de un mensaje por cada oportunidad con título, enlace, idioma del post, tipo, resumen y respuesta sugerida.

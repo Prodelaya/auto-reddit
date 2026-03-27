@@ -2,7 +2,7 @@
 
 > Aviso historico: este documento conserva el discovery inicial. Varias decisiones aqui ya estan superadas. La fuente de verdad vigente es `docs/product/product.md` y, para la integracion de Reddit, `docs/integrations/reddit/api-strategy.md`.
 
-> En particular, ya NO aplican aqui como decisiones vigentes las referencias a `old but alive`, backlog explicito, estado `approved`, mezcla de fuentes fuera de `r/Odoo` o limites distintos del modelo actual 10/10.
+> En particular, ya NO aplican aqui como decisiones vigentes las referencias a `old but alive`, backlog explicito, estado `approved`, mezcla de fuentes fuera de `r/Odoo` o limites distintos del modelo operativo vigente 8/8.
 
 ## Halltic Reddit Opportunity Assistant
 

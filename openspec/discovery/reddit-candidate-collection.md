@@ -33,7 +33,7 @@
 ## Alternative Flows / Edge Cases
 - Si faltan campos del contrato minimo, el post NO se descarta automaticamente; se conserva con marca de incompleto.
 - Si una API devuelve URLs relativas o nombres de campo distintos, la normalizacion debe adaptar el shape sin cambiar el alcance funcional.
-- La limitacion a 10 posts NO ocurre en este change; se resuelve aguas abajo.
+- La limitacion a 8 posts NO ocurre en este change; se resuelve aguas abajo.
 
 ## Business Rules
 - El change se clasifica como `single-change`.
@@ -58,7 +58,7 @@
 
 ## Scope Out
 - Comentarios del hilo.
-- Seleccion limitada a 10 candidatos.
+- Seleccion limitada a 8 candidatos.
 - Exclusiones por `sent` o `rejected`.
 - Evaluacion por IA.
 - Entrega por Telegram.
@@ -71,7 +71,7 @@
 - [ ] La salida NO incluye comentarios.
 - [ ] Cada candidato se entrega con el contrato minimo definido o, si faltan campos, con marca de incompleto.
 - [ ] La salida se entrega como lista normalizada en memoria/proceso para el siguiente paso.
-- [ ] El recorte a 10 candidatos no ocurre en este change.
+- [ ] El recorte a 8 candidatos no ocurre en este change.
 
 ## Non-Functional Notes
 - La normalizacion debe ser robusta frente a shapes heterogeneos de APIs de Reddit.
@@ -85,7 +85,7 @@
 - None.
 
 ## Risks
-- Si la documentacion mezcla este change con la seleccion limitada a 10, el alcance se implementaria recortado demasiado pronto.
+- Si la documentacion mezcla este change con la seleccion limitada a 8, el alcance se implementaria recortado demasiado pronto.
 - Si se descartan posts incompletos en lugar de marcarlos, se puede perder cobertura operativa.
 
 ## Readiness for SDD

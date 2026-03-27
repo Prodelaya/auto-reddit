@@ -50,14 +50,14 @@ The system MUST NOT discard an in-scope post only because one or more minimum-co
 
 ### Requirement: Hand off the full candidate set without downstream rules
 
-The system MUST deliver the normalized candidates in memory/process to the next pipeline step, MUST NOT fetch comments as part of this change, MUST NOT apply the downstream cut to 10 candidates, and MUST NOT include the `old but alive` case.
+The system MUST deliver the normalized candidates in memory/process to the next pipeline step, MUST NOT fetch comments as part of this change, MUST NOT apply the downstream cut to 8 candidates, and MUST NOT include the `old but alive` case.
 
 #### Scenario: Deliver the full handoff set
 
-- GIVEN more than 10 in-scope posts exist in the last 7 days
+- GIVEN more than 8 in-scope posts exist in the last 7 days
 - WHEN the collection step completes
 - THEN all normalized candidates are handed off in memory/process
-- AND no truncation to 10 occurs in this change
+- AND no truncation to 8 occurs in this change
 
 #### Scenario: Keep comments outside this change
 

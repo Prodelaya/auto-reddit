@@ -10,7 +10,7 @@ notes:
   - Filter by post created_at within the last 7 days
   - Prioritize the most recent posts first
   - Do not include comments in this change
-  - Collect ALL posts inside the 7-day window; the top-10 cut happens downstream
+  - Collect ALL posts inside the 7-day window; the top-8 cut happens downstream
   - Deliver a normalized in-memory list for the next step
   - Minimum contract: post_id, title, body/selftext, url/permalink, author, subreddit, created_at
   - Keep incomplete posts with an explicit incomplete marker instead of dropping them

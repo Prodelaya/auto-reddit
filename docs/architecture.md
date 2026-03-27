@@ -60,9 +60,9 @@ src/auto_reddit/
 - **Validacion al arrancar**: si falta una variable, el proceso no empieza.
 - **Variables necesarias**: `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `REDDIT_API_KEY` (se mantiene este nombre por compatibilidad, pero representa la API key de RapidAPI compartida para las APIs de Reddit consumidas por el proyecto).
 - **Parametros de producto configurables**:
-  - `max_daily_opportunities`: 10 _(provisional — revisable tras pruebas reales con APIs de Reddit)_
+  - `max_daily_opportunities`: 8 _(referencia operativa vigente para design; revisable si cambia la capacidad real)_
   - `review_window_days`: 7
-  - `daily_review_limit`: 10 _(provisional — revisable tras pruebas reales con APIs de Reddit)_
+  - `daily_review_limit`: 8 _(referencia operativa vigente para design; revisable si cambia la capacidad real)_
 
 ## 7. Logging y trazabilidad
 
@@ -81,7 +81,7 @@ src/auto_reddit/
 
 | Modulo | Responsabilidad | NO hace |
 |---|---|---|
-| `reddit/` | Conectar con APIs, traer TODOS los posts de `r/Odoo` dentro de 7 dias por fecha de creacion, recuperar comentarios solo para posts ya seleccionados aguas arriba y normalizar al contrato compartido manteniendo marca de incompleto si faltan campos. | NO decide si un post es oportunidad, NO aplica el corte diario a 10, NO mantiene backlog editorial, NO evalua, NO guarda estado por si solo. |
+| `reddit/` | Conectar con APIs, traer TODOS los posts de `r/Odoo` dentro de 7 dias por fecha de creacion, recuperar comentarios solo para posts ya seleccionados aguas arriba y normalizar al contrato compartido manteniendo marca de incompleto si faltan campos. | NO decide si un post es oportunidad, NO aplica el corte diario a 8, NO mantiene backlog editorial, NO evalua, NO guarda estado por si solo. |
 | `evaluation/` | Recibir candidatos normalizados, conectar con DeepSeek (via SDK de OpenAI), aplicar reglas de elegibilidad, devolver resultado estructurado. | NO trae posts, NO envia a Telegram, NO guarda estado. |
 | `delivery/` | Recibir oportunidades evaluadas, formatear mensajes, enviar a Telegram y reintentar envios fallidos sin volver a invocar IA. | NO evalua, NO filtra, NO decide que se envia. |
 | `persistence/` | Guardar/consultar/purgar memoria operativa minima para unicidad e idempotencia, aplicar TTL. | NO conecta con Reddit, NO mantiene backlog editorial, NO evalua, NO envia. |
