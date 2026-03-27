@@ -197,17 +197,18 @@ Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
 
 Esta es probablemente la parte mas importante para no enganarte.
 
-### Estado real del repo — actualizado 2026-03-27
+### Estado real del repo — actualizado 2026-03-28
 
-El change 1 (`reddit-candidate-collection`) esta **completado y archivado**. El proyecto ha cruzado la linea de solo planificacion a implementacion funcional real.
+Los changes 1 y 2 estan **completados y archivados**. El pipeline ya tiene recoleccion de candidatos, memoria operativa SQLite y unicidad por post funcionando.
 
-La base ya ejecutable incluye:
+La base ejecutable incluye:
 
-- contratos Pydantic reales (`RedditCandidate` con `is_complete`)
-- cliente Reddit con tres normalizers, paginacion por cursor, reintentos y fallback chain funcional
-- 50 tests que pasan cubren: coleccion, normalizacion, filtrado, paginacion, fallback y comportamiento de `is_complete`
-- `main.py` con `run()` que orquesta el pipeline y deja espacio explicito para los changes siguientes
-- spec promovida a `openspec/specs/reddit-candidate-collection/spec.md` como fuente de verdad permanente
+- contratos Pydantic reales: `RedditCandidate` con `is_complete`, `PostDecision` (enum de estados), `PostRecord`
+- cliente Reddit con tres normalizers, paginacion por cursor, reintentos y fallback chain
+- `CandidateStore` SQLite con estados `sent`, `rejected` y `pending_delivery`
+- `main.py` con `run()` que orquesta los dos primeros pasos del pipeline y deja marcados los siguientes
+- 70 tests que pasan: 50 de coleccion Reddit + 20 de persistencia
+- specs canonicas promovidas a `openspec/specs/`
 
 ### Que esta maduro
 
@@ -215,32 +216,30 @@ La base ya ejecutable incluye:
 - reglas editoriales de IA definidas en `docs/product/ai-style.md`, incluyendo modelo recomendado (`deepseek-chat`)
 - arquitectura modular claramente documentada en `docs/architecture.md`
 - estrategia Reddit trabajada y revalidada con raws reales en `docs/integrations/reddit/`
-- change 1 completamente archivado: discovery, proposal, spec, design, tasks, verify y archive
-- spec canonica del change 1 promovida a `openspec/specs/`
+- changes 1 y 2 completamente archivados con specs canonicas en `openspec/specs/`
 - skilling del repo y normas operativas para agentes bien consolidadas
 
 ### Que sigue scaffolded
 
-- `src/auto_reddit/evaluation/evaluator.py` — solo docstring
-- `src/auto_reddit/delivery/telegram.py` — solo docstring
-- `src/auto_reddit/persistence/store.py` — solo docstring
+- `src/auto_reddit/evaluation/evaluator.py` — solo docstring (change 4)
+- `src/auto_reddit/delivery/telegram.py` — solo docstring (change 5)
 
 ### Nivel de madurez por capas
 
 | Capa | Madurez | Comentario docente |
 |---|---|---|
 | Producto | Alta | Que, para que y limites bastante bien cerrados. |
-| Arquitectura | Alta | La forma del sistema esta definida y el change 1 la valida en codigo real. |
-| Contratos / shared | Alta | `RedditCandidate` implementado, validado y archivado. |
+| Arquitectura | Alta | Validada en codigo real por dos changes completos. |
+| Contratos / shared | Alta | `RedditCandidate`, `PostDecision` y `PostRecord` implementados y archivados. |
 | Integracion Reddit | Alta | Cliente con fallback chain, paginacion, reintentos y 50 tests. |
+| Persistencia | Alta | `CandidateStore` SQLite con modelo de estados y 20 tests. |
 | IA / evaluacion | Baja | Hay criterio y skill, pero el modulo sigue vacio. |
-| Persistencia | Baja | El modelo esta documentado, pero el store no esta implementado. |
 | Delivery Telegram | Baja | El contrato de salida esta claro, pero el cliente no existe todavia. |
-| Testing | Media | 50 tests reales en `tests/test_reddit/`; el resto del pipeline aun sin cobertura. |
+| Testing | Media-alta | 70 tests reales; enriquecimiento, evaluacion y delivery aun sin cobertura. |
 
 ### Lectura correcta de la madurez
 
-El proyecto ya no es solo diseno: tiene una capa funcional real. Pero el pipeline completo todavia depende de los changes 2 al 5. Lo que esta archivado es la pieza de recoleccion de candidatos; las piezas de filtrado, enriquecimiento, evaluacion IA y entrega Telegram estan por venir.
+El pipeline tiene ya su columna vertebral: recoge candidatos, excluye los ya decididos, recorta a 8 y deja `pending_delivery` para reintentos Telegram sin re-evaluar la IA. Los tres modulos restantes (comentarios, evaluacion IA y entrega) esperan los changes 3, 4 y 5.
 
 ---
 
@@ -250,20 +249,25 @@ El proyecto ya no es solo diseno: tiene una capa funcional real. Pero el pipelin
 
 ```text
 auto-reddit/
-|- src/auto_reddit/                    Codigo del producto
-|   |- shared/contracts.py             Contratos Pydantic — change 1 implementado
-|   |- reddit/client.py                Cliente Reddit con fallback chain — change 1 implementado
-|   |- main.py                         Orquestador del pipeline — change 1 conectado
+|- src/auto_reddit/
+|   |- shared/contracts.py             RedditCandidate, PostDecision, PostRecord — changes 1 y 2
+|   |- reddit/client.py                Fallback chain Reddit con paginacion — change 1
+|   |- persistence/store.py            CandidateStore SQLite — change 2
+|   |- main.py                         Orquestador: changes 1+2 activos, 3-5 comentados
 |   |- config/settings.py              Configuracion y validacion de entorno
 |   |- evaluation/evaluator.py         Evaluacion IA — scaffolded (change 4)
 |   |- delivery/telegram.py            Entrega Telegram — scaffolded (change 5)
-|   |- persistence/store.py            Memoria operativa — scaffolded (change 2)
 |- tests/
-|   |- test_reddit/                    50 tests del change 1
+|   |- test_reddit/                    50 tests — change 1
+|   |- test_persistence/               20 tests — change 2
 |- docs/                               Fuente de verdad funcional y tecnica
 |- openspec/
-|   |- specs/                          Specs canonicas promovidas (fuente de verdad permanente)
+|   |- specs/                          Specs canonicas (fuente de verdad permanente)
+|   |   |- reddit-candidate-collection/spec.md
+|   |   |- candidate-memory/spec.md
 |   |- changes/archive/                Changes completados y archivados
+|   |   |- 2026-03-27-reddit-candidate-collection/
+|   |   |- 2026-03-27-candidate-memory-and-uniqueness/
 |   |- changes/<activos>/              Changes en curso
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
@@ -316,6 +320,10 @@ No pienses el repo por carpetas. Piensalo por capas:
 - `TTL`: tiempo de vida de un registro; aqui se piensa como `created_at + 7 dias`
 - `scaffolding`: estructura inicial preparada pero aun sin implementacion real
 - `blast radius`: conjunto de simbolos y modulos que se ven afectados cuando cambias uno concreto; se mide con `gitnexus_impact`
+- `decision final`: estado que no puede revertirse en el modelo de negocio; aqui `sent` y `rejected` son finales; el post no vuelve a entrar al pipeline
+- `estado transitorio`: estado operativo temporal que puede evolucionar; `pending_delivery` es transitorio porque representa "la IA dijo si, Telegram aun no confirma"
+- `upsert`: operacion de base de datos que inserta si no existe o actualiza si ya existe; evita duplicados sin necesidad de consultar antes de escribir
+- `idempotencia de reintentos`: capacidad de reintentar una operacion sin efectos secundarios adicionales; en este sistema, reintentar Telegram no re-evalua la IA porque `pending_delivery` guarda el resultado anterior
 
 ### Conceptos de proceso
 
@@ -773,20 +781,32 @@ Rol: orquestacion local/minima del contenedor y preparacion de persistencia por 
 
 #### `src/auto_reddit/main.py`
 
-**Change 1 implementado.** Ya no es un placeholder.
+**Changes 1 y 2 implementados.**
 
-Contiene la funcion `run()` que actua como orquestador del pipeline diario:
+La funcion `run()` ya orquesta los dos primeros pasos del pipeline y deja marcados con comentarios los siguientes:
 
 ```python
 def run() -> None:
-    candidates = collect_candidates(settings)          # Change 1: colectar
-    # filter_candidates(...)                           # Change 2: pendiente
-    # enrich_with_comments(...)                        # Change 3: pendiente
+    # Change 2: inicializar store
+    store = CandidateStore(settings.db_path)
+    store.init_db()
+
+    # Change 1: recoger candidatos (ventana 7 dias, sin recorte)
+    candidates = collect_candidates(settings)
+
+    # Change 2: excluir decisiones finales y recortar a 8
+    decided_ids = store.get_decided_post_ids()
+    eligible = [c for c in candidates if c.post_id not in decided_ids]
+    review_set = eligible[:settings.daily_review_limit]
+
+    # Change 3 (pendiente): enriquecer con comentarios
+    # Change 4 (pendiente): evaluacion IA → store.save_pending_delivery / save_rejected
+    # Change 5 (pendiente): entrega Telegram → store.mark_sent
 ```
 
-Rol: director de orquesta. No contiene logica de negocio fina; conecta modulos por fases. Los comentarios de los changes pendientes son intencionales: marcan el punto de entrada para las implementaciones siguientes sin oscurecer el flujo ya funcional.
+Rol: director de orquesta. Cada change nuevo conecta aqui sin tocar los anteriores.
 
-**Leccion docente:** este patron de dejar placeholders comentados en el orquestador es una forma muy limpia de comunicar el diseno a futuros desarrolladores. El archivo dice que hay, que falta y en que orden.
+**Leccion docente:** el orquestador actua como indice vivo del pipeline. Leer `main.py` es suficiente para entender que hace el sistema, en que orden y que falta aun. Eso es un dise&ntilde;o honesto.
 
 #### `src/auto_reddit/config/settings.py`
 
@@ -810,9 +830,11 @@ Rol: configuracion y validacion de entorno.
 
 #### `src/auto_reddit/shared/contracts.py`
 
-**Change 1 implementado.** Este archivo es ahora el corazon del sistema.
+**Changes 1 y 2 implementados.** Este archivo es el idioma comun de todo el sistema.
 
-Contiene `RedditCandidate`, el contrato Pydantic real que fluye entre modulos:
+Contiene tres contratos:
+
+**`RedditCandidate`** (change 1) — el candidato normalizado que sale del cliente Reddit:
 
 ```python
 class RedditCandidate(BaseModel):
@@ -825,20 +847,37 @@ class RedditCandidate(BaseModel):
     subreddit: str
     created_utc: int
     num_comments: int | None = None
-    source_api: str     # quien entrego este candidato
+    source_api: str
 
     @computed_field
     @property
-    def is_complete(self) -> bool:
-        # True solo si TODOS los campos minimos del contrato estan presentes
-        ...
+    def is_complete(self) -> bool: ...  # True si todos los campos minimos presentes
 ```
 
-El campo `is_complete` merece atencion especial. No elimina candidatos incompletos (un post con datos parciales sigue siendo un candidato valido), pero los marca. La decision de que hacer con ellos es del paso siguiente del pipeline.
+**`PostDecision`** (change 2) — enum de estados de decision:
 
-Esto enseña una leccion importante sobre diseno de contratos: **la validacion no siempre es rechazo**. A veces es clasificacion.
+```python
+class PostDecision(str, Enum):
+    sent = "sent"                         # entregado a Telegram — decision final
+    rejected = "rejected"                 # rechazado por IA — decision final
+    pending_delivery = "pending_delivery" # IA acepto, Telegram aun no confirma
+```
 
-Otro detalle relevante: `url` y `permalink` se garantizan siempre absolutas. La normalizacion ocurre en el cliente, no en el consumidor. El consumidor del contrato no necesita saber si el provider original devolvio una URL relativa.
+`pending_delivery` es el estado mas interesante didacticamente: representa la frontera entre la decision de negocio (la IA evaluo) y la confirmacion operativa (Telegram entrego). Sin ese estado, un fallo de Telegram obligaria a re-evaluar con IA, lo que consume cuota y puede cambiar el resultado.
+
+**`PostRecord`** (change 2) — el registro persistido en SQLite:
+
+```python
+class PostRecord(BaseModel):
+    post_id: str
+    status: PostDecision
+    opportunity_data: str | None = None  # JSON del resultado IA para reintentos
+    decided_at: int                      # Unix timestamp
+```
+
+`opportunity_data` permite reintentar la entrega Telegram usando el resultado ya guardado de la IA, sin volver a llamarla.
+
+Leccion docente sobre contratos: **un buen contrato no solo describe datos; describe semantica**. `pending_delivery` no es un estado tecnico de implementacion; es una decision de diseno que protege la idempotencia del sistema y el presupuesto de API.
 
 Rol: idioma comun del sistema. Ningun modulo importa de otro directamente; todos hablan a traves de este archivo.
 
@@ -906,13 +945,36 @@ Rol actual: placeholder de la salida del sistema.
 
 #### `src/auto_reddit/persistence/store.py`
 
-Contenido real verificado: una docstring que menciona SQLite, TTL y un modelo de 3 estados.
+**Change 2 implementado.** Ya no es un placeholder.
 
-Rol esperado: memoria operativa minima.
+Contiene `CandidateStore`, la clase que gestiona la memoria operativa del sistema via SQLite:
 
-Rol actual: placeholder.
+```python
+class CandidateStore:
+    def init_db(self) -> None                                    # crea tabla si no existe
+    def get_decided_post_ids(self) -> set[str]                   # sent + rejected (NO pending)
+    def save_rejected(self, post_id: str) -> None                # upsert como rejected
+    def save_pending_delivery(self, post_id: str, data: str)     # upsert como pending_delivery
+    def mark_sent(self, post_id: str) -> None                    # transicion pending → sent
+    def get_pending_deliveries(self) -> list[PostRecord]         # para reintentos Telegram
+```
 
-**Inconsistencia relevante:** la docstring habla de "modelo de 3 estados", mientras la arquitectura y el producto vigentes ya consolidan un modelo minimo donde los estados operativos relevantes documentados son `sent` y `rejected`, sin `approved`. Esto sugiere que `store.py` quedo atras respecto a la documentacion actual.
+El detalle mas importante de diseno esta en `get_decided_post_ids`: devuelve `sent` y `rejected` pero **NO** `pending_delivery`. Esto es intencional: un post en `pending_delivery` debe seguir siendo elegible para reintento. Si lo incluyeras en los decididos, bloquearias el reintento y perderia la oportunidad.
+
+Todos los metodos de escritura usan `INSERT ... ON CONFLICT DO UPDATE` (upsert), lo que hace las operaciones idempotentes: ejecutarlas dos veces produce el mismo resultado que ejecutarlas una.
+
+La tabla SQLite tiene esta forma:
+
+```sql
+CREATE TABLE post_decisions (
+    post_id          TEXT PRIMARY KEY,
+    status           TEXT NOT NULL,       -- sent | rejected | pending_delivery
+    opportunity_data TEXT,                -- JSON del resultado IA (nullable)
+    decided_at       INTEGER NOT NULL     -- Unix timestamp
+)
+```
+
+Rol: memoria operativa minima. No es una base de datos editorial completa; es exactamente lo necesario para garantizar unicidad de posts entre ejecuciones diarias y permitir reintentos sin re-evaluar la IA.
 
 ### 10.3 `scripts/`
 
@@ -1037,18 +1099,22 @@ Rol: convencion de despliegue.
 
 ### 10.7 `tests/`
 
-**Change 1 implementado.** Ya no esta vacia.
+**Changes 1 y 2 implementados.**
 
-`tests/test_reddit/` contiene 50 tests reales que cubren:
+`tests/test_reddit/` — 50 tests del change 1:
+- fixtures con raws reales de los tres providers (snapshots sanitizados)
+- tests de normalizacion, filtrado, paginacion, fallback chain, reintentos e `is_complete`
 
-- `conftest.py`: fixtures con raws reales de reddit3, reddit34 y reddapi (snapshots sanitizados)
-- `test_client.py`: tests de normalizacion, filtrado temporal, filtrado por subreddit, paginacion con cursor, fallback chain, reintentos, comportamiento de `is_complete` y casos borde (campos ausentes, post sin id, URL relativa, etc.)
+`tests/test_persistence/` — 20 tests del change 2:
+- `test_store.py`: init de DB, upserts, transiciones de estado, `get_decided_post_ids` (verifica que `pending_delivery` no aparece), `get_pending_deliveries`, comportamiento con DB vacia
 
-El detalle de usar fixtures con raws reales (no payloads inventados) es una decision de diseno importante: los tests validan el codigo contra la forma real de las APIs, no contra una aproximacion. Si una API cambia su estructura, el test lo detecta.
+Total: **70 tests pasando**.
 
-Rol actual: cobertura funcional del change 1. El resto del pipeline (evaluacion, persistencia, delivery) sigue sin cobertura.
+Advertencias preservadas del verify (no blockers): no existe test de dos ejecuciones consecutivas que pruebe "skipped today, eligible tomorrow"; no existe test end-to-end de reintento Telegram sin re-evaluar IA. Ambas son pruebas de integracion que requieren estado entre runs y no estan cubiertas aun.
 
-Leccion importante: tener carpeta de tests no es tener testing. Pero 50 tests reales sobre un modulo critico si es un buen comienzo.
+Rol actual: cobertura funcional de los dos primeros modulos del pipeline. Evaluacion, enriquecimiento y delivery siguen sin cobertura.
+
+Leccion importante: 70 tests reales sobre los modulos criticos da una base solida para seguir construyendo con confianza. Pero los tests de integracion entre runs son distintos de los tests unitarios y requieren un enfoque diferente.
 
 ### 10.8 `TFM/`
 
@@ -1133,11 +1199,14 @@ Esto es valioso en un TFM porque enseña que la ingenieria seria empieza mucho a
 Si ejecutaras `python -m auto_reddit.main` con las variables de entorno configuradas, el sistema:
 
 1. Arranca logging
-2. Llama `collect_candidates(settings)`: intenta los tres providers por orden, filtra por 7 dias y subreddit, ordena por recencia
-3. Logea cuantos candidatos ha recogido
-4. Termina — los pasos siguientes estan comentados esperando los changes 2, 3, 4 y 5
+2. Inicializa `CandidateStore` y crea la tabla SQLite si no existe
+3. Llama `collect_candidates(settings)`: intenta los tres providers, filtra por 7 dias y subreddit, ordena por recencia
+4. Consulta `store.get_decided_post_ids()` y excluye posts ya decididos (`sent` o `rejected`)
+5. Ordena los elegibles por recencia y recorta a `settings.daily_review_limit` (8)
+6. Logea: total recogidos, excluidos por memoria, elegibles, en revision
+7. Termina — los pasos 3, 4 y 5 del pipeline estan comentados esperando los changes 3, 4 y 5
 
-Lo que ya funciona de verdad: la capa de recoleccion y normalizacion de candidatos. Lo que todavia no existe: filtrado por memoria, enriquecimiento con comentarios, evaluacion IA y entrega por Telegram.
+Lo que ya funciona de verdad: recoleccion, normalizacion, memoria operativa y unicidad por post. Lo que todavia no existe: enriquecimiento con comentarios, evaluacion IA y entrega Telegram.
 
 ---
 
@@ -1264,9 +1333,9 @@ La incognita sobre la ubicacion del cursor en cada provider quedo cerrada al ver
 
 El codigo implementado en `client.py` usa esta informacion verificada.
 
-### 14.3 Modelo final de persistencia materializado
+### 14.3 Modelo final de persistencia materializado — RESUELTA
 
-La documentacion vigente apunta a memoria operativa minima, pero el store concreto aun no existe.
+`CandidateStore` implementado en `persistence/store.py` con estados `sent`, `rejected` y `pending_delivery`. Archivado en change 2.
 
 ### 14.4 Contratos reales de evaluacion IA
 
@@ -1282,33 +1351,40 @@ La arquitectura habla de stdout con contadores y errores, pero todavia no hay lo
 
 ### 14.7 Contradicciones historicas que conviene limpiar en el futuro
 
-Hay restos documentales o placeholders que todavia reflejan estados anteriores:
-
-- defaults 10/10 en `src/auto_reddit/config/settings.py`
-- referencia a 3 estados en `src/auto_reddit/persistence/store.py`
+- defaults 10/10 en `src/auto_reddit/config/settings.py` (la operativa vigente es 8, aunque `daily_review_limit` ya es correcto en la logica de `main.py`)
 - entradas antiguas de `TFM/diario.md` con `approved`, 10/10 o formulaciones ya superadas
 
-No es grave, pero si no se limpia con cuidado puede confundir a quien llegue nuevo.
+La docstring de `store.py` ya no es una contradiccion: la implementacion real usa el modelo de 3 estados correcto.
+
+### 14.8 Tests de integracion entre ejecuciones — ABIERTA
+
+El verify del change 2 dejo dos advertencias no bloqueantes:
+- no existe test que pruebe "skipped today, eligible tomorrow" en dos runs consecutivos
+- no existe test end-to-end de reintento Telegram usando `pending_delivery` sin re-llamar a la IA
+
+Estas pruebas requieren estado persistente entre runs y un enfoque de integracion distinto al unitario. Quedan pendientes para cuando el pipeline este mas completo.
 
 ---
 
 ## 15. Cierre: que es hoy auto-reddit de verdad
 
-`auto-reddit` ha cruzado la linea entre diseno y codigo funcional. El change 1 esta completado, verificado con 50 tests y archivado formalmente. La recoleccion de candidatos de Reddit funciona de verdad.
+Dos changes completados. Setenta tests pasando. El pipeline tiene ya su columna vertebral operativa.
 
-Lo que hay ahora es un sistema con:
+Lo que existe hoy:
 
-- una arquitectura validada en codigo real, no solo en documentos
-- un contrato de datos (`RedditCandidate`) que funciona como lingua franca entre modulos
-- un cliente Reddit robusto con fallback, reintentos, paginacion y normalizacion
-- una cobertura de tests que da confianza para seguir construyendo sin romper lo que funciona
-- cuatro modulos pendientes que ya tienen arquitectura, spec y diseno claros
+- recoleccion de candidatos de Reddit con fallback chain entre tres providers
+- memoria operativa SQLite que garantiza unicidad entre ejecuciones diarias
+- modelo de estados que distingue decisiones finales (`sent`, `rejected`) de estados transitorios (`pending_delivery`) para hacer reintentos sin re-evaluar la IA
+- 70 tests que permiten seguir construyendo con confianza
+- `main.py` que actua como mapa vivo del pipeline: muestra lo que esta y lo que falta
+
+Si ejecutas el sistema hoy, recoge candidatos de r/Odoo, excluye los ya procesados, recorta a 8 y para. Los tres modulos siguientes esperan sus propios changes.
 
 Si tuviera que resumirlo para un junior:
 
-> `auto-reddit` demuestra que un proyecto bien pensado y bien documentado llega al codigo con menos fricccion, mas confianza y mas claridad sobre lo que esta haciendo y por que.
+> `auto-reddit` demuestra que construir bien desde el principio no es mas lento; es lo que permite que cada nuevo modulo encaje sin romper lo anterior.
 
-El change 1 no es el final. Es la prueba de que el metodo funciona.
+El change 2 no es el final. Es la confirmacion de que el metodo escala.
 
 ---
 
@@ -1340,6 +1416,31 @@ Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo 
 **Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
 
 **Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+
+### Change 2 — `candidate-memory-and-uniqueness` — ARCHIVADO 2026-03-27
+
+**Alcance:** memoria operativa minima y unicidad por post para que el pipeline diario no reprocese decisiones finales y pueda reintentar Telegram sin volver a llamar a la IA.
+
+**Lo que implemento:**
+
+- `shared/contracts.py`: `PostDecision` enum (`sent`, `rejected`, `pending_delivery`) y `PostRecord`
+- `persistence/store.py`: `CandidateStore` con SQLite — init, upserts, transiciones de estado, consulta de decididos y pendientes de entrega
+- `main.py`: integracion del store en el pipeline — exclusion de decididos, recorte a 8, placeholders comentados para changes 3-5
+- `config/settings.py`: campo `db_path` para la ruta del fichero SQLite
+- `tests/test_persistence/test_store.py`: 20 tests unitarios
+
+**Decisiones tecnicas clave:**
+
+- `get_decided_post_ids()` devuelve `sent` + `rejected` pero NO `pending_delivery`; los posts en `pending_delivery` siguen elegibles para reintento sin re-evaluar la IA
+- todos los writes usan upsert (`INSERT ... ON CONFLICT DO UPDATE`) — idempotentes por diseno
+- `opportunity_data` en `PostRecord` guarda el JSON del resultado IA para reintentar Telegram sin re-llamar al modelo
+- el estado transitorio se llama `pending_delivery`, no `approved`; el nombre comunica exactamente la semantica: la IA dijo si, Telegram no ha confirmado aun
+
+**Spec canonica:** `openspec/specs/candidate-memory/spec.md`
+
+**Archivo:** `openspec/changes/archive/2026-03-27-candidate-memory-and-uniqueness/`
+
+**Verificacion:** PASS CON ADVERTENCIAS — 16/16 tasks completas, 70 tests pasando; advertencias no bloqueantes sobre ausencia de tests de integracion entre runs
 
 ---
 
