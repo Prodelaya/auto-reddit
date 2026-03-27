@@ -1,12 +1,83 @@
 # Guia didactica de auto-reddit
 
+Esta es una guia viva. Se construye junto al proyecto y crece con cada implementacion que se va completando.
+
+Su objetivo no es solo explicar `auto-reddit`. Su objetivo es que un junior que empiece a leerla, aunque nunca haya visto el repo, entienda al terminar por que se toman decisiones de arquitectura, como se planifica trabajo con criterio de ingenieria, que son los contratos y por que importan, como funciona el desarrollo asistido por IA de verdad y, de paso, como esta construido concretamente este sistema.
+
+No es un manual de onboarding. Es una guia de aprendizaje que usa un proyecto real como hilo conductor.
+
+## Indice
+
+- [Agradecimientos y herramientas usadas](#agradecimientos-y-herramientas-usadas)
+- [0. Nota de honestidad](#0-nota-de-honestidad-sobre-esta-guia)
+- [1. Proposito y como leerla](#1-proposito-de-la-guia-y-como-leerla)
+- [2. Overview del proyecto](#2-overview-del-proyecto)
+- [3. Que problema resuelve y que no hace](#3-problema-que-resuelve-y-limites)
+- [4. Estado actual: scaffolding y madurez real](#4-estado-actual-scaffolding-y-madurez)
+- [5. Project map](#5-project-map)
+- [6. Glosario](#6-glosario)
+- [7. Arquitectura explicada para juniors](#7-arquitectura-explicada-para-juniors)
+- [8. Decisiones arquitectonicas con trade-offs](#8-decisiones-arquitectonicas-por-bloques-con-trade-offs)
+- [9. OpenSpec, SDD, skills, AGENTS, GitNexus, Engram y MCP](#9-openspec-sdd-skills-agentsmd-gitnexus-y-engram-como-encajan)
+- [10. Recorrido por carpetas y archivos Python](#10-recorrido-por-carpetas-y-archivos-python-relevantes)
+- [11. Flujos del sistema](#11-flujos-principales-del-sistema)
+- [12. Problemas, riesgos y mitigaciones](#12-problemas-riesgos-y-mitigaciones-conocidos)
+- [13. Learning notes para juniors](#13-learning-notes-para-juniors)
+- [14. Zonas pendientes o abiertas](#14-zonas-pendientes-o-incognitas)
+- [15. Cierre](#15-cierre-que-es-hoy-auto-reddit-de-verdad)
+- [16. Como mantener viva esta guia](#16-como-mantener-viva-esta-guia)
+
+La estructura separa cuatro capas que conviene no mezclar nunca: **producto**, **arquitectura**, **proceso y herramientas de trabajo**, e **implementacion real del momento**. Cada bloque tiene rotacion distinta: producto y arquitectura cambian poco; implementacion, riesgos y pendientes cambian con cada change. Cuando el proyecto crezca, añade en los bloques correspondientes; no abras una guia paralela.
+
+## Agradecimientos y herramientas usadas
+
+Este proyecto existe gracias a que hay gente que construye herramientas abiertas buenas y las documenta bien. Conviene nombrarlo, y conviene separarlo del producto, porque una cosa es `auto-reddit` y otra es el ecosistema con el que se piensa, documenta e implementa.
+
+### El ecosistema de trabajo
+
+Este proyecto no se construye con un editor y ganas. Se construye con un ecosistema pensado para trabajar con agentes de IA de forma disciplinada y reproducible. Conviene entenderlo porque, aunque ninguna de estas herramientas forma parte de `auto-reddit` como producto, todas condicionan como se piensa, como se documenta y como se implementa.
+
+**OpenCode en modo agentico**
+Es la interfaz desde la que el autor interactua con el repo y con los agentes. No es el agente en si; es el entorno que los orquesta. Piensalo como el IDE inteligente que coordina exploracion de codigo, edicion y memoria entre sesiones.
+
+**gentle-ai — el ecosistema que lo sostiene todo**
+`gentle-ai` ([github.com/Gentleman-Programming/gentle-ai](https://github.com/Gentleman-Programming/gentle-ai)) es un ecosistema de configuracion agentica creado por Gentleman Programming. Ofrece memoria persistente entre sesiones (Engram), soporte para skills, integracion con MCP y un workflow de desarrollo guiado por especificacion (SDD). Sustituye e integra lo que antes era Agent Teams Lite (ATL), que aparece referenciado en documentacion historica del proyecto como antecedente del mismo ecosistema.
+
+En este proyecto, gentle-ai actua como infraestructura del proceso: es lo que permite que un agente recuerde lo que decidio en una sesion anterior, cargue instrucciones especificas para cada tipo de tarea y siga un workflow disciplinado en lugar de improvisar.
+
+**Engram — memoria persistente**
+Engram es la pieza de memoria de gentle-ai. Sin ella, cada sesion del agente empieza desde cero: sin contexto de decisiones pasadas, sin saber que se debuggo ayer ni por que se descarto cierta alternativa. Con Engram, el agente puede recuperar ese contexto y seguir donde lo dejo. En este proyecto se usa para guardar decisiones tecnicas, hallazgos de investigacion, bugfixes importantes y resumen de sesiones.
+
+**GitNexus — inteligencia estructural del codigo**
+GitNexus ([github.com/abhigyanpatwari/GitNexus](https://github.com/abhigyanpatwari/GitNexus)) construye un grafo de conocimiento del codigo: simbolos, relaciones entre ellos, flujos de ejecucion y comunidades funcionales. En `auto-reddit` esta verificado en `AGENTS.md` y `.gitnexus/meta.json`, donde el indice registra 592 simbolos, 644 relaciones y 3 execution flows.
+
+Para que sirve en la practica: antes de modificar una funcion, puedes ver que otras partes del sistema dependen de ella. Antes de hacer un refactor, puedes saber el impacto real. Es la diferencia entre editar codigo a ciegas y editarlo con mapa.
+
+**Skills globales y skills locales**
+Una skill es un paquete de instrucciones especializadas para un agente. Le dice como debe abordar un tipo de tarea concreto: como explorar codigo, como implementar segun las convenciones del proyecto, como integrar con DeepSeek, como desplegar con Docker.
+
+Las skills globales pertenecen al entorno del agente y son reutilizables en cualquier proyecto. Las skills locales viven en `skills/` dentro del repo y expresan las convenciones especificas de `auto-reddit`. Un agente que llega nuevo al proyecto carga las locales y sabe inmediatamente como debe trabajar aqui.
+
+Esta separacion tiene valor arquitectonico: el repo no le exige al mundo que comparta el mismo entorno, pero tampoco deja sus propias reglas en la cabeza del autor.
+
+**`product-discovery` y `skill-creator`**
+`product-discovery` es una skill global que ayuda a definir bien un brief de producto antes de empezar a planificar implementacion. Sirve para hacer las preguntas correctas antes de comprometerse con una arquitectura. El autor la uso para trabajar la definicion inicial del sistema.
+
+`skill-creator` es la skill que permite formalizar nuevas skills siguiendo una estructura y un contrato comunes. El autor declara que `product-discovery` fue creada con su ayuda; ese dato habla del nivel de madurez del ecosistema: las propias herramientas de trabajo se documentan con el mismo rigor que el producto.
+
+### Los modelos que el autor usa como herramientas
+
+El autor trabaja con varios modelos segun la fase: `GPT` para ciertos tipos de analisis y debate, `Claude Sonnet` y `Claude Opus` para implementacion y razonamiento tecnico complejo, `Gemini Pro` para otras tareas del flujo. La combinacion exacta varia por fase y tipo de tarea.
+
+Es util entenderlo como flujo de trabajo declarado por el autor, no como dependencia tecnica de `auto-reddit`. El producto no necesita saber que modelo lo construyo para funcionar. Pero el desarrollador que quiera reproducir este proceso si tiene que saber que la calidad del resultado depende tanto de las herramientas de apoyo como del criterio de quien las dirige.
+
 ## 0. Nota de honestidad sobre esta guia
 
-Esta guia se ha construido leyendo el codigo, la documentacion operativa, los artefactos OpenSpec, las notas del TFM ya existentes y la memoria contextual disponible del proyecto.
+Esta guia se construye leyendo el codigo, la documentacion operativa, los artefactos OpenSpec, las notas del TFM ya existentes y la memoria contextual acumulada del proyecto en Engram. No pretende ser perfecta ni completa desde el primer dia: es un documento vivo que mejora con cada iteracion del proyecto.
 
-Tambien se ha usado la informacion de GitNexus ya presente en el repositorio (`CLAUDE.md`, `AGENTS.md`, `.gitnexus/meta.json`), que confirma un indice con 592 simbolos, 644 relaciones y 3 execution flows a fecha `2026-03-27T18:40:30Z`.
+Cuando algo en esta guia no ha podido verificarse directamente desde el repo o desde fuentes publicas, se indica de forma explicita. No encontraras afirmaciones presentadas como hechos cuando son hipotesis, ni tooling del autor confundido con funcionalidad del producto.
 
-Lo que NO he podido verificar de forma interactiva en esta tarea es una consulta viva a recursos `gitnexus://...` o a herramientas MCP especificas de GitNexus, porque ese acceso no esta expuesto aqui. Por tanto, cuando esta guia habla de GitNexus, lo hace desde la configuracion y la metadata verificables del repo, no desde una exploracion grafo-a-grafo en tiempo real.
+El indice GitNexus del repo, verificable en `.gitnexus/meta.json`, registra a fecha de esta revision 592 simbolos, 644 relaciones y 3 execution flows. Ese dato da una idea concreta del tamano estructural del proyecto en este momento.
 
 ---
 
@@ -14,26 +85,46 @@ Lo que NO he podido verificar de forma interactiva en esta tarea es una consulta
 
 ### Que pretende este documento
 
-Este documento no quiere ser un inventario frio de ficheros. Quiere ayudarte a entender:
+Esta guia usa `auto-reddit` como excusa para ensenar. El proyecto es el hilo conductor, no el objetivo final.
 
-1. que problema intenta resolver `auto-reddit`
-2. por que esta organizado asi
-3. que partes ya existen de verdad y cuales siguen siendo scaffolding
-4. como encajan producto, arquitectura, OpenSpec, skills y herramientas de agentes
-5. que tendria que aprender un junior antes de tocar este proyecto sin romper su sentido
+Al terminar de leerla deberas ser capaz de:
+
+- entender por que la arquitectura de software se diseña antes de codificar
+- distinguir entre un contrato, una interfaz, un servicio y un adaptador, con ejemplos reales
+- saber que es SDD, OpenSpec y por que importan mas de lo que parecen al principio
+- entender como se trabaja con agentes de IA de forma disciplinada, no caotica
+- leer un proyecto desconocido y saber que preguntas hacerte antes de tocar nada
+- reconocer la diferencia entre madurez documental y madurez de implementacion
+- entender que problema resuelve `auto-reddit`, como esta pensado y que le falta aun
+
+No necesitas experiencia previa en el proyecto. Si necesitas curiosidad y ganas de entender el porqué de las cosas.
 
 ### Como leerla si eres junior
 
 La mejor forma de leerla es esta:
 
-1. lee primero las secciones 2, 3 y 7 para entender el problema y la arquitectura
-2. despues ve a la seccion 9 para entender la capa de proceso: OpenSpec, SDD, skills, AGENTS, GitNexus y Engram
-3. luego estudia la seccion 10 para recorrer carpetas y archivos reales
-4. termina con las secciones 12, 13 y 14, porque ahi estan los riesgos, las lecciones y las zonas todavia abiertas
+1. Empieza por las secciones 2, 3 y 7 para entender el problema y la forma del sistema
+2. Ve a la seccion 8 para ver como se toman decisiones de arquitectura con trade-offs reales
+3. Estudia la seccion 9 para entender que son OpenSpec, SDD, skills, AGENTS, GitNexus y Engram, y como encajan
+4. Recorre la seccion 10 para ver cada carpeta y archivo con su rol y su razon de existir
+5. Termina con las secciones 12, 13 y 14: riesgos reales, lecciones directas y zonas abiertas
+
+No hace falta leerla de una sentada. Cada seccion funciona de forma relativamente independiente.
 
 ### Idea fuerza
 
 La frase que mejor resume el proyecto esta en `README.md`: la IA propone y el humano decide. Ese principio NO es marketing. Es un limite arquitectonico y de producto.
+
+### Como esta organizada para crecer
+
+La guia intenta no mezclar cuatro niveles que en proyectos con agentes se pisan enseguida:
+
+1. producto (`docs/product/`)
+2. arquitectura (`docs/architecture.md`, `docs/integrations/`)
+3. proceso y herramientas de trabajo (`openspec/`, `AGENTS.md`, skills, GitNexus, Engram)
+4. implementacion real del momento (`src/`, `tests/`, `scripts/`)
+
+Si en futuras iteraciones aparece una nueva implementacion, un nuevo change SDD o una nueva herramienta, la regla es meter cada novedad en su nivel correspondiente y no contaminar los demas. Esa disciplina es la que permite que esta guia siga viva en lugar de convertirse en un diario caotico.
 
 ---
 
@@ -410,7 +501,7 @@ Esto ensena una leccion muy util: la arquitectura no se hace por gusto, sino por
 
 ---
 
-## 9. OpenSpec, SDD, skills, AGENTS.md, GitNexus y Engram: como encajan
+## 9. OpenSpec, SDD, skills, AGENTS.md, GitNexus, Engram y MCP: como encajan
 
 Esta es la parte que convierte el repo en algo mas que codigo fuente.
 
@@ -443,17 +534,29 @@ SDD significa Spec-Driven Development. Aqui la idea no es "primero codifico y lu
 
 En este repo se ve muy bien en el change `reddit-candidate-collection`, que ya tiene discovery, proposal, spec, design y tasks.
 
-### 9.3 Skills
+### 9.3 Skills globales relevantes en este ecosistema
 
-Las skills son paquetes de instrucciones reutilizables para agentes. En este repo hay al menos tres skills locales verificables:
+Ademas de las skills locales del repo, el entorno de trabajo de esta tarea expone una familia de skills globales. Eso es verificable en el runtime del agente, aunque no en un fichero `.atl/skill-registry.md` local.
 
-- `skills/python-conventions/SKILL.md`
-- `skills/deepseek-integration/SKILL.md`
-- `skills/docker-deployment/SKILL.md`
+Las familias mas relevantes para entender este proyecto son estas:
 
-Que ensena esto a un junior: la calidad no depende solo del codigo, sino tambien de estandarizar como se trabaja.
+- **GitNexus**: `gitnexus-exploring`, `gitnexus-debugging`, `gitnexus-impact-analysis`, `gitnexus-refactoring`, `gitnexus-guide`, `gitnexus-cli` y `gitnexus-pr-review`. Su papel es navegar el codigo como grafo, no escribir el producto por si solos.
+- **SDD**: `sdd-init`, `sdd-explore`, `sdd-propose`, `sdd-spec`, `sdd-design`, `sdd-tasks`, `sdd-apply`, `sdd-verify` y `sdd-archive`. Juntas modelan el ciclo de trabajo por changes: descubrir, proponer, especificar, disenar, implementar, verificar y cerrar.
+- **Descubrimiento y soporte al proceso**: `product-discovery` ayuda a definir bien un cambio antes de formalizarlo; `create-repo-context` sirve para crear o mantener ficheros de contexto como `AGENTS.md`; `skill-creator` sirve para empaquetar patrones recurrentes en nuevas skills reutilizables.
 
-### 9.4 `AGENTS.md`
+La leccion docente importante es esta: una skill global suele capturar metodo reusable. No habla de `auto-reddit` en concreto, sino de como pensar o ejecutar mejor un tipo de trabajo.
+
+### 9.4 Skills locales del repo y por que importan
+
+Las skills locales SI forman parte de la identidad operativa de `auto-reddit`, porque viven en `skills/` y estan referenciadas explicitamente desde `AGENTS.md`.
+
+- `skills/python-conventions/SKILL.md`: fija la arquitectura modular, el uso de Pydantic para contratos, `uv` como interfaz de trabajo y el reparto de responsabilidades entre modulos.
+- `skills/deepseek-integration/SKILL.md`: aterriza como conectar con DeepSeek a traves del SDK de OpenAI, como exigir structured output y como manejar errores sin esconder excepciones.
+- `skills/docker-deployment/SKILL.md`: consolida el modelo de contenedor efimero, volumen para SQLite y cron externo en VPS.
+
+Por eso importan tanto: convierten decisiones dispersas del repo en instrucciones accionables. No son propaganda de tooling; son una forma de evitar que un agente nuevo improvise donde el proyecto ya habia decidido.
+
+### 9.5 `AGENTS.md`
 
 `AGENTS.md` es la capa de reglas de operacion para agentes dentro de este repo.
 
@@ -467,7 +570,7 @@ Aqui fija:
 
 En otras palabras: `AGENTS.md` hace explicito el "manual de taller" del repo.
 
-### 9.5 GitNexus
+### 9.6 GitNexus
 
 GitNexus es la capa de inteligencia estructural del codigo. Aunque en esta tarea no he ejecutado consultas interactivas al grafo, el repo deja claro su papel:
 
@@ -486,7 +589,7 @@ La metadata verificable en `.gitnexus/meta.json` dice que el indice tiene:
 
 La leccion docente aqui es potente: no solo tienes codigo, tambien tienes una representacion navegable del codigo.
 
-### 9.6 Engram
+### 9.7 Engram
 
 Engram es la memoria persistente entre sesiones de agentes.
 
@@ -498,7 +601,89 @@ En este proyecto resulta util para:
 
 En otras palabras, OpenSpec guarda artefactos formales del trabajo y Engram guarda memoria operativa del trabajo.
 
-### 9.7 Como encaja todo junto
+### 9.8 Como se trabaja concretamente en este proyecto
+
+El autor usa un flujo agentico por fases. Cada fase tiene un tipo de trabajo distinto y usa la herramienta mas adecuada para ese trabajo:
+
+- **Discovery y definicion de producto**: se trabaja con `product-discovery` para formular el problema antes de planificar nada
+- **Propuesta, spec, design y tasks**: se producen artefactos SDD con agentes especializados, uno por fase, para no mezclar el que con el como
+- **Implementacion**: el agente recibe el contexto de spec y design y produce codigo siguiendo las skills locales del repo
+- **Verificacion**: un agente revisa que la implementacion cumple la spec antes de dar el change por cerrado
+- **Tests**: se automatizan como parte del proceso de verificacion, no como afterthought
+- **Debate de alternativas y analisis de problemas**: se usan los modelos como interlocutores tecnicos para contrastar opciones y razonar trade-offs antes de decidir
+
+Este flujo demuestra algo importante para un junior: la IA no es un sustituto del criterio de ingenieria. Es una herramienta que amplifica ese criterio cuando el que la usa sabe exactamente que le esta pidiendo y por que.
+
+### 9.9 MCP: el protocolo que conecta agentes con herramientas
+
+MCP son las siglas de Model Context Protocol. Es el protocolo estandar que permite a un agente de IA usar herramientas externas reales: leer memoria, consultar un grafo de codigo, buscar en bases de datos, ejecutar comandos, acceder a APIs.
+
+Sin MCP, el agente solo tiene texto. Con MCP, el agente puede actuar.
+
+La analogia mas util: si el agente es un cirujano, MCP es el instrumental quirurgico. Sin instrumentos, el conocimiento no alcanza. Con ellos, puede operar con precision.
+
+#### Como funciona MCP en la practica
+
+Un servidor MCP expone un conjunto de herramientas y/o recursos. El agente puede llamar esas herramientas durante una sesion, igual que llama a funciones. La diferencia con una funcion normal es que el servidor MCP corre fuera del modelo: es un proceso externo que el agente invoca, no logica interna suya.
+
+Esto tiene una consecuencia importante: **el agente no sabe por si solo que herramientas tiene disponibles**. Las herramientas se configuran en el entorno donde corre el agente, no en el modelo. Por eso en este repo no encontraras un `.mcp.json` dentro de la carpeta del proyecto: la configuracion MCP vive en el entorno del autor, no en el producto `auto-reddit`.
+
+#### Los servidores MCP activos en este proyecto
+
+En este repo hay dos servidores MCP que el agente usa activamente durante el desarrollo.
+
+**GitNexus MCP**
+
+Este es el MCP mas visible en el repo. Su presencia esta verificada explicitamente en `AGENTS.md`, donde se documentan las herramientas que los agentes deben usar antes de editar codigo.
+
+Las herramientas que expone, con ejemplos reales del repo:
+
+| Herramienta | Para que sirve | Ejemplo concreto en auto-reddit |
+|---|---|---|
+| `gitnexus_query` | Encontrar codigo por concepto | `gitnexus_query({query: "reddit fallback"})` para localizar donde se gestiona el fallback entre providers |
+| `gitnexus_context` | Ver callers, callees y flujos de un simbolo | `gitnexus_context({name: "collect_candidates"})` para ver quien llama a esa funcion y a quien llama |
+| `gitnexus_impact` | Calcular blast radius antes de editar | `gitnexus_impact({target: "RedditCandidate", direction: "upstream"})` para saber que se romperia si cambias el contrato |
+| `gitnexus_detect_changes` | Verificar alcance real antes de commit | `gitnexus_detect_changes({scope: "staged"})` para confirmar que solo tus cambios previstos han tocado el grafo |
+| `gitnexus_rename` | Renombrar simbolos de forma segura | `gitnexus_rename({symbol_name: "RedditCandidate", new_name: "RedditPost", dry_run: true})` para previsualizar el impacto |
+| `gitnexus_cypher` | Consultas custom al grafo de conocimiento | `gitnexus_cypher({query: "MATCH (n)-[:CALLS]->(m) WHERE n.name='main' RETURN m"})` para ver todos los simbolos que llama main |
+
+Ademas de herramientas, GitNexus expone recursos legibles directamente:
+
+```
+gitnexus://repo/auto-reddit/context       — vision general del repo e indice actual
+gitnexus://repo/auto-reddit/clusters      — areas funcionales del codigo
+gitnexus://repo/auto-reddit/processes     — todos los flujos de ejecucion identificados
+gitnexus://repo/auto-reddit/process/{name} — traza paso a paso de un flujo concreto
+```
+
+La leccion para un junior es esta: antes de editar cualquier funcion en este repo, se espera que el agente haya corrido `gitnexus_impact` sobre ella. Ese protocolo esta escrito en `AGENTS.md` como regla, no como sugerencia.
+
+**Engram MCP**
+
+Engram tambien es un servidor MCP. Lo que el agente llama `mem_save`, `mem_search`, `mem_context` o `mem_get_observation` son herramientas de ese servidor.
+
+Ejemplos reales de lo que Engram ha guardado en este proyecto durante el desarrollo:
+
+- el bugfix de ReddAPI: cuando se descubrio que el script fallaba por un `User-Agent` incorrecto, se guardo en Engram con tipo `bugfix`, titulo y contexto. La proxima sesion, el agente puede recuperarlo sin que el autor tenga que repetir todo el contexto.
+- las decisiones del cap de 8/dia: cuando se decidio bajar el limite de 10 a 8, Engram guardo la razon. Las sesiones posteriores que tocaron documentacion relacionada recuperaron ese contexto antes de editar.
+- el resumen de cada sesion: al cerrar una sesion larga de trabajo, el agente guarda un resumen estructurado con objetivo, descubrimientos, lo que se completo y los proximos pasos. Sin esto, cada sesion empezaria desde cero.
+
+La diferencia entre Engram y un archivo de notas manual es que el agente puede buscar en Engram con lenguaje natural y recuperar observaciones concretas. No es busqueda por nombre de archivo; es busqueda semantica sobre lo que se guardo.
+
+#### Lo que MCP permite que no seria posible sin el
+
+Sin MCP, el agente trabaja con texto: lee lo que le das y responde. Con MCP:
+
+- puede consultar el grafo de codigo antes de editar
+- puede recuperar memoria de sesiones anteriores
+- puede verificar el impacto real de un cambio antes de cometerlo
+- puede buscar en la historia de decisiones del proyecto sin que el autor tenga que recordarlas
+
+Eso es lo que convierte un modelo de lenguaje en un agente capaz de trabajar de forma sostenida en un proyecto real.
+
+---
+
+### 9.10 Como encaja todo junto
 
 La mejor forma de verlo es esta:
 
@@ -506,10 +691,11 @@ La mejor forma de verlo es esta:
 |---|---|
 | `docs/` | Define verdad funcional y tecnica |
 | `openspec/` | Descompone el camino de entrega |
-| `skills/` | Estandariza como debe trabajar el agente |
-| `AGENTS.md` | Orquesta reglas y restricciones del repo |
-| GitNexus | Da inteligencia estructural del codigo |
-| Engram | Conserva memoria entre sesiones |
+| `skills/` | Estandariza como debe trabajar el agente dentro de este repo |
+| `AGENTS.md` | Orquesta reglas, restricciones y uso de MCPs del repo |
+| Skills globales | Aportan metodo reusable entre proyectos |
+| GitNexus MCP | Da inteligencia estructural del codigo en tiempo de trabajo |
+| Engram MCP | Conserva memoria operativa entre sesiones |
 | `src/` | Implementa el producto |
 
 Eso, dicho claro, es ingenieria de producto. No solo programacion.
@@ -1008,3 +1194,54 @@ Si tuviera que resumirlo para un tribunal o para un junior, lo diria asi:
 > `auto-reddit` es un sistema de deteccion asistida de oportunidades en Reddit para Odoo que ya tiene bastante bien resuelto el que, el por que y el como deberia construirse, aunque todavia este materializando el codigo funcional de sus modulos principales.
 
 Y eso importa, porque un buen proyecto no empieza cuando escribes mucho codigo. Empieza cuando dejas de improvisar.
+
+---
+
+## 16. Como mantener viva esta guia
+
+Si esta guia quiere seguir siendo util cuando lleguen nuevas implementaciones, tiene que actualizarse con reglas claras y no a golpe de intuicion.
+
+### 16.1 Jerarquia de verdad documental
+
+Cuando haya contradicciones, actualiza la guia siguiendo este orden:
+
+1. `docs/product/` para verdad funcional
+2. `docs/architecture.md` y `docs/integrations/` para verdad tecnica
+3. `openspec/` para el plan vigente por change
+4. `src/` y `tests/` para implementacion real materializada
+5. `TFM/diario.md` y notas historicas como contexto, nunca como fuente vigente por defecto
+
+### 16.2 Regla editorial clave
+
+Cada actualizacion debe distinguir SIEMPRE entre:
+
+- **producto**: lo que `auto-reddit` hace o debe hacer
+- **herramienta de trabajo**: lo que ayuda a pensar, documentar, analizar o programar
+- **flujo declarado por el autor**: decisiones de proceso no demostrables solo con el repo
+
+Si se mezclan esas tres capas, la guia pierde valor academico y tecnico.
+
+### 16.3 Cuando actualizar cada bloque
+
+- actualiza la seccion 4 cuando cambie el nivel de madurez real de un modulo
+- actualiza la seccion 9 cuando entren o salgan tools, skills o reglas de agente que afecten al proceso
+- actualiza la seccion 10 cuando un placeholder pase a tener implementacion real o aparezcan nuevos modulos
+- actualiza la seccion 11 cuando un flujo previsto pase a ser un flujo ejecutable
+- actualiza la seccion 12 cuando un riesgo cambie de estado o aparezca una mitigacion nueva
+- actualiza la seccion 14 cuando una incognita quede resuelta o nazcan otras nuevas
+
+### 16.4 Como anadir futuros changes SDD sin romper la guia
+
+Cuando se implemente un nuevo change, no reescribas la guia completa. Haz esto:
+
+1. anade el change al mapa de proceso de la seccion 9
+2. refleja en la seccion 10 que archivos o modulos se materializaron
+3. mueve en la seccion 11 lo que ya sea flujo ejecutable
+4. revisa secciones 12 y 14 para cerrar riesgos y abrir nuevos pendientes
+
+### 16.5 Que no hacer
+
+- no copiar trozos enteros de `README.md`, `docs/` u `openspec/` si no aportan sintesis
+- no presentar tooling del autor como si fuera parte obligatoria del runtime del producto
+- no ocultar limites de verificacion: si algo no se pudo demostrar desde repo o fuente publica, debe etiquetarse
+- no dejar convivir sin nota decisiones historicas y decisiones vigentes
