@@ -7,3 +7,9 @@ dependencies:
 notes:
   - Must stay minimal to respect first-slice scope
   - Prevents duplicate delivery, not full historical analytics
+  - Excludes posts already decided as sent or rejected
+  - Selects the 10 most recent eligible posts by created_at recency
+  - rejected means final business rejection by the AI and must not re-enter the flow
+  - not selected today is not rejected; it can compete again while still inside the 7-day window
+  - If Telegram delivery fails after AI acceptance, retry delivery without re-evaluating with AI
+  - No explicit backlog and no approved state

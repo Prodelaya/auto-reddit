@@ -26,7 +26,7 @@ Crear un sistema que ayude al equipo de marketing y contenido a detectar, cada d
 
 ## 5. Objetivo operativo del primer slice
 
-Cada día, el sistema recoge posts SOLO de `r/Odoo`, filtra por `created_at` dentro de los últimos 7 días, toma para revisión los 10 posts no enviados más recientes por fecha de creación y selecciona oportunidades válidas para enviar al equipo por Telegram.
+Cada día, el sistema recoge TODOS los posts SOLO de `r/Odoo` cuya creación esté dentro de los últimos 7 días, los normaliza para el pipeline interno y delega aguas abajo la exclusión por memoria operativa y el recorte diario a 10 candidatos para revisión.
 
 La entrega diaria debe priorizar utilidad operativa y criterio de intervención, no volumen.
 
@@ -34,15 +34,17 @@ La entrega diaria debe priorizar utilidad operativa y criterio de intervención,
 
 ## 6. Flujo del producto
 
-1. Obtener los posts de `r/Odoo`.
+1. Obtener todos los posts de `r/Odoo`.
 2. Filtrar para considerar solo posts cuya creación esté dentro de los últimos 7 días.
-3. Tomar para revisión diaria los 10 posts no enviados más recientes ordenados por fecha de creación.
-4. Evaluar cada uno con IA para decidir si representa una oportunidad válida.
-5. Recuperar comentarios SOLO para los posts seleccionados aguas arriba cuando haga falta contexto de hilo para la evaluación.
-6. Excluir posts resueltos, cerrados, redundantes o no aptos para intervención.
-7. Generar la información de oportunidad para los posts válidos.
-8. Enviar por Telegram un resumen inicial del lote diario y después un mensaje por cada oportunidad seleccionada.
-9. Registrar memoria operativa mínima para no reenviar posts ya enviados.
+3. Normalizar cada post al contrato interno mínimo y conservar los incompletos con marca explícita.
+4. Excluir por memoria operativa los posts ya decididos como `sent` o `rejected`.
+5. Tomar para revisión diaria los 10 posts elegibles más recientes ordenados por fecha de creación.
+6. Evaluar cada uno con IA para decidir si representa una oportunidad válida.
+7. Recuperar comentarios SOLO para los posts seleccionados aguas arriba cuando haga falta contexto de hilo para la evaluación.
+8. Excluir posts resueltos, cerrados, redundantes o no aptos para intervención.
+9. Generar la información de oportunidad para los posts válidos.
+10. Enviar por Telegram un resumen inicial del lote diario y después un mensaje por cada oportunidad seleccionada.
+11. Registrar memoria operativa mínima para no reenviar posts ya enviados ni reabrir descartes finales.
 
 ## 7. Reglas de selección
 
@@ -56,9 +58,11 @@ Solo se consideran posts cuya creación esté dentro de los últimos 7 días.
 
 ### 7.4 Tamaño de la revisión diaria
 
-Cada día se revisan con IA los 10 posts no enviados más recientes ordenados por fecha de creación, no por última actividad.
+La recolección inicial conserva todos los posts dentro de la ventana de 7 días.
 
-No existe un backlog editorial explícito ni un estado `approved`. Si un post no se envía hoy pero sigue dentro de la ventana de 7 días y no está marcado como enviado, mañana vuelve a competir normalmente desde la ventana.
+El recorte diario ocurre después de aplicar memoria operativa mínima: cada día se revisan con IA los 10 posts elegibles más recientes ordenados por fecha de creación, no por última actividad.
+
+No existe un backlog editorial explícito ni un estado `approved`. Si un post no se selecciona hoy pero sigue dentro de la ventana de 7 días y no está marcado como `sent` ni como `rejected`, mañana vuelve a competir normalmente desde la ventana.
 
 ### 7.5 Límite de envío diario
 
@@ -70,6 +74,15 @@ No existe un backlog editorial explícito ni un estado `approved`. Si un post no
 Cada post solo se envía una vez.
 
 Esto requiere un histórico operativo mínimo para recordar qué posts ya fueron enviados. Ese mínimo operativo sí forma parte del slice, pero no se considera almacenamiento histórico largo como feature de producto.
+
+Los estados operativos mínimos relevantes son:
+
+- `sent`: el post ya fue enviado a Telegram y no vuelve a competir.
+- `rejected`: rechazo final de negocio por la IA; el sistema concluye que no aplica respuesta, que el post está cerrado o que no merece intervención y no debe volver a procesarse.
+
+`not selected today` no es un estado persistente ni equivale a `rejected`.
+
+Si Telegram falla después de que la IA haya aceptado una sugerencia, el comportamiento correcto es reintentar el envío sin reevaluar la IA.
 
 ### 7.7 Regla de corte cuando haya más de 10 válidos
 
@@ -137,12 +150,14 @@ La salida debe priorizar operatividad interna sin bloquear la adaptación al con
 
 - Revisión diaria de `r/Odoo`.
 - Filtrado por fecha de creación en los últimos 7 días.
-- Evaluación diaria de los 10 posts no enviados más recientes ordenados por fecha de creación.
+- Recolección inicial de todos los posts de `r/Odoo` dentro de la ventana de 7 días.
+- Normalización interna de candidatos con tolerancia a campos faltantes.
+- Evaluación diaria de los 10 posts elegibles más recientes ordenados por fecha de creación.
 - Recuperación de comentarios solo para los posts ya seleccionados para el flujo posterior.
 - Selección y envío de hasta 10 oportunidades válidas al día.
 - Entrega por Telegram con formato resumido y accionable.
 - Generación de respuesta sugerida cuando aporte valor real.
-- Memoria operativa mínima para no reenviar posts ya enviados.
+- Memoria operativa mínima para no reenviar posts ya enviados ni reprocesar descartes finales.
 
 ### Fuera de alcance
 
@@ -157,15 +172,19 @@ La salida debe priorizar operatividad interna sin bloquear la adaptación al con
 El primer slice se considera correcto cuando:
 
 - Usa `r/Odoo` como fuente inicial.
+- Conserva inicialmente todos los posts de `r/Odoo` dentro de la ventana de 7 días.
+- Normaliza los candidatos al contrato interno mínimo y conserva los incompletos con marca explícita.
 - Entrega diariamente oportunidades por Telegram al equipo de marketing y contenido.
-- Revisa cada día los 10 posts no enviados más recientes ordenados por fecha de creación.
+- Excluye antes de la revisión los posts ya decididos como `sent` o `rejected`.
+- Revisa cada día los 10 posts elegibles más recientes ordenados por fecha de creación.
 - Solo considera posts cuya creación esté dentro de los últimos 7 días.
 - No envía más de 10 oportunidades al día.
 - Si hay menos oportunidades válidas, envía solo las válidas detectadas.
 - No reenvía un mismo post más de una vez.
-- Si un post no se envía en una ejecución pero sigue dentro de los 7 días y no fue enviado, vuelve a competir normalmente al día siguiente.
+- Si un post no se selecciona en una ejecución pero sigue dentro de los 7 días y no fue marcado como `sent` ni `rejected`, vuelve a competir normalmente al día siguiente.
 - Si hay más de 10 válidas, prioriza no resueltos y después recencia.
 - Excluye hilos resueltos o cerrados según la definición de este documento.
+- Si Telegram falla tras una aceptacion de IA, reintenta el envio sin reevaluar la IA.
 - El mensaje inicial de Telegram incluye fecha, número de oportunidades y número de posts revisados.
 - El campo `tipo de oportunidad` usa la lista cerrada definida en este documento.
 - Solo genera respuesta sugerida cuando puede aportar algo relevante, contextual y no redundante.

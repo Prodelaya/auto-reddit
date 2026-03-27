@@ -289,3 +289,37 @@ Y se mantuvieron como historicos con avisos de supersesion:
 Queda explicitado que el sistema actual trabaja con un modelo 10/10, ventana de
 7 dias por fecha de creacion, sin backlog editorial persistente y con
 comentarios recuperados solo despues de la seleccion aguas arriba.
+
+---
+
+## Entrada 5
+
+**Fecha:** 27/03/2026
+
+### Cierre del discovery del change 1
+
+Se cerro formalmente el discovery de `reddit-candidate-collection` y se dejo
+trazado en `openspec/discovery/reddit-candidate-collection.md`.
+
+### Alcance confirmado
+
+- El change 1 recoge todos los posts de `r/Odoo` creados en los ultimos 7 dias.
+- En esta fase no se recuperan comentarios; la salida se entrega normalizada en
+  memoria/proceso.
+- Los posts incompletos no se descartan: se conservan marcados como
+  incompletos.
+
+### Relacion con cambios posteriores
+
+- El change 2 excluye `sent` y `rejected`, selecciona 10 candidatos por
+  recencia y no usa estado `approved`.
+- `not selected today` no equivale a `rejected`; el post vuelve a competir si
+  sigue dentro de la ventana.
+- Si Telegram falla despues de una aceptacion de IA, se reintenta el envio sin
+  reevaluar la IA.
+
+### Gap abierto
+
+Queda pendiente decidir la estrategia exacta de paginacion o batching para
+recorrer toda la ventana real de 7 dias cuando se hagan pruebas contra los
+endpoints de Reddit.

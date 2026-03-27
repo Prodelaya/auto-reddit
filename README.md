@@ -94,9 +94,9 @@ auto-reddit/
 
 ## Funcionalidades principales
 
-- **Detección diaria de oportunidades en `r/Odoo`**: cada día el sistema recoge solo posts de `r/Odoo`, filtra por fecha de creación dentro de los últimos 7 días y revisa como máximo 10 posts no enviados, priorizados por recencia.
+- **Detección diaria de oportunidades en `r/Odoo`**: cada día el sistema recoge todos los posts de `r/Odoo` dentro de los últimos 7 días, los normaliza para el pipeline interno y, aguas abajo, revisa como máximo 10 candidatos elegibles priorizados por recencia.
 - **Filtrado por categorías de oportunidad**: los posts se clasifican en una taxonomía cerrada: funcionalidad y configuración de Odoo, desarrollo, dudas sobre si merece la pena Odoo, y comparativas con otras opciones.
 - **Evaluación por IA**: DeepSeek evalúa cada candidato para decidir si representa una oportunidad válida, resume el contexto en español para el equipo interno e incluye una respuesta sugerida en español y otra en inglés para revisión humana.
 - **Entrega diaria por Telegram**: el equipo recibe un mensaje de resumen con la fecha, el número de posts revisados y el número de oportunidades detectadas, seguido de un mensaje por cada oportunidad con título, enlace, idioma del post, tipo, resumen y respuesta sugerida.
 - **Contexto del hilo bajo demanda**: los comentarios se recuperan solo para los posts seleccionados aguas arriba para el flujo posterior; no forman parte de la recolección inicial de candidatos.
-- **Control de duplicados e idempotencia mínima**: cada post se registra y se envía una sola vez. No existe backlog explícito ni estado `approved`; si un post no se envía hoy pero sigue dentro de la ventana de 7 días y no está marcado como enviado, mañana vuelve a competir normalmente.
+- **Control de duplicados e idempotencia mínima**: cada post se registra y se envía una sola vez. No existe backlog explícito ni estado `approved`; `rejected` es descarte final de negocio, `not selected today` no es un estado persistente, y si Telegram falla tras una aceptación de IA se reintenta el envío sin reevaluar.

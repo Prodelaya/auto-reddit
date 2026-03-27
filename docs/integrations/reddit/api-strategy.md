@@ -20,15 +20,17 @@ El proyecto evalua 4 APIs no oficiales de Reddit en RapidAPI, pero el flujo prin
 ### Regla operativa de unicidad
 
 - No existe backlog explicito ni estado `approved`.
-- Si un post no se envia hoy pero sigue dentro de la ventana de 7 dias y no esta marcado como enviado, manana vuelve a competir normalmente desde la ventana.
-- Change 2 se centra en unicidad, memoria de enviados e idempotencia operativa minima, no en una cola editorial.
+- Change 2 excluye posts ya decididos como `sent` o `rejected`, selecciona los 10 elegibles mas recientes y mantiene unicidad e idempotencia operativa minima, no una cola editorial.
+- `rejected` significa rechazo final de negocio por la IA: no aplicar respuesta, post cerrado o sin valor de intervencion. No debe volver a procesarse.
+- `not selected today` NO es `rejected`; si el post sigue dentro de la ventana de 7 dias y no esta marcado como `sent` ni `rejected`, manana vuelve a competir normalmente desde la ventana.
+- Si Telegram falla despues de que la IA haya aceptado una sugerencia, el comportamiento correcto es reintentar el envio sin reevaluar IA.
 
 ### Paso 1 — Posts nuevos de r/Odoo
 
 - **Principal**: `reddit3` → `GET /v1/reddit/posts?url=https://www.reddit.com/r/Odoo/&filter=new`
-- **Fallback 1**: `reddapi` → `GET /api/scrape/new?subreddit=odoo&limit=10`
+- **Fallback 1**: `reddapi` → `GET /api/scrape/new?subreddit=odoo&limit=<batch-size>`
 - **Fallback 2**: `reddit34` → `GET getPostsBySubreddit?subreddit=odoo&sort=new`
-- **Reglas de este paso**: solo `r/Odoo`, filtro por fecha de creacion dentro de 7 dias, maximo 10 posts por ejecucion para el flujo posterior, sin comentarios en esta fase.
+- **Reglas de este paso**: solo `r/Odoo`, filtro por fecha de creacion dentro de 7 dias, priorizacion por recencia, sin comentarios en esta fase y sin recorte a 10 en este change. Si una API no devuelve toda la ventana en una sola llamada, habra que agotar la ventana con mas de una llamada; la tactica exacta queda para el diseno tecnico.
 - **Justificacion**: reddit3 tiene el doble de cuota (100 vs 50), shape mas plano, prueba real positiva.
 
 ### Paso 2 — Comentarios por post
@@ -45,9 +47,9 @@ Descartada del flujo principal. Solo busqueda global con ruido de multiples subr
 
 ## 4. Cuotas y reparto mensual
 
-Escenario de referencia para planning: modelo 10/10, ejecucion de lunes a viernes (~22 dias/mes), hasta 1 llamada diaria para posts y hasta 10 llamadas diarias de comentarios para los posts que sigan aguas arriba.
+Escenario de referencia para planning: modelo 10/10, ejecucion de lunes a viernes (~22 dias/mes), hasta 10 llamadas diarias de comentarios para los posts que sigan aguas arriba y con el consumo de posts pendiente de recalculo fino si la recoleccion completa de la ventana exige mas de una llamada diaria.
 
-- Consumo de referencia: `~242 req/mes`
+- Consumo de referencia: `~242 req/mes` bajo el supuesto historico de 1 llamada diaria para posts; debe revisarse si la recoleccion completa requiere paginacion o batches adicionales.
 - Cuota total disponible combinando las 4 APIs: `320 req/mes`
 - Margen combinado estimado: `~78 req/mes`
 
@@ -106,6 +108,18 @@ class RedditPost(BaseModel):
     source_api: str
 ```
 
+Contrato minimo funcional del change 1:
+
+- `post_id`
+- `title`
+- `body/selftext`
+- `url/permalink`
+- `author`
+- `subreddit`
+- `created_at`
+
+Si faltan campos, el post se conserva con marca de incompleto en lugar de descartarse.
+
 ### Comentario normalizado
 
 ```python
@@ -129,6 +143,7 @@ Nota: reddapi no devuelve `comment_id`, `created_utc` ni `permalink` en comentar
 - Si la API devuelve permalink relativo, se prefija con `https://www.reddit.com`
 - El campo de texto del comentario se normaliza al campo `body` independientemente de si la API lo llama `text`, `content`, `body` o `comment`
 - El ID del comentario se normaliza sin prefijo `t1_` (reddit34 lo incluye, las demas no)
+- La salida de `reddit-candidate-collection` se entrega como lista normalizada en memoria/proceso para el siguiente paso
 
 ## 10. Limitaciones documentadas por API
 
@@ -170,4 +185,4 @@ Se ha considerado crear multiples cuentas RapidAPI para multiplicar cuota. De mo
 
 ## 13. Estado del documento
 
-Este documento refleja las decisiones operativas vigentes tomadas el 27/03/2026. Los valores de cuota y reparto podran revisarse tras uso real, pero el modelo actual de alcance es: `r/Odoo` solo, ventana de 7 dias por fecha de creacion, priorizacion por recencia, comentarios solo para posts seleccionados y limite 10/10.
+Este documento refleja las decisiones operativas vigentes tomadas el 27/03/2026. Los valores de cuota y reparto podran revisarse tras uso real, pero el modelo actual de alcance es: `r/Odoo` solo, ventana de 7 dias por fecha de creacion, priorizacion por recencia, comentarios solo para posts seleccionados, change 1 sin recorte a 10 y change 2 aplicando la seleccion diaria de 10 elegibles.
