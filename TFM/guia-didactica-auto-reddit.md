@@ -25,7 +25,8 @@ No es un manual de onboarding. Es una guia de aprendizaje que usa un proyecto re
 - [13. Learning notes para juniors](#13-learning-notes-para-juniors)
 - [14. Zonas pendientes o abiertas](#14-zonas-pendientes-o-incognitas)
 - [15. Cierre](#15-cierre-que-es-hoy-auto-reddit-de-verdad)
-- [16. Como mantener viva esta guia](#16-como-mantener-viva-esta-guia)
+- [16. Historial de changes](#16-historial-de-changes)
+- [17. Como mantener viva esta guia](#17-como-mantener-viva-esta-guia)
 
 La estructura separa cuatro capas que conviene no mezclar nunca: **producto**, **arquitectura**, **proceso y herramientas de trabajo**, e **implementacion real del momento**. Cada bloque tiene rotacion distinta: producto y arquitectura cambian poco; implementacion, riesgos y pendientes cambian con cada change. Cuando el proyecto crezca, añade en los bloques correspondientes; no abras una guia paralela.
 
@@ -196,48 +197,50 @@ Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
 
 Esta es probablemente la parte mas importante para no enganarte.
 
-### Estado real del repo
+### Estado real del repo — actualizado 2026-03-27
 
-El proyecto tiene mucha definicion y poca implementacion funcional todavia.
+El change 1 (`reddit-candidate-collection`) esta **completado y archivado**. El proyecto ha cruzado la linea de solo planificacion a implementacion funcional real.
 
-Eso NO significa que este mal hecho. Significa que esta en una fase donde se ha trabajado muy en serio el problema, la arquitectura, la investigacion tecnica y el planning, pero el codigo de negocio sigue en estado inicial.
+La base ya ejecutable incluye:
+
+- contratos Pydantic reales (`RedditCandidate` con `is_complete`)
+- cliente Reddit con tres normalizers, paginacion por cursor, reintentos y fallback chain funcional
+- 50 tests que pasan cubren: coleccion, normalizacion, filtrado, paginacion, fallback y comportamiento de `is_complete`
+- `main.py` con `run()` que orquesta el pipeline y deja espacio explicito para los changes siguientes
+- spec promovida a `openspec/specs/reddit-candidate-collection/spec.md` como fuente de verdad permanente
 
 ### Que esta maduro
 
 - producto bastante bien definido en `docs/product/product.md`
-- reglas editoriales de IA bastante bien definidas en `docs/product/ai-style.md`
+- reglas editoriales de IA definidas en `docs/product/ai-style.md`, incluyendo modelo recomendado (`deepseek-chat`)
 - arquitectura modular claramente documentada en `docs/architecture.md`
-- estrategia Reddit bastante trabajada y revalidada con raws reales en `docs/integrations/reddit/`
-- artefactos OpenSpec del change 1 muy avanzados: discovery, proposal, spec, design y tasks
-- skilling del repo y normas operativas para agentes bastante elaboradas
+- estrategia Reddit trabajada y revalidada con raws reales en `docs/integrations/reddit/`
+- change 1 completamente archivado: discovery, proposal, spec, design, tasks, verify y archive
+- spec canonica del change 1 promovida a `openspec/specs/`
+- skilling del repo y normas operativas para agentes bien consolidadas
 
 ### Que sigue scaffolded
 
-- `src/auto_reddit/main.py` solo contiene una docstring
-- `src/auto_reddit/reddit/client.py` solo contiene una docstring
-- `src/auto_reddit/evaluation/evaluator.py` solo contiene una docstring
-- `src/auto_reddit/delivery/telegram.py` solo contiene una docstring
-- `src/auto_reddit/persistence/store.py` solo contiene una docstring
-- `src/auto_reddit/shared/contracts.py` solo contiene comentarios de ejemplo
-- los tests reales todavia no existen; en `tests/` solo hay `__init__.py`
+- `src/auto_reddit/evaluation/evaluator.py` — solo docstring
+- `src/auto_reddit/delivery/telegram.py` — solo docstring
+- `src/auto_reddit/persistence/store.py` — solo docstring
 
 ### Nivel de madurez por capas
 
 | Capa | Madurez | Comentario docente |
 |---|---|---|
-| Producto | Alta | El que, para que y limites estan bastante bien cerrados. |
-| Arquitectura | Media-alta | La forma del sistema esta definida, aunque aun no se haya materializado en codigo. |
-| Integracion Reddit | Media | Hay evidencia tecnica fuerte y estrategia clara, pero falta implementacion real del cliente del producto. |
-| IA / evaluacion | Media-baja | Hay criterio y skill de integracion, pero el modulo esta vacio. |
+| Producto | Alta | Que, para que y limites bastante bien cerrados. |
+| Arquitectura | Alta | La forma del sistema esta definida y el change 1 la valida en codigo real. |
+| Contratos / shared | Alta | `RedditCandidate` implementado, validado y archivado. |
+| Integracion Reddit | Alta | Cliente con fallback chain, paginacion, reintentos y 50 tests. |
+| IA / evaluacion | Baja | Hay criterio y skill, pero el modulo sigue vacio. |
 | Persistencia | Baja | El modelo esta documentado, pero el store no esta implementado. |
 | Delivery Telegram | Baja | El contrato de salida esta claro, pero el cliente no existe todavia. |
-| Testing | Muy baja | Solo hay estructura de carpetas. |
+| Testing | Media | 50 tests reales en `tests/test_reddit/`; el resto del pipeline aun sin cobertura. |
 
 ### Lectura correcta de la madurez
 
-Este repo es, ahora mismo, mas un sistema de decision y diseno que un producto ejecutable completo.
-
-Eso tiene una ventaja enorme para un TFM: permite explicar muy bien el paso de idea -> discovery -> decisiones -> arquitectura -> diseno tecnico -> implementacion futura.
+El proyecto ya no es solo diseno: tiene una capa funcional real. Pero el pipeline completo todavia depende de los changes 2 al 5. Lo que esta archivado es la pieza de recoleccion de candidatos; las piezas de filtrado, enriquecimiento, evaluacion IA y entrega Telegram estan por venir.
 
 ---
 
@@ -247,14 +250,25 @@ Eso tiene una ventaja enorme para un TFM: permite explicar muy bien el paso de i
 
 ```text
 auto-reddit/
-|- src/auto_reddit/        Codigo del producto, hoy mayormente scaffolded
-|- docs/                   Fuente de verdad funcional y tecnica
-|- openspec/               Planning SDD por changes
-|- skills/                 Skills locales del repo para agentes de codigo
-|- scripts/                Tooling de investigacion, no flujo de producto
-|- tests/                  Estructura de tests aun vacia
-|- TFM/                    Documentacion academica
-|- AGENTS.md / CLAUDE.md   Reglas operativas para agentes
+|- src/auto_reddit/                    Codigo del producto
+|   |- shared/contracts.py             Contratos Pydantic — change 1 implementado
+|   |- reddit/client.py                Cliente Reddit con fallback chain — change 1 implementado
+|   |- main.py                         Orquestador del pipeline — change 1 conectado
+|   |- config/settings.py              Configuracion y validacion de entorno
+|   |- evaluation/evaluator.py         Evaluacion IA — scaffolded (change 4)
+|   |- delivery/telegram.py            Entrega Telegram — scaffolded (change 5)
+|   |- persistence/store.py            Memoria operativa — scaffolded (change 2)
+|- tests/
+|   |- test_reddit/                    50 tests del change 1
+|- docs/                               Fuente de verdad funcional y tecnica
+|- openspec/
+|   |- specs/                          Specs canonicas promovidas (fuente de verdad permanente)
+|   |- changes/archive/                Changes completados y archivados
+|   |- changes/<activos>/              Changes en curso
+|- skills/                             Skills locales del repo
+|- scripts/                            Tooling de investigacion, no flujo de producto
+|- TFM/                                Documentacion academica
+|- AGENTS.md / CLAUDE.md               Reglas operativas para agentes
 ```
 
 ### Mapa semantico
@@ -292,11 +306,16 @@ No pienses el repo por carpetas. Piensalo por capas:
 ### Conceptos tecnicos
 
 - `monolito modular`: una sola aplicacion con modulos bien separados, sin microservicios
-- `contrato`: estructura de datos compartida entre modulos; aqui se preve con Pydantic
+- `contrato`: estructura de datos compartida entre modulos; en este repo es `RedditCandidate` en `shared/contracts.py`
 - `DTO/modelo de transferencia`: objeto orientado a mover datos entre capas
-- `fallback`: cadena de respaldo cuando falla un proveedor principal
+- `fallback chain`: cadena ordenada de proveedores; si el primero falla se intenta el siguiente (`reddit3 → reddit34 → reddapi`)
+- `normalizer`: funcion que transforma la respuesta heterogenea de una API externa al contrato propio del sistema
+- `cursor`: token opaco que una API devuelve para indicar el punto de inicio de la pagina siguiente; cada provider de Reddit usa un campo distinto
+- `is_complete`: campo computado de `RedditCandidate` que indica si el candidato tiene todos los campos minimos del contrato; los incompletos se conservan pero se marcan
+- `idempotencia`: propiedad de una operacion que produce el mismo resultado si se ejecuta varias veces; en este sistema se logra con persistencia de estados (`sent`, `rejected`)
 - `TTL`: tiempo de vida de un registro; aqui se piensa como `created_at + 7 dias`
 - `scaffolding`: estructura inicial preparada pero aun sin implementacion real
+- `blast radius`: conjunto de simbolos y modulos que se ven afectados cuando cambias uno concreto; se mide con `gitnexus_impact`
 
 ### Conceptos de proceso
 
@@ -754,13 +773,20 @@ Rol: orquestacion local/minima del contenedor y preparacion de persistencia por 
 
 #### `src/auto_reddit/main.py`
 
-Contenido real verificado: una sola docstring.
+**Change 1 implementado.** Ya no es un placeholder.
 
-Rol esperado: orquestador del proceso diario.
+Contiene la funcion `run()` que actua como orquestador del pipeline diario:
 
-Rol actual: placeholder arquitectonico.
+```python
+def run() -> None:
+    candidates = collect_candidates(settings)          # Change 1: colectar
+    # filter_candidates(...)                           # Change 2: pendiente
+    # enrich_with_comments(...)                        # Change 3: pendiente
+```
 
-Esto es importante: el archivo ya dice quien deberia ser, pero aun no hace ese trabajo.
+Rol: director de orquesta. No contiene logica de negocio fina; conecta modulos por fases. Los comentarios de los changes pendientes son intencionales: marcan el punto de entrada para las implementaciones siguientes sin oscurecer el flujo ya funcional.
+
+**Leccion docente:** este patron de dejar placeholders comentados en el orquestador es una forma muy limpia de comunicar el diseno a futuros desarrolladores. El archivo dice que hay, que falta y en que orden.
 
 #### `src/auto_reddit/config/settings.py`
 
@@ -784,25 +810,77 @@ Rol: configuracion y validacion de entorno.
 
 #### `src/auto_reddit/shared/contracts.py`
 
-Hoy contiene solo comentarios y ejemplos de futuros modelos.
+**Change 1 implementado.** Este archivo es ahora el corazon del sistema.
 
-Rol esperado: ser el idioma comun del sistema.
+Contiene `RedditCandidate`, el contrato Pydantic real que fluye entre modulos:
 
-Rol actual: placeholder de contratos.
+```python
+class RedditCandidate(BaseModel):
+    post_id: str
+    title: str
+    selftext: str | None = None
+    url: str            # siempre URL absoluta
+    permalink: str      # siempre URL absoluta
+    author: str | None = None
+    subreddit: str
+    created_utc: int
+    num_comments: int | None = None
+    source_api: str     # quien entrego este candidato
 
-Esto es mas importante de lo que parece. En una arquitectura modular, `shared/contracts.py` es el sitio donde se convierten las decisiones abstractas en formas de datos concretas. Mientras este archivo siga vacio, la arquitectura todavia no tiene costuras reales.
+    @computed_field
+    @property
+    def is_complete(self) -> bool:
+        # True solo si TODOS los campos minimos del contrato estan presentes
+        ...
+```
+
+El campo `is_complete` merece atencion especial. No elimina candidatos incompletos (un post con datos parciales sigue siendo un candidato valido), pero los marca. La decision de que hacer con ellos es del paso siguiente del pipeline.
+
+Esto enseña una leccion importante sobre diseno de contratos: **la validacion no siempre es rechazo**. A veces es clasificacion.
+
+Otro detalle relevante: `url` y `permalink` se garantizan siempre absolutas. La normalizacion ocurre en el cliente, no en el consumidor. El consumidor del contrato no necesita saber si el provider original devolvio una URL relativa.
+
+Rol: idioma comun del sistema. Ningun modulo importa de otro directamente; todos hablan a traves de este archivo.
 
 #### `src/auto_reddit/reddit/client.py`
 
-Contenido real verificado: una docstring.
+**Change 1 implementado.** Este es el archivo mas rico del proyecto en este momento: 348 lineas de codigo real, bien estructurado, con separacion clara de responsabilidades internas.
 
-Rol esperado:
+Su estructura interna merece un recorrido docente:
 
-- conectar con las APIs de Reddit
-- traer posts y comentarios
-- normalizar al contrato compartido
+**Normalizers por provider** (`_normalize_reddit3`, `_normalize_reddit34`, `_normalize_reddapi`)
+Cada funcion sabe exactamente como transformar la forma especifica de una API al contrato `RedditCandidate`. Estan separadas porque cada API tiene una estructura distinta. Esta decision evita condicionales anidados en el codigo principal.
 
-Rol actual: placeholder del adaptador de entrada principal.
+```python
+# reddit3: posts planos en body[]
+# reddit34: posts en data.posts[].data
+# reddapi: posts en posts[].data
+```
+
+**Helper `_to_absolute_url`**
+Pequeña funcion con un trabajo muy claro: si la URL es relativa, la convierte a absoluta. Extraida como helper para no repetirla tres veces. Es un ejemplo perfecto de DRY aplicado con criterio.
+
+**Cursor extractors** (`_cursor_reddit3`, `_cursor_reddit34`, `_cursor_reddapi`)
+La ubicacion del cursor de paginacion es distinta en cada API. En lugar de un condicional en el bucle de paginacion, cada provider tiene su extractor. El bucle no sabe nada de las diferencias; recibe una funcion y la llama.
+
+```python
+# reddit3:  response.meta.cursor
+# reddit34: response.data.cursor
+# reddapi:  response.cursor
+```
+
+Esta fue una incognita abierta durante el diseno que se resolvio verificando los raws reales.
+
+**`_fetch_with_retry`**
+Reintentos con backoff exponencial (2s, 4s). Cualquier excepcion se loggea y se reintenta hasta agotar los intentos. Si todo falla, lanza `RuntimeError`. La decision de no silenciar errores es correcta: el fallo de un provider debe ser visible, no invisible.
+
+**`_paginate`**
+Funcion generica de paginacion que no sabe nada del provider concreto. Recibe: URL, headers, params base, nombre del param de cursor, normalizer y extractor de cursor. Pagina hasta que no hay mas cursor o hasta que el post mas antiguo de la pagina esta fuera de la ventana de 7 dias.
+
+**`collect_candidates`** — el punto de entrada publico
+Implementa el fallback chain: `reddit3 → reddit34 → reddapi`. Si un provider lanza excepcion, pasa al siguiente. Si todos fallan, devuelve lista vacia y logea error. Aplica dos filtros sobre el resultado del provider ganador: ventana de 7 dias y subreddit == "odoo" (case-insensitive). Devuelve ordenado por recencia descendente.
+
+Rol: adaptador de entrada del sistema. Absorbe la heterogeneidad de tres APIs externas y entrega un contrato homogeneo al siguiente paso del pipeline.
 
 #### `src/auto_reddit/evaluation/evaluator.py`
 
@@ -959,11 +1037,18 @@ Rol: convencion de despliegue.
 
 ### 10.7 `tests/`
 
-Solo contiene paquetes vacios.
+**Change 1 implementado.** Ya no esta vacia.
 
-Rol actual: estructura prevista.
+`tests/test_reddit/` contiene 50 tests reales que cubren:
 
-Leccion importante: tener carpeta de tests no es tener testing. El repo todavia no tiene cobertura efectiva.
+- `conftest.py`: fixtures con raws reales de reddit3, reddit34 y reddapi (snapshots sanitizados)
+- `test_client.py`: tests de normalizacion, filtrado temporal, filtrado por subreddit, paginacion con cursor, fallback chain, reintentos, comportamiento de `is_complete` y casos borde (campos ausentes, post sin id, URL relativa, etc.)
+
+El detalle de usar fixtures con raws reales (no payloads inventados) es una decision de diseno importante: los tests validan el codigo contra la forma real de las APIs, no contra una aproximacion. Si una API cambia su estructura, el test lo detecta.
+
+Rol actual: cobertura funcional del change 1. El resto del pipeline (evaluacion, persistencia, delivery) sigue sin cobertura.
+
+Leccion importante: tener carpeta de tests no es tener testing. Pero 50 tests reales sobre un modulo critico si es un buen comienzo.
 
 ### 10.8 `TFM/`
 
@@ -993,17 +1078,30 @@ Como el codigo del producto aun no esta implementado, aqui conviene distinguir e
 7. `delivery/telegram.py` envia resumen diario y mensajes por oportunidad
 8. `persistence/store.py` registra estado para unicidad e idempotencia
 
-### 11.2 Flujo del change 1 ya especificado
+### 11.2 Flujo del change 1 — IMPLEMENTADO Y ARCHIVADO
 
-El change `reddit-candidate-collection` tiene un flujo mas acotado:
+El change `reddit-candidate-collection` ya no es un flujo previsto: es codigo ejecutable verificado con 50 tests.
 
-1. probar `reddit3`
-2. si falla, probar `reddit34`
-3. si falla, probar `reddapi`
-4. normalizar posts a `RedditCandidate`
-5. filtrar a 7 dias
-6. ordenar por recencia
-7. devolver la lista completa, sin recorte a 8 y sin comentarios
+```
+collect_candidates(settings)
+  ├── Intenta reddit3
+  │     ├── _paginate() con cursor reddit3
+  │     │     └── _fetch_with_retry() → _normalize_reddit3() → [RedditCandidate]
+  │     └── Si excepcion → siguiente provider
+  ├── Intenta reddit34 (si reddit3 fallo)
+  │     ├── _paginate() con cursor reddit34
+  │     │     └── _fetch_with_retry() → _normalize_reddit34() → [RedditCandidate]
+  │     └── Si excepcion → siguiente provider
+  ├── Intenta reddapi (si reddit34 fallo)
+  │     └── _paginate() con cursor reddapi + User-Agent obligatorio
+  │           └── _fetch_with_retry() → _normalize_reddapi() → [RedditCandidate]
+  └── Sobre el resultado del provider ganador:
+        ├── Filtro: created_utc >= now - 7 dias
+        ├── Filtro: subreddit.lower() == "odoo"
+        └── Sort: created_utc descendente → [RedditCandidate] ordenados
+```
+
+Cada candidato lleva `is_complete=True/False` calculado automaticamente al construirse. Los incompletos no se descartan: quedan en la lista para que el paso siguiente decida.
 
 ### 11.3 Flujo de investigacion tecnica real ya existente
 
@@ -1032,13 +1130,14 @@ Esto es valioso en un TFM porque enseña que la ingenieria seria empieza mucho a
 
 ### 11.5 Flujo actualmente ejecutable del producto si lo lanzaras hoy
 
-Si ejecutaras `python -m auto_reddit.main`, con lo verificable ahora mismo, NO tendrias el pipeline funcional completo.
+Si ejecutaras `python -m auto_reddit.main` con las variables de entorno configuradas, el sistema:
 
-Lo honesto es decirlo asi:
+1. Arranca logging
+2. Llama `collect_candidates(settings)`: intenta los tres providers por orden, filtra por 7 dias y subreddit, ordena por recencia
+3. Logea cuantos candidatos ha recogido
+4. Termina — los pasos siguientes estan comentados esperando los changes 2, 3, 4 y 5
 
-- el entrypoint existe
-- la arquitectura prevista existe
-- pero el comportamiento de negocio aun no esta implementado en `src/auto_reddit/`
+Lo que ya funciona de verdad: la capa de recoleccion y normalizacion de candidatos. Lo que todavia no existe: filtrado por memoria, enriquecimiento con comentarios, evaluacion IA y entrega por Telegram.
 
 ---
 
@@ -1149,13 +1248,21 @@ Muchisimos errores vienen de mezclar esas cuatro capas.
 
 ## 14. Zonas pendientes o incognitas
 
-### 14.1 Implementacion funcional del pipeline
+### 14.1 Implementacion funcional del pipeline — PARCIALMENTE RESUELTA
 
-La gran pendiente obvia: los modulos del producto aun no estan implementados.
+El change 1 esta completado y archivado. El pipeline de recoleccion de candidatos funciona.
 
-### 14.2 Parametros exactos de paginacion en todos los proveedores
+Pendiente: changes 2 al 5 (filtrado por memoria, comentarios, evaluacion IA y entrega Telegram).
 
-El propio design del change 1 deja una pregunta abierta: como se solicita pagina 2+ en algunos proveedores aunque se vea el `cursor` en los raws.
+### 14.2 Parametros exactos de paginacion — RESUELTA
+
+La incognita sobre la ubicacion del cursor en cada provider quedo cerrada al verificar los raws reales:
+
+- `reddit3`: `response.meta.cursor`
+- `reddit34`: `response.data.cursor`
+- `reddapi`: `response.cursor`
+
+El codigo implementado en `client.py` usa esta informacion verificada.
 
 ### 14.3 Modelo final de persistencia materializado
 
@@ -1187,21 +1294,60 @@ No es grave, pero si no se limpia con cuidado puede confundir a quien llegue nue
 
 ## 15. Cierre: que es hoy auto-reddit de verdad
 
-`auto-reddit` no es todavia un bot operativo completo. Es algo mas interesante desde el punto de vista docente: un proyecto con buena maduracion de problema, buena disciplina documental, una arquitectura razonable para su escala, investigacion tecnica reproducible de sus dependencias externas y un camino de implementacion muy visible gracias a OpenSpec.
+`auto-reddit` ha cruzado la linea entre diseno y codigo funcional. El change 1 esta completado, verificado con 50 tests y archivado formalmente. La recoleccion de candidatos de Reddit funciona de verdad.
 
-Si tuviera que resumirlo para un tribunal o para un junior, lo diria asi:
+Lo que hay ahora es un sistema con:
 
-> `auto-reddit` es un sistema de deteccion asistida de oportunidades en Reddit para Odoo que ya tiene bastante bien resuelto el que, el por que y el como deberia construirse, aunque todavia este materializando el codigo funcional de sus modulos principales.
+- una arquitectura validada en codigo real, no solo en documentos
+- un contrato de datos (`RedditCandidate`) que funciona como lingua franca entre modulos
+- un cliente Reddit robusto con fallback, reintentos, paginacion y normalizacion
+- una cobertura de tests que da confianza para seguir construyendo sin romper lo que funciona
+- cuatro modulos pendientes que ya tienen arquitectura, spec y diseno claros
 
-Y eso importa, porque un buen proyecto no empieza cuando escribes mucho codigo. Empieza cuando dejas de improvisar.
+Si tuviera que resumirlo para un junior:
+
+> `auto-reddit` demuestra que un proyecto bien pensado y bien documentado llega al codigo con menos fricccion, mas confianza y mas claridad sobre lo que esta haciendo y por que.
+
+El change 1 no es el final. Es la prueba de que el metodo funciona.
 
 ---
 
-## 16. Como mantener viva esta guia
+## 16. Historial de changes
+
+Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo (apply + verify + archive). Es el registro vivo del avance real del proyecto.
+
+### Change 1 — `reddit-candidate-collection` — ARCHIVADO 2026-03-27
+
+**Alcance:** recoger todos los posts de `r/Odoo` de los ultimos 7 dias y entregarlos normalizados al siguiente paso del pipeline.
+
+**Lo que implemento:**
+
+- `shared/contracts.py`: `RedditCandidate` con `is_complete` como computed field
+- `reddit/client.py`: tres normalizers, tres cursor extractors, `_fetch_with_retry`, `_paginate` generico y `collect_candidates` con fallback chain
+- `main.py`: funcion `run()` con comentarios explicitando los changes pendientes
+- `tests/test_reddit/`: 50 tests con fixtures de raws reales
+
+**Decisiones tecnicas clave:**
+
+- los candidatos incompletos se conservan con `is_complete=False`; no se descartan
+- `url` y `permalink` se canonican a URL absoluta en el normalizer, no en el consumidor
+- el subreddit se filtra post-normalizacion con `subreddit.lower() == "odoo"` como guard explicito
+- el fallback chain es whole-step: si un provider falla en cualquier punto, se descarta entero y se intenta el siguiente; no hay fallback parcial por pagina
+- `User-Agent: RapidAPI Playground` es obligatorio para reddapi; sin el, Cloudflare devuelve 403
+
+**Spec canonica:** `openspec/specs/reddit-candidate-collection/spec.md`
+
+**Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
+
+**Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+
+---
+
+## 17. Como mantener viva esta guia
 
 Si esta guia quiere seguir siendo util cuando lleguen nuevas implementaciones, tiene que actualizarse con reglas claras y no a golpe de intuicion.
 
-### 16.1 Jerarquia de verdad documental
+### 17.1 Jerarquia de verdad documental
 
 Cuando haya contradicciones, actualiza la guia siguiendo este orden:
 
@@ -1211,7 +1357,7 @@ Cuando haya contradicciones, actualiza la guia siguiendo este orden:
 4. `src/` y `tests/` para implementacion real materializada
 5. `TFM/diario.md` y notas historicas como contexto, nunca como fuente vigente por defecto
 
-### 16.2 Regla editorial clave
+### 17.2 Regla editorial clave
 
 Cada actualizacion debe distinguir SIEMPRE entre:
 
@@ -1221,7 +1367,7 @@ Cada actualizacion debe distinguir SIEMPRE entre:
 
 Si se mezclan esas tres capas, la guia pierde valor academico y tecnico.
 
-### 16.3 Cuando actualizar cada bloque
+### 17.3 Cuando actualizar cada bloque
 
 - actualiza la seccion 4 cuando cambie el nivel de madurez real de un modulo
 - actualiza la seccion 9 cuando entren o salgan tools, skills o reglas de agente que afecten al proceso
@@ -1230,7 +1376,7 @@ Si se mezclan esas tres capas, la guia pierde valor academico y tecnico.
 - actualiza la seccion 12 cuando un riesgo cambie de estado o aparezca una mitigacion nueva
 - actualiza la seccion 14 cuando una incognita quede resuelta o nazcan otras nuevas
 
-### 16.4 Como anadir futuros changes SDD sin romper la guia
+### 17.4 Como anadir futuros changes SDD sin romper la guia
 
 Cuando se implemente un nuevo change, no reescribas la guia completa. Haz esto:
 
@@ -1238,8 +1384,9 @@ Cuando se implemente un nuevo change, no reescribas la guia completa. Haz esto:
 2. refleja en la seccion 10 que archivos o modulos se materializaron
 3. mueve en la seccion 11 lo que ya sea flujo ejecutable
 4. revisa secciones 12 y 14 para cerrar riesgos y abrir nuevos pendientes
+5. anade una entrada en la seccion 16 con los datos del change archivado
 
-### 16.5 Que no hacer
+### 17.5 Que no hacer
 
 - no copiar trozos enteros de `README.md`, `docs/` u `openspec/` si no aportan sintesis
 - no presentar tooling del autor como si fuera parte obligatoria del runtime del producto
