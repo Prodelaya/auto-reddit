@@ -2,10 +2,12 @@ schema: spec-driven
 
 context: |
   Project: auto-reddit
-  Current state: planning/docs only, implementation stack not fixed yet
+  Stack: Python 3.14, uv, hatchling src-layout (src/auto_reddit/)
+  Runtime deps: pydantic, pydantic-settings, openai (DeepSeek via OpenAI SDK)
+  Testing: pytest + pytest-cov (uv run pytest tests/ -x --tb=short)
+  Deployment: Docker (ephemeral container, external cron)
   Product truth: docs/product/product.md
   AI behavior guide: docs/product/ai-style.md
-  Planning method: file-based OpenSpec with ordered changes
 
 rules:
   proposal:
@@ -13,13 +15,19 @@ rules:
     - Keep product decisions aligned with docs/product/product.md and docs/product/ai-style.md
   specs:
     - Use Given/When/Then scenarios when a change moves into specification
-    - Stay at product and behavior level before technical design is approved
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
   design:
     - Document architecture decisions separately from product intent
-    - Avoid detailed implementation until dependencies are clarified
+    - Include sequence diagrams for complex flows
   tasks:
     - Break work into thin vertical slices with explicit dependencies
-    - Keep tasks independently verifiable
+    - Group by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+  apply:
+    - Load skills/python-conventions/SKILL.md before writing Python code
+    - Use uv run for all commands; no pip
   verify:
-    - Verify artifacts against docs/product/product.md and identified change order
-    - Confirm document references remain discoverable after moves
+    - Run uv run pytest tests/ -x --tb=short
+    - Verify artifacts against docs/product/product.md and change sequence
+  archive:
+    - Warn before merging destructive deltas (large removals)
