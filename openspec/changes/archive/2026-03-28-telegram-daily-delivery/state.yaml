@@ -1,7 +1,7 @@
 change: telegram-daily-delivery
-status: identified
+status: in-progress
 sequence: 5
-phase: identified
+phase: tasks
 dependencies:
   - reddit-candidate-collection
   - candidate-memory-and-uniqueness
