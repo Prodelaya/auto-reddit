@@ -201,3 +201,29 @@ class RejectedPost(BaseModel):
 EvaluationResult = Annotated[
     Union[AcceptedOpportunity, RejectedPost], "EvaluationResult"
 ]
+
+
+# ---------------------------------------------------------------------------
+# Change 5: Telegram Daily Delivery contracts
+# ---------------------------------------------------------------------------
+
+
+class DeliveryReport(BaseModel):
+    """Informe de una ejecución de entrega Telegram diaria.
+
+    - ``total_selected``: candidatos seleccionados por el selector (≤ cap).
+    - ``retries``: registros reintentados (ya tenían intento previo fallido).
+    - ``new``: registros nuevos (primer intento de entrega).
+    - ``sent_ok``: mensajes individuales entregados con éxito a Telegram.
+    - ``sent_failed``: mensajes individuales que fallaron en Telegram.
+    - ``summary_sent``: True si el mensaje de resumen fue enviado con éxito.
+    - ``expired_skipped``: registros excluidos por TTL expirado antes de selección.
+    """
+
+    total_selected: int
+    retries: int
+    new: int
+    sent_ok: int
+    sent_failed: int
+    summary_sent: bool
+    expired_skipped: int

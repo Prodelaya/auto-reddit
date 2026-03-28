@@ -98,6 +98,30 @@ class CandidateStore:
             )
             conn.commit()
 
+    def purge_expired(self, post_ids: list[str]) -> int:
+        """Elimina registros ``pending_delivery`` con TTL expirado.
+
+        Llamado opcionalmente después de un ciclo de entrega para limpiar
+        registros que el selector descartó por expiración de TTL y que ya no
+        volverán a ser entregados.
+
+        Args:
+            post_ids: Lista de ``post_id`` de registros expirados a eliminar.
+
+        Returns:
+            Número de filas eliminadas.
+        """
+        if not post_ids:
+            return 0
+        placeholders = ",".join("?" for _ in post_ids)
+        with sqlite3.connect(self._db_path) as conn:
+            cursor = conn.execute(
+                f"DELETE FROM post_decisions WHERE post_id IN ({placeholders}) AND status = ?",
+                (*post_ids, PostDecision.pending_delivery.value),
+            )
+            conn.commit()
+        return cursor.rowcount
+
     def get_pending_deliveries(self) -> list[PostRecord]:
         """Devuelve todos los registros en estado ``pending_delivery``.
 

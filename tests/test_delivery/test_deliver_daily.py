@@ -1,0 +1,460 @@
+"""Tests de integración para el façade deliver_daily().
+
+Cubre:
+- 4.4: Resumen enviado primero (no bloqueante si falla)
+- 4.4: mark_sent llamado solo cuando Telegram confirma éxito
+- 4.4: DeliveryReport conteos correctos
+- 4.4: Scenario "Summary failure does not stop opportunity delivery"
+- 4.4: Registros con opportunity_data inválido excluidos ANTES del cap (corrective)
+- 4.4: Lista vacía → DeliveryReport vacío sin envíos
+- corrective: deliver_daily acepta reviewed_post_count y lo pasa al resumen
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from unittest.mock import MagicMock, call, patch
+
+import pytest
+
+from auto_reddit.delivery import deliver_daily
+from auto_reddit.shared.contracts import (
+    AcceptedOpportunity,
+    DeliveryReport,
+    OpportunityType,
+    PostDecision,
+    PostRecord,
+)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_settings(cap: int = 8) -> MagicMock:
+    settings = MagicMock()
+    settings.telegram_bot_token = "BOT_TOKEN"
+    settings.telegram_chat_id = "CHAT_ID"
+    settings.max_daily_deliveries = cap
+    return settings
+
+
+def _make_opportunity_json(post_id: str = "abc123") -> str:
+    opp = AcceptedOpportunity(
+        post_id=post_id,
+        title=f"Post {post_id}",
+        link=f"https://www.reddit.com/r/Odoo/comments/{post_id}/",
+        post_language="en",
+        opportunity_type=OpportunityType.funcionalidad,
+        opportunity_reason="El hilo está sin respuesta.",
+        post_summary_es="El usuario pregunta algo.",
+        comment_summary_es="Sin respuestas.",
+        suggested_response_es="Respuesta en español.",
+        suggested_response_en="English answer.",
+    )
+    return opp.model_dump_json()
+
+
+def _make_record(
+    post_id: str,
+    decided_at: int | None = None,
+    opportunity_data: str | None = None,
+) -> PostRecord:
+    if decided_at is None:
+        decided_at = int(time.time())
+    if opportunity_data is None:
+        opportunity_data = _make_opportunity_json(post_id)
+    return PostRecord(
+        post_id=post_id,
+        status=PostDecision.pending_delivery,
+        opportunity_data=opportunity_data,
+        decided_at=decided_at,
+    )
+
+
+def _make_store(records: list[PostRecord]) -> MagicMock:
+    store = MagicMock()
+    store.get_pending_deliveries.return_value = records
+    store.mark_sent = MagicMock()
+    return store
+
+
+# ---------------------------------------------------------------------------
+# 4.4: Lista vacía → sin envíos, DeliveryReport vacío
+# ---------------------------------------------------------------------------
+
+
+class TestDeliverDailyEmptyQueue:
+    def test_empty_pending_deliveries_returns_empty_report(self):
+        store = _make_store([])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message") as mock_send:
+            report = deliver_daily(store, settings)
+
+        mock_send.assert_not_called()
+        store.mark_sent.assert_not_called()
+        assert report.total_selected == 0
+        assert report.sent_ok == 0
+        assert report.sent_failed == 0
+        assert report.summary_sent is False
+
+    def test_empty_queue_report_is_delivery_report_instance(self):
+        store = _make_store([])
+        settings = _make_settings()
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+        assert isinstance(report, DeliveryReport)
+
+
+# ---------------------------------------------------------------------------
+# 4.4: Resumen enviado primero
+# ---------------------------------------------------------------------------
+
+
+class TestDeliverDailySummaryFirst:
+    def test_summary_sent_before_opportunities(self):
+        """El resumen se envía antes que las oportunidades individuales."""
+        records = [_make_record("p1"), _make_record("p2")]
+        store = _make_store(records)
+        settings = _make_settings()
+        call_order: list[str] = []
+
+        def track_send(token, chat_id, text):
+            if "del día" in text:
+                call_order.append("summary")
+            else:
+                call_order.append("opportunity")
+            return True
+
+        with patch("auto_reddit.delivery.send_message", side_effect=track_send):
+            report = deliver_daily(store, settings)
+
+        # El primer envío debe ser el resumen
+        assert call_order[0] == "summary"
+        assert call_order.count("summary") == 1
+        assert call_order.count("opportunity") == 2
+
+    def test_summary_sent_flag_true_on_success(self):
+        records = [_make_record("p1")]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.summary_sent is True
+
+    def test_summary_sent_flag_false_on_failure(self):
+        records = [_make_record("p1")]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        # Primer envío (resumen) falla, los siguientes tienen éxito
+        call_count = [0]
+
+        def summary_fails(token, chat_id, text):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return False  # resumen falla
+            return True  # oportunidades tienen éxito
+
+        with patch("auto_reddit.delivery.send_message", side_effect=summary_fails):
+            report = deliver_daily(store, settings)
+
+        assert report.summary_sent is False
+
+
+# ---------------------------------------------------------------------------
+# 4.4: Scenario "Summary failure does not stop opportunity delivery"
+# ---------------------------------------------------------------------------
+
+
+class TestSummaryFailureNonBlocking:
+    def test_summary_failure_does_not_block_opportunity_delivery(self):
+        """
+        Spec scenario: El fallo del resumen NO bloquea las entregas individuales.
+        """
+        records = [_make_record("p1"), _make_record("p2"), _make_record("p3")]
+        store = _make_store(records)
+        settings = _make_settings()
+        call_count = [0]
+
+        def summary_fails_rest_succeeds(token, chat_id, text):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return False  # resumen falla
+            return True  # oportunidades tienen éxito
+
+        with patch(
+            "auto_reddit.delivery.send_message", side_effect=summary_fails_rest_succeeds
+        ):
+            report = deliver_daily(store, settings)
+
+        assert report.summary_sent is False
+        # Las 3 oportunidades se enviaron igualmente
+        assert report.sent_ok == 3
+        assert report.sent_failed == 0
+        # mark_sent llamado 3 veces
+        assert store.mark_sent.call_count == 3
+
+    def test_total_calls_includes_summary_plus_opportunities(self):
+        """Total de llamadas a send_message = 1 (resumen) + N (oportunidades)."""
+        n = 3
+        records = [_make_record(f"p{i}") for i in range(n)]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            deliver_daily(store, settings)
+
+        assert mock_send.call_count == n + 1  # 1 resumen + n oportunidades
+
+
+# ---------------------------------------------------------------------------
+# 4.4: mark_sent llamado solo cuando Telegram confirma éxito
+# ---------------------------------------------------------------------------
+
+
+class TestMarkSentOnlyOnSuccess:
+    def test_mark_sent_called_on_success(self):
+        records = [_make_record("p1")]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            deliver_daily(store, settings)
+
+        store.mark_sent.assert_called_once_with("p1")
+
+    def test_mark_sent_not_called_on_failure(self):
+        records = [_make_record("p1")]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        # Resumen = True (no bloqueante), oportunidad = False
+        call_count = [0]
+
+        def first_ok_rest_fail(token, chat_id, text):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return True  # resumen ok
+            return False  # oportunidad falla
+
+        with patch("auto_reddit.delivery.send_message", side_effect=first_ok_rest_fail):
+            report = deliver_daily(store, settings)
+
+        store.mark_sent.assert_not_called()
+        assert report.sent_failed == 1
+        assert report.sent_ok == 0
+
+    def test_mixed_success_and_failure(self):
+        """mark_sent solo se llama para los mensajes que tuvieron éxito."""
+        records = [_make_record("p1"), _make_record("p2"), _make_record("p3")]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        call_count = [0]
+
+        def alternating(token, chat_id, text):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return True  # resumen ok
+            # p1 ok, p2 falla, p3 ok
+            return call_count[0] % 2 == 0  # 2→True, 3→False, 4→True
+
+        with patch("auto_reddit.delivery.send_message", side_effect=alternating):
+            report = deliver_daily(store, settings)
+
+        # Exactamente 2 éxitos (calls 2 y 4)
+        assert report.sent_ok == 2
+        assert report.sent_failed == 1
+        assert store.mark_sent.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# 4.4: DeliveryReport conteos correctos
+# ---------------------------------------------------------------------------
+
+
+class TestDeliveryReportCounts:
+    def test_report_total_selected_matches_selected_count(self):
+        records = [_make_record(f"p{i}") for i in range(3)]
+        store = _make_store(records)
+        settings = _make_settings(cap=8)
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.total_selected == 3
+
+    def test_report_sent_ok_all_success(self):
+        records = [_make_record(f"p{i}") for i in range(4)]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.sent_ok == 4
+        assert report.sent_failed == 0
+
+    def test_report_sent_failed_all_fail(self):
+        records = [_make_record(f"p{i}") for i in range(4)]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        call_count = [0]
+
+        def first_ok_rest_fail(token, chat_id, text):
+            call_count[0] += 1
+            return call_count[0] == 1  # solo resumen ok
+
+        with patch("auto_reddit.delivery.send_message", side_effect=first_ok_rest_fail):
+            report = deliver_daily(store, settings)
+
+        assert report.sent_ok == 0
+        assert report.sent_failed == 4
+
+    def test_expired_skipped_counted_in_report(self):
+        """expired_skipped refleja registros expirados no seleccionados."""
+        # Registros de hace 3 semanas → TTL expirado
+        old_ts = int(time.time()) - 21 * 86400
+        expired_records = [
+            PostRecord(
+                post_id=f"expired_{i}",
+                status=PostDecision.pending_delivery,
+                opportunity_data=_make_opportunity_json(f"expired_{i}"),
+                decided_at=old_ts,
+            )
+            for i in range(3)
+        ]
+        valid_record = _make_record("valid")
+        store = _make_store(expired_records + [valid_record])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.expired_skipped == 3
+        assert report.total_selected == 1
+
+
+# ---------------------------------------------------------------------------
+# 4.4 corrective: Registros con opportunity_data inválido excluidos antes del cap
+# ---------------------------------------------------------------------------
+
+
+class TestInvalidOpportunityData:
+    def test_invalid_json_excluded_before_cap_not_counted_as_selected(self):
+        """
+        Corrective: Registros con JSON malformado son excluidos en el selector,
+        ANTES del cap. No se seleccionan ni aparecen en total_selected.
+        """
+        records = [
+            _make_record("p_valid"),
+            PostRecord(
+                post_id="p_invalid",
+                status=PostDecision.pending_delivery,
+                opportunity_data="NOT VALID JSON",
+                decided_at=int(time.time()),
+            ),
+        ]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        # Solo el registro válido se seleccionó y se envió
+        assert report.total_selected == 1
+        assert report.sent_ok == 1
+        assert report.sent_failed == 0
+        store.mark_sent.assert_called_once_with("p_valid")
+
+    def test_invalid_json_does_not_consume_cap(self):
+        """Registros inválidos no consumen cupo: cap=2 con 2 válidos y 1 inválido → 2 seleccionados."""
+        records = [
+            _make_record("p_good_1"),
+            _make_record("p_good_2"),
+            PostRecord(
+                post_id="p_bad",
+                status=PostDecision.pending_delivery,
+                opportunity_data="{bad json}",
+                decided_at=int(time.time()) - 100,
+            ),
+        ]
+        store = _make_store(records)
+        settings = _make_settings(cap=2)
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.total_selected == 2
+        assert report.sent_ok == 2
+        assert report.sent_failed == 0
+
+    def test_cap_applied_correctly_in_facade(self):
+        """El cap settings.max_daily_deliveries se aplica correctamente."""
+        records = [_make_record(f"p{i}") for i in range(12)]
+        store = _make_store(records)
+        settings = _make_settings(cap=5)
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.total_selected == 5
+        assert store.mark_sent.call_count == 5
+
+
+# ---------------------------------------------------------------------------
+# corrective: deliver_daily acepta reviewed_post_count y run_date
+# ---------------------------------------------------------------------------
+
+
+class TestDeliverDailyReviewedPostCount:
+    """El façade debe aceptar reviewed_post_count y run_date para el resumen (product.md §10)."""
+
+    def test_deliver_daily_accepts_reviewed_post_count(self):
+        """deliver_daily no falla cuando se pasa reviewed_post_count."""
+        records = [_make_record("p1")]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            report = deliver_daily(store, settings, reviewed_post_count=8)
+
+        assert report.total_selected == 1
+        # El resumen enviado debe incluir el conteo de revisados
+        first_call_text = mock_send.call_args_list[0][0][2]
+        assert "8" in first_call_text
+        assert "revisados" in first_call_text
+
+    def test_deliver_daily_accepts_run_date(self):
+        """deliver_daily no falla cuando se pasa run_date explícito."""
+        import datetime
+
+        fixed_date = datetime.date(2026, 3, 28)
+        records = [_make_record("p1")]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            report = deliver_daily(store, settings, run_date=fixed_date)
+
+        first_call_text = mock_send.call_args_list[0][0][2]
+        assert "28/03/2026" in first_call_text
+
+    def test_deliver_daily_without_reviewed_post_count_still_works(self):
+        """El parámetro es opcional; sin él la entrega funciona igualmente."""
+        records = [_make_record("p1")]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.total_selected == 1
+        assert report.sent_ok == 1

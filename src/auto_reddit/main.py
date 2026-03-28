@@ -3,6 +3,7 @@
 import logging
 
 from auto_reddit.config.settings import settings
+from auto_reddit.delivery import deliver_daily
 from auto_reddit.evaluation import evaluate_batch
 from auto_reddit.persistence.store import CandidateStore
 from auto_reddit.reddit.client import collect_candidates
@@ -72,11 +73,20 @@ def run() -> None:
         skipped_count,
     )
 
-    # Change 5 (pendiente): entrega Telegram
-    # for record in store.get_pending_deliveries():
-    #     success = deliver(record, settings)
-    #     if success:
-    #         store.mark_sent(record.post_id)
+    # Change 5: entrega Telegram (retry-first, cap max_daily_deliveries)
+    # reviewed_post_count = len(review_set) para el resumen de producto (product.md §10)
+    report = deliver_daily(store, settings, reviewed_post_count=len(review_set))
+    logger.info(
+        "Entrega Telegram: seleccionadas=%d (reintentos=%d, nuevas=%d), "
+        "enviadas=%d, fallidas=%d, resumen=%s, expiradas_saltadas=%d",
+        report.total_selected,
+        report.retries,
+        report.new,
+        report.sent_ok,
+        report.sent_failed,
+        report.summary_sent,
+        report.expired_skipped,
+    )
 
     logger.info("Pipeline completado")
 
