@@ -602,3 +602,116 @@ limpio.
   `openspec/changes/archive/2026-03-28-thread-context-extraction/`
 - spec promovida a `openspec/specs/thread-context-extraction/spec.md`
 - 107 tests pasando en total (50 change 1 + 20 change 2 + 37 change 3)
+
+---
+
+## Entrada 12
+
+**Fecha:** 28/03/2026
+
+### SDD completo del change 4: evaluacion IA de oportunidades
+
+Se ejecuto el ciclo SDD completo para `ai-opportunity-evaluation`: discovery,
+proposal, spec, design, tasks, apply, verify (con ciclo correctivo) y archive.
+
+### Problema que resuelve
+
+El equipo humano necesita que la IA ya haya prefiltrado y valorado cada post
+antes de recibirlo por Telegram. Sin este change, el sistema entrega candidatos
+en bruto; con el, entrega decisiones justificadas con resumen, tipo de
+oportunidad, respuesta sugerida en dos idiomas y, cuando aplica, senales de
+revision critica para el humano.
+
+### Refinamiento del diseno con feedback de analistas externos
+
+Antes de lanzar el apply, el diseno del system prompt se reviso con feedback
+de analistas. Las decisiones mas relevantes adoptadas:
+
+- estructura de dos fases obligatoria en el prompt: DECIDE primero, GENERA
+  despues; impide que la IA racionalice la aceptacion retroactivamente
+- campo `opportunity_reason`: la IA debe explicar POR QUE su intervencion
+  aporta valor, no solo resumir el post
+- campo `comment_summary_es` nullable: no forzar resumen cuando no hay
+  comentarios utiles
+- guardrail anti-Halltic: Halltic solo se menciona si el hilo busca
+  explicitamente un partner y la mencion aporta contexto real
+- limitacion de longitud de respuesta: entre 2 y 6 frases, tono forero y
+  pragmatico
+
+### Lo que se implemento
+
+- `src/auto_reddit/shared/contracts.py`: seis nuevos contratos:
+  - `OpportunityType` enum: `funcionalidad`, `desarrollo`,
+    `dudas_si_merece_la_pena`, `comparativas`
+  - `RejectionType` enum: `resolved_or_closed`, `no_useful_contribution`,
+    `excluded_topic`, `insufficient_evidence`
+  - `AIRawResponse`: validacion Pydantic de la respuesta JSON de DeepSeek
+  - `AcceptedOpportunity`: combina campos deterministicos del pipeline con
+    campos generados por la IA; `model_dump_json()` produce el JSON listo
+    para persistir en `opportunity_data`
+  - `RejectedPost`: post rechazado con tipo de rechazo explicito
+  - `EvaluationResult`: union discriminada `AcceptedOpportunity | RejectedPost`
+- `src/auto_reddit/evaluation/evaluator.py`: evaluador completo con system
+  prompt estatico cacheable, constructor de mensaje de usuario deterministico,
+  retry con tenacity (backoff exponencial), validacion Pydantic de respuesta,
+  y funcion publica `evaluate_batch` que orquesta la evaluacion de un dict
+  `post_id → ThreadContext`
+- `src/auto_reddit/evaluation/__init__.py`: expone `evaluate_batch`
+- `src/auto_reddit/main.py`: change 4 conectado — llama `evaluate_batch`,
+  persiste `AcceptedOpportunity` como `pending_delivery` y `RejectedPost`
+  como `rejected`, logea aceptados/rechazados/saltados
+- `tests/test_evaluation/`: 56 tests nuevos en dos ficheros (contracts y
+  evaluator), total 163 tests en suite
+
+### Decisiones tecnicas clave
+
+- **Dos fases en el prompt**: el modelo primero decide (acepta/rechaza) y
+  despues genera contenido. Esta estructura evita la racionalizacion post-hoc
+  y mejora la precision de la decision.
+- **Campos deterministicos fuera de la IA**: `post_id`, `title` y `link`
+  los construye el pipeline; la IA no los genera. Solo genera lo que requiere
+  razonamiento: tipo, razon, resumenes, respuesta y deteccion de idioma.
+- **`warning`/`human_review_bullets` solo en aceptaciones con contexto
+  degradado**: si la IA rechaza, no tiene sentido enviar senales de revision
+  humana. Los posts rechazados solo llevan `rejection_type`.
+- **Retry/skip semantics**: si un post falla todos los reintentos, se salta
+  ese post y se continua con el siguiente; no se aborta el batch.
+- **`opportunity_data` como fuente de reintento**: `AcceptedOpportunity`
+  serializado en JSON queda en `store.save_pending_delivery`; el change 5
+  puede reintentar Telegram usando ese JSON sin volver a llamar a la IA.
+- **Sistema de tipos cerrado**: `OpportunityType` y `RejectionType` son enums;
+  cualquier valor fuera del esquema falla la validacion Pydantic antes de
+  llegar al resto del pipeline.
+
+### Ciclo correctivo post-verify
+
+El primer verify detecto dos gaps criticos:
+
+1. Los `RejectedPost` en contexto degradado propagaban `warning` y
+   `human_review_bullets` aunque la spec los reserva para aceptaciones.
+2. Faltaba evidencia de runtime del path `partial` (reddit3 como proveedor
+   de comentarios).
+
+Resolucion: apply correctivo que (1) descarta `warning`/`bullets` en
+`RejectedPost` y (2) anade tests explicitamente para el path `partial`.
+El verify final dio PASS CON ADVERTENCIAS de baja severidad.
+
+### Verificacion
+
+PASS CON ADVERTENCIAS — 37/37 tasks completas, 163 tests pasando. Advertencias
+no bloqueantes preservadas:
+
+- la prueba de handoff upstream es parcial (sin test end-to-end de integracion
+  entre evaluate_batch y el resto del pipeline)
+- la reutilizacion de `opportunity_data` para reintento Telegram solo esta
+  probada parcialmente a nivel runtime
+- no hay build/type-check configurado (por reglas del proyecto)
+
+### Archive
+
+- artefactos en
+  `openspec/changes/archive/2026-03-28-ai-opportunity-evaluation/`
+- spec promovida a `openspec/specs/ai-opportunity-evaluation/spec.md`
+- spec de `candidate-memory` actualizada para reflejar el modelo de
+  `opportunity_data` como fuente de reintento
+- 163 tests pasando en total (50 + 20 + 37 + 56)

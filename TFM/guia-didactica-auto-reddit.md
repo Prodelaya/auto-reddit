@@ -199,48 +199,46 @@ Esta es probablemente la parte mas importante para no enganarte.
 
 ### Estado real del repo — actualizado 2026-03-28
 
-Los changes 1, 2 y 3 estan **completados y archivados**. El pipeline ya recoge candidatos, aplica memoria operativa, recorta a 8 y enriquece cada post seleccionado con el contexto bruto de su hilo de comentarios.
+Los changes 1, 2, 3 y 4 estan **completados y archivados**. El pipeline recoge candidatos, aplica memoria operativa, enriquece con contexto de hilo y evalua con IA. Solo falta la entrega por Telegram.
 
 La base ejecutable incluye:
 
-- contratos Pydantic reales: `RedditCandidate`, `PostDecision`, `PostRecord`, `ContextQuality`, `RedditComment`, `ThreadContext`
-- cliente Reddit con fallback chain para posts (`reddit3 → reddit34 → reddapi`)
-- `CandidateStore` SQLite con estados `sent`, `rejected` y `pending_delivery`
-- `reddit/comments.py` con fallback chain para comentarios (`reddit34 → reddit3 → reddapi`) y `ContextQuality` segun proveedor
-- `main.py` con los tres primeros pasos del pipeline activos y los dos siguientes marcados
-- 107 tests que pasan: 50 (change 1) + 20 (change 2) + 37 (change 3)
-- tres specs canonicas promovidas a `openspec/specs/`
+- doce contratos Pydantic en `shared/contracts.py` cubriendo todo el pipeline hasta evaluacion
+- cliente Reddit con fallback chain para posts y comentarios
+- `CandidateStore` SQLite con modelo de estados completo
+- evaluador IA con system prompt de dos fases, retry con tenacity y validacion Pydantic estricta
+- `main.py` con los cuatro primeros pasos activos y el quinto marcado
+- 163 tests: 50 + 20 + 37 + 56
+- cuatro specs canonicas en `openspec/specs/`
 
 ### Que esta maduro
 
-- producto bastante bien definido en `docs/product/product.md`
-- reglas editoriales de IA definidas en `docs/product/ai-style.md`, incluyendo modelo recomendado (`deepseek-chat`)
-- arquitectura modular claramente documentada en `docs/architecture.md`
-- estrategia Reddit trabajada, revalidada con raws reales y parcialmente implementada
-- changes 1, 2 y 3 completamente archivados con specs canonicas en `openspec/specs/`
-- skilling del repo y normas operativas para agentes bien consolidadas
+- producto definido en `docs/product/product.md`
+- reglas editoriales de IA en `docs/product/ai-style.md` con modelo recomendado (`deepseek-chat`)
+- arquitectura modular documentada y validada en cuatro changes
+- changes 1 a 4 completamente archivados con specs canonicas
+- skilling del repo y normas operativas consolidadas
 
 ### Que sigue scaffolded
 
-- `src/auto_reddit/evaluation/evaluator.py` — solo docstring (change 4)
 - `src/auto_reddit/delivery/telegram.py` — solo docstring (change 5)
 
 ### Nivel de madurez por capas
 
 | Capa | Madurez | Comentario docente |
 |---|---|---|
-| Producto | Alta | Que, para que y limites bastante bien cerrados. |
-| Arquitectura | Alta | Validada en codigo real por tres changes completos. |
-| Contratos / shared | Alta | Seis contratos implementados y archivados. |
+| Producto | Alta | Que, para que y limites bien cerrados. |
+| Arquitectura | Alta | Validada en cuatro changes completos. |
+| Contratos / shared | Alta | Doce contratos implementados y archivados. |
 | Integracion Reddit | Alta | Posts y comentarios con fallback chain y 87 tests. |
-| Persistencia | Alta | `CandidateStore` SQLite con modelo de estados y 20 tests. |
-| IA / evaluacion | Baja | Hay criterio y skill, pero el modulo sigue vacio. |
-| Delivery Telegram | Baja | El contrato de salida esta claro, pero el cliente no existe todavia. |
-| Testing | Alta | 107 tests reales cubriendo los tres primeros modulos del pipeline. |
+| Persistencia | Alta | `CandidateStore` con modelo de estados y 20 tests. |
+| IA / evaluacion | Alta | Evaluador completo con prompt de dos fases, retry y 56 tests. |
+| Delivery Telegram | Baja | Contrato de salida claro, cliente aun sin implementar. |
+| Testing | Alta | 163 tests cubriendo cuatro de los cinco modulos del pipeline. |
 
 ### Lectura correcta de la madurez
 
-El pipeline ya tiene tres de sus cinco pasos funcionando: recoge candidatos de Reddit, filtra por memoria y recorta a 8, y enriquece cada post seleccionado con el contexto bruto de comentarios. La IA evaluara ese contexto en el change 4; Telegram lo entregara en el change 5.
+El pipeline esta a un change de ser completo. Cuatro modulos funcionan en cadena: recoleccion, memoria, extraccion de contexto y evaluacion IA. El change 5 cierra el circuito con la entrega a Telegram.
 
 ---
 
@@ -251,28 +249,31 @@ El pipeline ya tiene tres de sus cinco pasos funcionando: recoge candidatos de R
 ```text
 auto-reddit/
 |- src/auto_reddit/
-|   |- shared/contracts.py             RedditCandidate, PostDecision, PostRecord,
-|   |                                  ContextQuality, RedditComment, ThreadContext — changes 1-3
+|   |- shared/contracts.py             12 contratos Pydantic — changes 1-4
 |   |- reddit/client.py                Fallback chain posts — change 1
 |   |- reddit/comments.py             Fallback chain comentarios + ContextQuality — change 3
 |   |- persistence/store.py            CandidateStore SQLite — change 2
-|   |- main.py                         Orquestador: changes 1-3 activos, 4-5 comentados
+|   |- evaluation/evaluator.py         Evaluador IA DeepSeek con prompt 2 fases — change 4
+|   |- evaluation/__init__.py          Expone evaluate_batch
+|   |- main.py                         Orquestador: changes 1-4 activos, 5 comentado
 |   |- config/settings.py              Configuracion y validacion de entorno
-|   |- evaluation/evaluator.py         Evaluacion IA — scaffolded (change 4)
 |   |- delivery/telegram.py            Entrega Telegram — scaffolded (change 5)
 |- tests/
-|   |- test_reddit/                    50 tests (change 1) + 37 tests (change 3)
+|   |- test_reddit/                    87 tests (changes 1 y 3)
 |   |- test_persistence/               20 tests — change 2
+|   |- test_evaluation/                56 tests — change 4
 |- docs/                               Fuente de verdad funcional y tecnica
 |- openspec/
 |   |- specs/                          Specs canonicas (fuente de verdad permanente)
 |   |   |- reddit-candidate-collection/spec.md
 |   |   |- candidate-memory/spec.md
 |   |   |- thread-context-extraction/spec.md
+|   |   |- ai-opportunity-evaluation/spec.md
 |   |- changes/archive/                Changes completados y archivados
 |   |   |- 2026-03-27-reddit-candidate-collection/
 |   |   |- 2026-03-27-candidate-memory-and-uniqueness/
 |   |   |- 2026-03-28-thread-context-extraction/
+|   |   |- 2026-03-28-ai-opportunity-evaluation/
 |   |- changes/<activos>/              Changes en curso
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
@@ -332,6 +333,11 @@ No pienses el repo por carpetas. Piensalo por capas:
 - `ContextQuality`: enum que indica la riqueza del contexto de hilo extraido segun el proveedor; `full` (reddit34 con arbol y timestamps), `partial` (reddit3 sin metadatos de anidamiento), `degraded` (reddapi solo top comments y plano)
 - `ThreadContext`: contrato que empaqueta candidato original, lista de comentarios normalizados, calidad y proveedor; es la salida del change 3 y la entrada del change 4
 - `depth / parent_id`: metadatos de anidamiento en un hilo de comentarios; reddit34 los expone, reddit3 no los incluye en sus campos (su arbol se recorre via `replies[]` pero no hay valor directo), reddapi no los tiene
+- `structured output`: respuesta de un modelo de lenguaje forzada a cumplir un esquema JSON; en este proyecto DeepSeek devuelve un JSON validado por `AIRawResponse` — si no pasa Pydantic, el post se salta sin abortar el batch
+- `dos fases en el prompt`: patron de diseno de prompts donde el modelo primero DECIDE (acepta/rechaza) y luego GENERA contenido; evita que la IA escriba una respuesta plausible y luego racionalice la aceptacion
+- `prompt cacheado`: system prompt estatico que los modelos modernos pueden mantener en cache de prefijo para reducir latencia y coste; en este proyecto `_build_system_prompt()` devuelve siempre el mismo string
+- `retry con tenacity`: libreria de Python para reintentos declarativos con decoradores; `@retry(stop=stop_after_attempt(3), wait=wait_exponential(...))` es mas limpio y testeable que un bucle manual
+- `union discriminada (EvaluationResult)`: tipo que puede ser `AcceptedOpportunity` o `RejectedPost`; el caller usa `isinstance()` para saber cual recibio, sin castings inseguros
 
 ### Conceptos de proceso
 
@@ -814,23 +820,44 @@ def run() -> None:
 
 Rol: director de orquesta. Cada change nuevo conecta aqui sin tocar los anteriores.
 
-Con el change 3 integrado, `main.py` tiene ahora este aspecto:
+Con el change 4 integrado, `main.py` tiene ahora este aspecto:
 
 ```python
 # Change 2: store
 store = CandidateStore(settings.db_path); store.init_db()
 # Change 1: colectar
 candidates = collect_candidates(settings)
-# Change 2: filtrar y recortar
-eligible = [c for c in candidates if c.post_id not in store.get_decided_post_ids()]
+# Change 2: filtrar y recortar a 8
 review_set = eligible[:settings.daily_review_limit]
 # Change 3: enriquecer con contexto de hilo
 thread_contexts = fetch_thread_contexts(review_set, settings)
-# Change 4 (pendiente): evaluacion IA
+# Change 4: evaluacion IA
+evaluation_results = evaluate_batch(thread_contexts, settings)
+for result in evaluation_results:
+    if isinstance(result, AcceptedOpportunity):
+        store.save_pending_delivery(result.post_id, result.model_dump_json())
+    else:
+        store.save_rejected(result.post_id)
 # Change 5 (pendiente): entrega Telegram
 ```
 
-**Leccion docente:** el orquestador actua como indice vivo del pipeline. Leer `main.py` es suficiente para entender que hace el sistema, en que orden y que falta aun. Eso es un diseno honesto.
+**Leccion docente:** el orquestador actua como indice vivo del pipeline. Leer `main.py` es suficiente para entender que hace el sistema, en que orden y que falta. Y la persistencia del resultado de la IA en `pending_delivery` es el puente entre el change 4 y el change 5: cuando Telegram llegue, no necesitara llamar a la IA de nuevo.
+
+#### `src/auto_reddit/evaluation/evaluator.py`
+
+**Change 4 implementado.** El modulo mas complejo del proyecto hasta ahora.
+
+Su estructura interna:
+
+**`_SYSTEM_PROMPT_TEMPLATE`** — el system prompt estatico. Cacheable por los modelos modernos. Define el rol del evaluador (forero habitual de Reddit, sesgo por defecto hacia NO intervenir), el proceso obligatorio de dos fases (DECIDE primero, GENERA despues), la regla de abstension con sus cinco condiciones de aceptacion, las categorias excluidas, los tipos de oportunidad y rechazo cerrados, las reglas editoriales y la politica de idioma. Es largo y explicito porque la ambiguedad en el prompt se convierte en comportamiento impredecible del modelo.
+
+**`_build_user_message(ctx)`** — construye el mensaje de usuario deterministico. Incluye subreddit, titulo, URL, calidad del contexto, contenido del post, comentarios y, si la calidad es degradada, un aviso explicito al modelo.
+
+**`_evaluate_single_raw(ctx, client, model)`** — llamada a DeepSeek sin retry. Crea la request, parsea el JSON, valida con `AIRawResponse`, y construye `AcceptedOpportunity` o `RejectedPost`. Los campos `post_id`, `title` y `link` vienen del pipeline, no de la IA.
+
+**`evaluate_batch(thread_contexts, settings)`** — punto de entrada publico. Itera el dict `post_id → ThreadContext`, llama al evaluador con retry de tenacity (backoff exponencial), salta posts que fallan todos los reintentos sin abortar el batch.
+
+Rol: capa de juicio asistido. Transforma contexto bruto en decisiones justificadas con estructura definida.
 
 #### `src/auto_reddit/config/settings.py`
 
@@ -939,6 +966,56 @@ class ThreadContext(BaseModel):
 ```
 
 Esta separacion entre extraccion y evaluacion es una decision de diseno importante: el modulo de comentarios no sabe si el post merece respuesta; solo extrae y normaliza. La decision es del modulo de evaluacion.
+
+**Contratos del change 4** (evaluacion IA):
+
+```python
+class OpportunityType(str, Enum):
+    funcionalidad = "funcionalidad"        # preguntas sobre configuracion de Odoo
+    desarrollo = "desarrollo"              # desarrollo, modulos, codigo Python
+    dudas_si_merece_la_pena = "..."        # dudas sobre si Odoo vale para un caso
+    comparativas = "comparativas"          # comparativas con otras herramientas
+
+class RejectionType(str, Enum):
+    resolved_or_closed = "..."             # hilo cerrado o resuelto
+    no_useful_contribution = "..."         # nada util que anadir
+    excluded_topic = "..."                 # tema excluido o de riesgo
+    insufficient_evidence = "..."          # contexto insuficiente para evaluar
+
+class AIRawResponse(BaseModel):
+    accept: bool
+    opportunity_type: OpportunityType | None = None
+    opportunity_reason: str | None = None  # por que aporta valor (no es el resumen)
+    post_summary_es: str | None = None
+    comment_summary_es: str | None = None  # None si no hay comentarios utiles
+    suggested_response_es: str | None = None
+    suggested_response_en: str | None = None
+    post_language: str | None = None       # unico campo detectado por la IA
+    rejection_type: RejectionType | None = None
+    warning: str | None = None             # solo en aceptaciones con calidad degradada
+    human_review_bullets: list[str] | None = None  # idem
+
+class AcceptedOpportunity(BaseModel):     # campos deterministicos + generados por IA
+    post_id: str; title: str; link: str   # nunca pedidos a la IA
+    opportunity_type: OpportunityType
+    opportunity_reason: str
+    post_summary_es: str
+    comment_summary_es: str | None = None
+    suggested_response_es: str
+    suggested_response_en: str
+    warning: str | None = None
+    human_review_bullets: list[str] | None = None
+
+class RejectedPost(BaseModel):
+    post_id: str
+    rejection_type: RejectionType         # sin warning ni bullets — no aplican
+
+EvaluationResult = Annotated[Union[AcceptedOpportunity, RejectedPost], ...]
+```
+
+**Leccion clave:** los campos `post_id`, `title` y `link` los construye el pipeline, no la IA. La IA solo genera lo que requiere razonamiento. Esta separacion evita alucinaciones en campos deterministicos y hace la validacion Pydantic mucho mas fiable.
+
+**Otra leccion:** `warning` y `human_review_bullets` solo existen en `AcceptedOpportunity`. Si un post es rechazado, el humano no necesita esas senales — solo necesita saber el tipo de rechazo. Este nivel de granularidad en el contrato comunica la intencion del diseno sin necesidad de comentarios.
 
 Rol: idioma comun del sistema. Ningun modulo importa de otro directamente; todos hablan a traves de este archivo.
 
@@ -1180,16 +1257,17 @@ Rol: convencion de despliegue.
 
 ### 10.7 `tests/`
 
-**Changes 1, 2 y 3 implementados.**
+**Changes 1, 2, 3 y 4 implementados.**
 
-`tests/test_reddit/` — 87 tests:
-- 50 del change 1: normalizacion, filtrado, paginacion, fallback chain, reintentos e `is_complete`
-- 37 del change 3: normalizacion de comentarios por provider, fallback chain de comentarios, `ContextQuality` por proveedor, campos opcionales (`depth`/`parent_id` None en reddit3 y reddapi), parsing de ISO 8601 de reddit34, posts sin comentarios
+`tests/test_reddit/` — 87 tests (changes 1 y 3)
 
-`tests/test_persistence/` — 20 tests del change 2:
-- init de DB, upserts, transiciones de estado, `get_decided_post_ids` sin `pending_delivery`, `get_pending_deliveries`, DB vacia
+`tests/test_persistence/` — 20 tests (change 2)
 
-Total: **107 tests pasando**.
+`tests/test_evaluation/` — 56 tests (change 4):
+- `test_contracts.py`: validacion de `AIRawResponse`, `AcceptedOpportunity`, `RejectedPost`, `EvaluationResult`; comportamiento de `warning`/`bullets` solo en aceptaciones; campos deterministicos separados de los generados por IA
+- `test_evaluator.py`: llamadas mockeadas a DeepSeek, aceptacion con contexto full/partial/degraded, rechazo, retry con tenacity, skip de posts que fallan, comportamiento del batch completo
+
+Total: **163 tests pasando**.
 
 Advertencias preservadas del verify (no blockers): no existe test de dos ejecuciones consecutivas que pruebe "skipped today, eligible tomorrow"; no existe test end-to-end de reintento Telegram sin re-evaluar IA. Ambas son pruebas de integracion que requieren estado entre runs y no estan cubiertas aun.
 
@@ -1277,17 +1355,16 @@ Esto es valioso en un TFM porque enseña que la ingenieria seria empieza mucho a
 
 ### 11.5 Flujo actualmente ejecutable del producto si lo lanzaras hoy
 
-Si ejecutaras `python -m auto_reddit.main` con las variables de entorno configuradas, el sistema:
+Si ejecutaras `python -m auto_reddit.main` con las variables de entorno configuradas y una `DEEPSEEK_API_KEY` valida, el sistema ejecuta el pipeline casi completo:
 
-1. Arranca logging
-2. Inicializa `CandidateStore` y crea la tabla SQLite si no existe
-3. Llama `collect_candidates(settings)`: intenta los tres providers de posts, filtra por 7 dias y subreddit, ordena por recencia
-4. Excluye posts ya decididos (`sent` o `rejected`), recorta a 8 elegibles
-5. Llama `fetch_thread_contexts(review_set, settings)`: para cada post del review set intenta `reddit34 → reddit3 → reddapi`, normaliza comentarios al contrato `ThreadContext` con calidad segun proveedor
-6. Logea cuantos posts se enriquecieron
-7. Termina — evaluacion IA y entrega Telegram esperan los changes 4 y 5
+1. Inicializa `CandidateStore` y la tabla SQLite
+2. Recolecta candidatos de r/Odoo via fallback chain de posts
+3. Excluye decididos, recorta a 8, extrae contexto de comentarios
+4. Llama `evaluate_batch`: para cada post con contexto, llama a DeepSeek, valida con Pydantic, persiste `AcceptedOpportunity` como `pending_delivery` y `RejectedPost` como `rejected`
+5. Logea aceptados, rechazados y saltados
+6. Termina — la entrega Telegram espera el change 5
 
-Lo que ya funciona de verdad: recoleccion, filtrado por memoria, recorte a 8 y extraccion de contexto de hilo con calidad graduada. Lo que todavia no existe: evaluacion IA y entrega Telegram.
+Lo que ya funciona de verdad: todo el pipeline de deteccion, filtrado, enriquecimiento y evaluacion IA. Lo que falta: formatear y enviar los resultados al equipo humano.
 
 ---
 
@@ -1449,23 +1526,23 @@ Estas pruebas requieren estado persistente entre runs y un enfoque de integracio
 
 ## 15. Cierre: que es hoy auto-reddit de verdad
 
-Tres changes completados. Ciento siete tests pasando. El pipeline ya hace algo real y util de principio a fin de su tramo implementado.
+Cuatro changes completados. Ciento sesenta y tres tests pasando. El pipeline detecta, filtra, enriquece y evalua. Solo falta entregar.
 
 Lo que existe hoy:
 
-- recoleccion de candidatos de r/Odoo con fallback chain entre tres providers
-- memoria operativa SQLite con unicidad entre ejecuciones y modelo de estados para reintentos sin re-evaluar la IA
-- extraccion de contexto bruto de hilo para cada post seleccionado, con calidad graduada segun proveedor
-- 107 tests que cubren los tres primeros modulos del pipeline
-- `main.py` como mapa vivo del sistema: tres pasos activos, dos marcados
+- recoleccion de candidatos con fallback chain entre tres providers de posts
+- memoria operativa SQLite con unicidad y modelo de estados para reintentos sin re-evaluar la IA
+- extraccion de contexto de hilo con calidad graduada segun proveedor de comentarios
+- evaluacion IA con DeepSeek: prompt de dos fases, decision justificada, respuesta sugerida en dos idiomas, tipo de oportunidad/rechazo cerrado, senales de revision para contexto degradado
+- `main.py` como mapa vivo del sistema: cuatro pasos activos, uno marcado
 
-Si ejecutas el sistema hoy, recoge candidatos de r/Odoo, filtra los ya decididos, recorta a 8 y enriquece cada uno con los comentarios de su hilo. La IA todavia no evalua; Telegram todavia no entrega. Pero el contexto que necesita la IA ya esta preparado y normalizado.
+Si ejecutas el sistema hoy con una API key de DeepSeek, obtendras una lista de oportunidades evaluadas y persiste en SQLite listas para que el change 5 las entregue. El humano todavia no recibe nada, pero la logica que decide que merece su atencion ya funciona.
 
 Si tuviera que resumirlo para un junior:
 
-> Tres modulos distintos, tres fallback chains, seis contratos, ciento siete tests. Todo encaja porque se diseño para encajar antes de escribir la primera linea.
+> Cuatro modulos distintos, cuatro responsabilidades separadas, doce contratos, ciento sesenta y tres tests. Y el change 5 sabe exactamente que esperar porque el contrato ya esta definido.
 
-El change 3 no es el final. Es la prueba de que la arquitectura modular aguanta conforme el sistema crece.
+El change 4 no es el final. Es la penultima pieza de un sistema que se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa por orden.
 
 ---
 
@@ -1497,6 +1574,36 @@ Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo 
 **Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
 
 **Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+
+### Change 4 — `ai-opportunity-evaluation` — ARCHIVADO 2026-03-28
+
+**Alcance:** evaluar con IA los posts enriquecidos con contexto de hilo, producir decisiones justificadas (aceptado/rechazado) con estructura definida para revision humana y persistir el resultado para entrega Telegram sin re-evaluar.
+
+**Lo que implemento:**
+
+- `shared/contracts.py`: seis nuevos contratos — `OpportunityType`, `RejectionType`, `AIRawResponse`, `AcceptedOpportunity`, `RejectedPost`, `EvaluationResult`
+- `evaluation/evaluator.py`: system prompt de dos fases, constructor de mensaje deterministico, llamada a DeepSeek con retry tenacity, validacion Pydantic, `evaluate_batch`
+- `evaluation/__init__.py`: expone `evaluate_batch`
+- `main.py`: change 4 activo — persiste aceptados como `pending_delivery` y rechazados como `rejected`
+- `tests/test_evaluation/`: 56 tests en `test_contracts.py` y `test_evaluator.py`
+
+**Decisiones tecnicas clave:**
+
+- prompt de dos fases (DECIDE → GENERA) para evitar racionalizacion post-hoc
+- campos deterministicos (`post_id`, `title`, `link`) construidos por el pipeline, nunca pedidos a la IA
+- `warning`/`human_review_bullets` solo en `AcceptedOpportunity` con calidad degradada; `RejectedPost` no los lleva
+- `opportunity_data` en `pending_delivery` guarda el JSON de `AcceptedOpportunity` para que el change 5 pueda reintentar Telegram sin re-evaluar la IA
+- sistema de tipos cerrado con enums validados por Pydantic; cualquier valor fuera del esquema falla antes de llegar al pipeline
+- retry/skip por post: si un post falla todos los reintentos, se salta sin abortar el batch
+- ciclo correctivo post-verify: se alinearon contratos e implementacion con la regla de que `warning`/`bullets` solo aplican a aceptaciones
+
+**Spec canonica:** `openspec/specs/ai-opportunity-evaluation/spec.md`
+
+**Archivo:** `openspec/changes/archive/2026-03-28-ai-opportunity-evaluation/`
+
+**Verificacion:** PASS CON ADVERTENCIAS — 37/37 tasks completas, 163 tests pasando; advertencias de baja severidad sobre pruebas de integracion end-to-end pendientes
+
+---
 
 ### Change 3 — `thread-context-extraction` — ARCHIVADO 2026-03-28
 
