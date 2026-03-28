@@ -197,11 +197,11 @@ Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
 
 Esta es probablemente la parte mas importante para no enganarte.
 
-### Estado real del repo — actualizado 2026-03-28 (pipeline completo)
+### Estado real del repo — actualizado 2026-03-28 (pipeline + integracion completos)
 
-Los cinco changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo: recoge candidatos de Reddit, filtra por memoria, enriquece con contexto de hilo, evalua con IA y entrega al equipo humano por Telegram.
+Los seis changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo y cuenta ademas con cobertura de integracion operacional que verifica el comportamiento del orquestador entre fases y entre ejecuciones consecutivas.
 
-La base ejecutable incluye:
+La base ejecutable e incluye:
 
 - trece contratos Pydantic en `shared/contracts.py` cubriendo todo el pipeline
 - cliente Reddit con fallback chain para posts y comentarios
@@ -209,39 +209,40 @@ La base ejecutable incluye:
 - evaluador IA con system prompt de dos fases, retry y validacion Pydantic estricta
 - modulo `delivery/` con selector determinista, renderer HTML y cliente Telegram
 - `main.py` con los cinco pasos del pipeline activos
-- 259 tests: 50 + 20 + 37 + 56 + 96
-- cinco specs canonicas en `openspec/specs/`
+- 269 tests: 50 + 20 + 37 + 56 + 96 + 10 (+ 1 smoke opcional skipped)
+- seis specs canonicas en `openspec/specs/`
 
 ### Que esta maduro
 
 - producto definido en `docs/product/product.md`
 - reglas editoriales de IA en `docs/product/ai-style.md` con modelo recomendado
-- arquitectura modular documentada y validada en cinco changes completos
-- los cinco changes archivados con specs canonicas y trazabilidad completa
+- arquitectura modular documentada y validada en seis changes completos
+- los seis changes archivados con specs canonicas y trazabilidad completa
+- cobertura de tests unitarios + integracion operacional
 - skilling del repo y normas operativas consolidadas
 
 ### Que sigue scaffolded
 
-Nada. El pipeline principal esta completo.
+Nada del pipeline principal. La cobertura de integracion cubre los boundaries entre fases.
 
-Lo que queda como trabajo potencial futuro: tests de integracion end-to-end entre modulos, observabilidad operativa avanzada, expansion a otros subreddits o fuentes.
+Lo que queda como trabajo potencial futuro: observabilidad operativa avanzada, tests end-to-end con APIs reales, expansion a otros subreddits o fuentes.
 
 ### Nivel de madurez por capas
 
 | Capa | Madurez | Comentario docente |
 |---|---|---|
 | Producto | Alta | Que, para que y limites bien cerrados. |
-| Arquitectura | Alta | Validada en cinco changes completos de extremo a extremo. |
-| Contratos / shared | Alta | Trece contratos implementados cubriendo todo el pipeline. |
+| Arquitectura | Alta | Validada en seis changes completos. |
+| Contratos / shared | Alta | Trece contratos cubriendo todo el pipeline. |
 | Integracion Reddit | Alta | Posts y comentarios con fallback chain y 87 tests. |
 | Persistencia | Alta | `CandidateStore` con modelo de estados, TTL y 20 tests. |
 | IA / evaluacion | Alta | Evaluador completo con prompt de dos fases, retry y 56 tests. |
 | Delivery Telegram | Alta | Selector, renderer, cliente y 96 tests. |
-| Testing | Alta | 259 tests cubriendo los cinco modulos del pipeline. |
+| Testing | Alta | 269 tests: unitarios + integracion operacional entre fases. |
 
 ### Lectura correcta de la madurez
 
-El sistema es funcionalmente completo. Con las variables de entorno configuradas, ejecuta el pipeline diario entero: detecta, filtra, enriquece, evalua y entrega. Lo que no tiene aun es observabilidad avanzada, tests de integracion orquestados y cobertura de edge cases operativos que solo aparecen en produccion real.
+El sistema es funcionalmente completo y tiene cobertura de integracion. Los tests operacionales prueban que las fases no interfieren entre si y que el estado persiste correctamente entre ejecuciones. Lo que no tiene aun son tests con APIs reales en CI (el smoke test esta env-gated) y observabilidad avanzada en produccion.
 
 ---
 
@@ -269,6 +270,7 @@ auto-reddit/
 |   |- test_persistence/               20 tests — change 2
 |   |- test_evaluation/                56 tests — change 4
 |   |- test_delivery/                  96 tests — change 5
+|   |- test_integration/               10 tests + 1 smoke opcional — change 6
 |- docs/                               Fuente de verdad funcional y tecnica
 |- openspec/
 |   |- specs/                          Specs canonicas (fuente de verdad permanente)
@@ -277,12 +279,14 @@ auto-reddit/
 |   |   |- thread-context-extraction/spec.md
 |   |   |- ai-opportunity-evaluation/spec.md
 |   |   |- telegram-daily-delivery/spec.md
+|   |   |- operational-integration-tests/spec.md
 |   |- changes/archive/                Todos los changes archivados
 |   |   |- 2026-03-27-reddit-candidate-collection/
 |   |   |- 2026-03-27-candidate-memory-and-uniqueness/
 |   |   |- 2026-03-28-thread-context-extraction/
 |   |   |- 2026-03-28-ai-opportunity-evaluation/
 |   |   |- 2026-03-28-telegram-daily-delivery/
+|   |   |- 2026-03-28-operational-integration-tests/
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
 |- TFM/                                Documentacion academica
@@ -350,6 +354,10 @@ No pienses el repo por carpetas. Piensalo por capas:
 - `sent solo tras confirmacion`: el estado `sent` no se escribe en SQLite hasta que Telegram confirma la entrega; un fallo de red no produce un post marcado como enviado sin haberlo entregado
 - `resumen no bloqueante`: el mensaje de resumen diario (fecha, posts revisados, oportunidades detectadas) se envia al final; si falla, las entregas individuales ya estan hechas y no se deshacen
 - `TTL de entrega`: tiempo maximo de vida de un registro `pending_delivery`; en este sistema son 7 dias desde `decided_at`; pasado ese tiempo el post ya no es editorialmente relevante y se purga
+- `test de integracion operacional`: test que prueba el comportamiento del sistema como orquestador, no de un modulo aislado; usa SQLite real y mocks de I/O externo para verificar que las fases no interfieren entre si y que el estado persiste correctamente entre ejecuciones
+- `boundary isolation test`: test que verifica que una fase del pipeline no llama a otra fase que no le corresponde; usa un sentinel que lanza `AssertionError` si se invoca; si el test pasa, el boundary se respeto
+- `env-gated test`: test que se salta automaticamente si no existe una variable de entorno especifica; util para smoke tests contra APIs reales que no deben ejecutarse en CI normal
+- `parche en namespace del caller`: tecnica de mocking en Python; los patches deben aplicarse en el modulo donde se usa el nombre importado, no donde esta definido; si `main.py` importa `evaluate_batch`, el patch va en `auto_reddit.main.evaluate_batch`, no en `auto_reddit.evaluation.evaluator`
 
 ### Conceptos de proceso
 
@@ -1321,7 +1329,7 @@ Rol: convencion de despliegue.
 
 ### 10.7 `tests/`
 
-**Los cinco changes implementados.**
+**Los seis changes implementados.**
 
 `tests/test_reddit/` — 87 tests (changes 1 y 3)
 
@@ -1335,13 +1343,21 @@ Rol: convencion de despliegue.
 - `test_telegram.py`: llamadas HTTP mockeadas, respuesta 200 y error
 - `test_deliver_daily.py`: ciclo completo con mocks de store y Telegram; `sent` solo tras confirmacion; resumen no bloqueante; purga de expirados; `DeliveryReport` correcto
 
-Total: **259 tests pasando**.
+`tests/test_integration/` — 10 tests + 1 smoke opcional (change 6):
 
-Advertencias preservadas del verify (no blockers): no existe test de dos ejecuciones consecutivas que pruebe "skipped today, eligible tomorrow"; no existe test end-to-end de reintento Telegram sin re-evaluar IA. Ambas son pruebas de integracion que requieren estado entre runs y no estan cubiertas aun.
+Los tests de integracion son cualitativamente distintos a los unitarios. No prueban que una funcion devuelve el valor correcto: prueban que las fases del pipeline no interfieren entre si y que el estado persiste correctamente entre ejecuciones.
 
-Rol actual: cobertura funcional de los dos primeros modulos del pipeline. Evaluacion, enriquecimiento y delivery siguen sin cobertura.
+- `TestRetryWithoutAIReEvaluation`: `pending_delivery` persiste entre runs; el reintento de Telegram no llama a `evaluate_batch` ni a los providers de Reddit
+- `TestDeliveryBoundaryIsolation`: delivery solo consume registros persistidos; nunca re-entra en coleccion ni evaluacion
+- `TestEvaluationBoundaryIsolation`: una aceptacion queda persistida antes del delivery; un rechazo no toca el cliente Telegram
+- `TestMultiRunMemoryBoundaries` (SQLite real, no mock): sent y rejected de la primera ejecucion quedan excluidos en la segunda; `pending_delivery` se reintenta en la segunda sin llamar a la IA
+- `TestRedditSmokeOptional`: llamada real a Reddit, env-gated con `REDDIT_SMOKE_API_KEY`, skipped por defecto
 
-Leccion importante: 70 tests reales sobre los modulos criticos da una base solida para seguir construyendo con confianza. Pero los tests de integracion entre runs son distintos de los tests unitarios y requieren un enfoque diferente.
+Las advertencias de los changes 4 y 5 sobre ausencia de tests de integracion quedan cerradas por este change.
+
+Total: **269 tests pasando + 1 skipped**.
+
+Leccion importante: la diferencia entre tests unitarios y de integracion no es el tamano. Es el nivel de abstraccion. Los unitarios prueban que cada pieza hace lo que dice. Los de integracion prueban que las piezas no interfieren entre si y que el sistema recuerda lo que hizo.
 
 ### 10.8 `TFM/`
 
@@ -1435,7 +1451,7 @@ Con `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` y `REDDIT_API_K
 8. Purga registros expirados de SQLite
 9. Logea el `DeliveryReport` con todos los contadores del ciclo
 
-El sistema es operativo. No es un prototipo ni un scaffolding: es un pipeline diario funcional.
+El sistema es operativo y tiene cobertura de integracion. No es un prototipo ni un scaffolding: es un pipeline diario funcional con 269 tests que verifican tanto el comportamiento individual de cada modulo como el comportamiento del sistema como orquestador.
 
 ---
 
@@ -1612,9 +1628,9 @@ Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas, det
 
 Si tuviera que resumirlo para un junior:
 
-> Cinco modulos, cinco responsabilidades, trece contratos, doscientos cincuenta y nueve tests, cinco changes archivados con trazabilidad completa. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden. El resultado es un sistema que cualquiera puede leer, entender y extender.
+> Seis changes archivados. Doscientos sesenta y nueve tests. Cinco modulos funcionales mas integracion operacional. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan. El resultado es un sistema que cualquiera puede leer, entender, extender y verificar.
 
-El proyecto no termina aqui. Termina la primera version del pipeline principal. Lo que sigue — observabilidad, tests de integracion, expansion a otras fuentes — tiene una base solida sobre la que construir.
+El proyecto no termina aqui. Termina el pipeline principal con su cobertura de integracion. Lo que sigue — observabilidad operativa, tests con APIs reales en CI, expansion a otras fuentes — tiene una base solida sobre la que construir.
 
 ---
 
@@ -1646,6 +1662,35 @@ Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo 
 **Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
 
 **Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+
+### Change 6 — `operational-integration-tests` — ARCHIVADO 2026-03-28
+
+**Alcance:** tests de integracion operacional para verificar que las fases del pipeline no interfieren entre si y que el estado persiste correctamente entre ejecuciones consecutivas. Sin funcionalidad nueva.
+
+**Lo que implemento:**
+
+- `tests/test_integration/test_operational.py`: 832 lineas, 5 clases, 10 tests + 1 smoke opcional
+  - `TestRetryWithoutAIReEvaluation`: reintento Telegram sin llamar a la IA
+  - `TestDeliveryBoundaryIsolation`: delivery no re-entra en upstream
+  - `TestEvaluationBoundaryIsolation`: evaluacion sin side effects en delivery
+  - `TestMultiRunMemoryBoundaries`: persistencia real entre dos runs con SQLite no mockeado
+  - `TestRedditSmokeOptional`: llamada real a Reddit, env-gated, skipped por defecto
+
+**Decisiones de diseno de tests:**
+
+- SQLite real con `tmp_path` en los tests de multi-run; el mock ocultaria exactamente lo que se quiere verificar
+- parche en el namespace del caller (`auto_reddit.main`), no en el modulo de definicion
+- sentinel con `AssertionError` para boundary isolation: si el test pasa, la fase no fue invocada
+- env-gate con `REDDIT_SMOKE_API_KEY` para el smoke sin romper CI normal
+- estrategia de prueba de P2 (boundary de delivery): entrada controlada vacia que atraviesa `main.run()` sin activar upstream, en lugar de hard-fail sentinels que habrian requerido refactorizacion de produccion
+
+**Spec canonica:** `openspec/specs/operational-integration-tests/spec.md`
+
+**Archivo:** `openspec/changes/archive/2026-03-28-operational-integration-tests/`
+
+**Verificacion:** PASS limpio — 10/10 tasks completas, 269 tests pasando + 1 skipped; cierra las advertencias de integracion abiertas en los changes 4 y 5; sin advertencias residuales
+
+---
 
 ### Change 5 — `telegram-daily-delivery` — ARCHIVADO 2026-03-28
 

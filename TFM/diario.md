@@ -825,3 +825,109 @@ no bloqueantes preservadas:
 - spec promovida a `openspec/specs/telegram-daily-delivery/spec.md`
 - 259 tests pasando en total (50 + 20 + 37 + 56 + 96)
 - **Pipeline completo**: los cinco changes del proyecto estan archivados
+
+---
+
+## Entrada 14
+
+**Fecha:** 28/03/2026
+
+### SDD completo del change 6: tests de integracion operacional
+
+Se ejecuto el ciclo SDD completo para `operational-integration-tests`:
+discovery, proposal, spec, design, tasks, apply, verify (con ciclo correctivo
+de alineacion de artefactos) y archive.
+
+### Por que este change existe
+
+Al cerrar los cinco changes funcionales, las advertencias de verify de los
+changes 4 y 5 senalaban el mismo gap: no existia ningun test que probase el
+comportamiento del pipeline como orquestador. Los tests unitarios cubren cada
+modulo por separado, pero nadie verificaba que:
+
+- el reintento de Telegram usa el resultado persistido de la IA y no la
+  vuelve a llamar
+- la fase de delivery no re-entra en la evaluacion IA ni en paths de
+  publicacion directa en Reddit
+- la evaluacion no produce side effects en la entrega
+- entre dos ejecuciones consecutivas, los posts decididos en la primera
+  quedan correctamente excluidos en la segunda
+
+Este change cierra esas brechas sin anadir funcionalidad nueva. Solo tests.
+
+### Lo que se implemento
+
+`tests/test_integration/test_operational.py`: 832 lineas, 10 tests en 4
+clases, 1 smoke test optional:
+
+- `TestRetryWithoutAIReEvaluation`: prueba que un `pending_delivery`
+  persiste entre ejecuciones y que el reintento de Telegram no llama a
+  `evaluate_batch` ni a los providers de Reddit.
+  - `test_retry_uses_persisted_data_without_ai_call`
+  - `test_retry_does_not_call_evaluate_batch_even_if_new_candidates_zero`
+
+- `TestDeliveryBoundaryIsolation`: prueba que la fase de delivery solo
+  consume registros persistidos; nunca re-entra en coleccion de candidatos
+  ni en evaluacion IA.
+  - `test_delivery_reads_only_persisted_records_no_upstream_reentry`
+
+- `TestEvaluationBoundaryIsolation`: prueba que la evaluacion no produce
+  side effects en la entrega; que una aceptacion queda persistida antes de
+  que llegue al modulo de delivery; que un rechazo no llama al cliente
+  Telegram.
+  - `test_evaluation_boundary_no_delivery_side_effect_on_rejection`
+  - `test_evaluation_accepted_outcome_persisted_before_delivery_phase`
+  - `test_rejected_post_stored_without_delivery_side_effect`
+
+- `TestMultiRunMemoryBoundaries`: prueba el comportamiento entre dos runs
+  consecutivos con SQLite real (no mock): sent y rejected de la primera
+  ejecucion quedan excluidos en la segunda; `pending_delivery` se reintenta
+  sin re-evaluar la IA en la segunda ejecucion.
+  - `test_run1_persists_sent_and_rejected_correctly`
+  - `test_run2_excludes_sent_and_rejected_processes_new`
+  - `test_pending_delivery_retry_excluded_from_decided_set`
+  - `test_pending_delivery_retried_without_ai_call_in_run2`
+
+- `TestRedditSmokeOptional` (1 test, opcional):
+  - `test_real_reddit_collect_candidates_returns_nonempty_list`: solo se
+    ejecuta si existe la variable de entorno `REDDIT_SMOKE_API_KEY`. Hace
+    una llamada real a Reddit y verifica que devuelve al menos un candidato.
+    No forma parte de los criterios de pass/fail del verify normal.
+
+### Decisiones tecnicas de diseno de tests
+
+- **SQLite real con `tmp_path`**: `TestMultiRunMemoryBoundaries` usa un
+  fichero SQLite temporal real, no un mock. Esto es lo que hace que el test
+  sea util: prueba la persistencia real, no una simulacion.
+- **Parche en el namespace del caller**: los patches de `evaluate_batch` y
+  `send_message` se aplican en `auto_reddit.main`, no en el modulo donde
+  estan definidos. Es como Python resuelve los nombres en tiempo de
+  ejecucion.
+- **Sentinel estricto para isolation tests**: para probar que una fase no
+  llama a otra, se usa un sentinel que levanta `AssertionError` si es
+  invocado; si el test pasa, la fase no fue llamada.
+- **Env-gated para smoke**: `@pytest.mark.skipif(not os.getenv(...))` mantiene
+  el smoke test fuera del CI sin necesidad de configuracion especial.
+
+### Ciclo correctivo
+
+El primer verify detecto un mismatch de wording: la spec y las tasks
+describian el proof de P2 (boundary de delivery) como "sentinels que fallan
+si se llaman", pero la implementacion real usa entrada controlada vacia que
+atraviesa `main.run()` sin llamar a los modulos upstream. No habia que
+cambiar codigo: solo alinear el wording de spec, design, tasks y verify con
+la estrategia de prueba real. El verify final dio PASS limpio.
+
+### Resultado
+
+PASS — 10/10 tasks completas. Suite completa: 269 tests pasando, 1 skipped
+(el smoke test opcional). Sin advertencias de baja severidad ni sugerencias
+pendientes — este change cierra las brechas abiertas en los changes 4 y 5.
+
+### Archive
+
+- artefactos en
+  `openspec/changes/archive/2026-03-28-operational-integration-tests/`
+- spec promovida a `openspec/specs/operational-integration-tests/spec.md`
+- 269 tests pasando + 1 skipped (50 + 20 + 37 + 56 + 96 + 10)
+- **Cobertura completa**: unitaria + integracion operacional archivadas
