@@ -197,11 +197,11 @@ Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
 
 Esta es probablemente la parte mas importante para no enganarte.
 
-### Estado real del repo — actualizado 2026-03-28 (pipeline + integracion completos)
+### Estado real del repo — actualizado 2026-03-28 (pipeline + integracion + smoke completos)
 
-Los seis changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo y cuenta ademas con cobertura de integracion operacional que verifica el comportamiento del orquestador entre fases y entre ejecuciones consecutivas.
+Los siete changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo, tiene cobertura de integracion operacional y smoke tests live verificados contra Reddit y Telegram reales.
 
-La base ejecutable e incluye:
+La base ejecutable incluye:
 
 - trece contratos Pydantic en `shared/contracts.py` cubriendo todo el pipeline
 - cliente Reddit con fallback chain para posts y comentarios
@@ -209,40 +209,42 @@ La base ejecutable e incluye:
 - evaluador IA con system prompt de dos fases, retry y validacion Pydantic estricta
 - modulo `delivery/` con selector determinista, renderer HTML y cliente Telegram
 - `main.py` con los cinco pasos del pipeline activos
-- 270 tests: 50 + 20 + 37 + 56 + 96 + 11 (smoke incluido tras correccion post-archive)
-- seis specs canonicas en `openspec/specs/`
+- 273 tests: 50 + 20 + 37 + 56 + 96 + 11 + 3
+- `.env.example` documentado con todas las variables del proyecto
+- siete specs canonicas en `openspec/specs/`
 
 ### Que esta maduro
 
 - producto definido en `docs/product/product.md`
 - reglas editoriales de IA en `docs/product/ai-style.md` con modelo recomendado
-- arquitectura modular documentada y validada en seis changes completos
-- los seis changes archivados con specs canonicas y trazabilidad completa
-- cobertura de tests unitarios + integracion operacional
+- arquitectura modular documentada y validada en siete changes completos
+- los siete changes archivados con specs canonicas y trazabilidad completa
+- cobertura de tests unitarios + integracion operacional + smoke live
+- `.env.example` como contrato publico de configuracion
 - skilling del repo y normas operativas consolidadas
 
 ### Que sigue scaffolded
 
-Nada del pipeline principal. La cobertura de integracion cubre los boundaries entre fases.
+Nada. El pipeline, la integracion y los smoke tests estan completos.
 
-Lo que queda como trabajo potencial futuro: observabilidad operativa avanzada, tests end-to-end con APIs reales, expansion a otros subreddits o fuentes.
+Lo que queda como trabajo potencial futuro: observabilidad operativa avanzada, expansion a otros subreddits o fuentes.
 
 ### Nivel de madurez por capas
 
 | Capa | Madurez | Comentario docente |
 |---|---|---|
 | Producto | Alta | Que, para que y limites bien cerrados. |
-| Arquitectura | Alta | Validada en seis changes completos. |
+| Arquitectura | Alta | Validada en siete changes completos. |
 | Contratos / shared | Alta | Trece contratos cubriendo todo el pipeline. |
-| Integracion Reddit | Alta | Posts y comentarios con fallback chain y 87 tests. |
+| Integracion Reddit | Alta | Posts, comentarios, fallback chain y smoke live verificado. |
 | Persistencia | Alta | `CandidateStore` con modelo de estados, TTL y 20 tests. |
 | IA / evaluacion | Alta | Evaluador completo con prompt de dos fases, retry y 56 tests. |
-| Delivery Telegram | Alta | Selector, renderer, cliente y 96 tests. |
-| Testing | Alta | 270 tests: unitarios + integracion operacional entre fases (smoke incluido). |
+| Delivery Telegram | Alta | Selector, renderer, cliente, 96 tests y smoke live verificado. |
+| Testing | Alta | 273 tests: unitarios + integracion + smoke live Reddit y Telegram. |
 
 ### Lectura correcta de la madurez
 
-El sistema es funcionalmente completo y tiene cobertura de integracion. Los tests operacionales prueban que las fases no interfieren entre si y que el estado persiste correctamente entre ejecuciones. Lo que no tiene aun son tests con APIs reales en CI (el smoke test esta env-gated) y observabilidad avanzada en produccion.
+El sistema es funcionalmente completo y tiene tres capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, y smoke tests live contra las APIs reales. Lo que no tiene aun es observabilidad avanzada en produccion.
 
 ---
 
@@ -264,13 +266,14 @@ auto-reddit/
 |   |- delivery/telegram.py            Cliente Bot API Telegram — change 5
 |   |- delivery/__init__.py            Orquesta deliver_daily — change 5
 |   |- main.py                         Pipeline completo: 5 pasos activos
-|   |- config/settings.py              Configuracion y validacion de entorno
+|   |- config/settings.py              Configuracion, validacion de entorno, extra="ignore"
 |- tests/
 |   |- test_reddit/                    87 tests (changes 1 y 3)
 |   |- test_persistence/               20 tests — change 2
 |   |- test_evaluation/                56 tests — change 4
 |   |- test_delivery/                  96 tests — change 5
-|   |- test_integration/               10 tests + 1 smoke opcional — change 6
+|   |- test_integration/               11 tests (smoke Reddit) + 3 smoke Telegram — changes 6 y 7
+|- .env.example                        Contrato publico de configuracion con todas las variables
 |- docs/                               Fuente de verdad funcional y tecnica
 |- openspec/
 |   |- specs/                          Specs canonicas (fuente de verdad permanente)
@@ -279,7 +282,7 @@ auto-reddit/
 |   |   |- thread-context-extraction/spec.md
 |   |   |- ai-opportunity-evaluation/spec.md
 |   |   |- telegram-daily-delivery/spec.md
-|   |   |- operational-integration-tests/spec.md
+|   |   |- operational-integration-tests/spec.md  (actualizado con smoke Telegram)
 |   |- changes/archive/                Todos los changes archivados
 |   |   |- 2026-03-27-reddit-candidate-collection/
 |   |   |- 2026-03-27-candidate-memory-and-uniqueness/
@@ -287,6 +290,7 @@ auto-reddit/
 |   |   |- 2026-03-28-ai-opportunity-evaluation/
 |   |   |- 2026-03-28-telegram-daily-delivery/
 |   |   |- 2026-03-28-operational-integration-tests/
+|   |   |- 2026-03-28-telegram-smoke-tests/
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
 |- TFM/                                Documentacion academica
@@ -358,6 +362,10 @@ No pienses el repo por carpetas. Piensalo por capas:
 - `boundary isolation test`: test que verifica que una fase del pipeline no llama a otra fase que no le corresponde; usa un sentinel que lanza `AssertionError` si se invoca; si el test pasa, el boundary se respeto
 - `env-gated test`: test que se salta automaticamente si no existe una variable de entorno especifica; util para smoke tests contra APIs reales que no deben ejecutarse en CI normal; ojo: `os.getenv()` solo ve variables ya presentes en el proceso, no lee `.env` automaticamente — hay que llamar a `load_dotenv()` explicitamente para ejecucion local
 - `parche en namespace del caller`: tecnica de mocking en Python; los patches deben aplicarse en el modulo donde se usa el nombre importado, no donde esta definido; si `main.py` importa `evaluate_batch`, el patch va en `auto_reddit.main.evaluate_batch`, no en `auto_reddit.evaluation.evaluator`
+- `smoke test live`: test que llama a una API o servicio externo real para verificar que la integracion funciona de extremo a extremo; en este proyecto Reddit y Telegram tienen smoke tests gated que solo se ejecutan cuando existen credenciales dedicadas en `.env`
+- `credenciales dedicadas para smoke`: el smoke de Telegram usa `TELEGRAM_SMOKE_BOT_TOKEN` / `TELEGRAM_SMOKE_CHAT_ID` y no hace fallback a las de produccion; mezclar ambos enviaria mensajes reales al canal del equipo; el riesgo es asimetrico
+- `extra="ignore" en pydantic-settings`: configuracion que permite variables adicionales en `.env` sin que el modelo `Settings` falle; necesario cuando `.env` contiene variables de smoke que `Settings` no declara
+- `.env.example`: fichero rastreado en git que documenta todas las variables de entorno del proyecto con comentarios; es el contrato publico de configuracion; `.env` con credenciales reales sigue ignorado en `.gitignore`
 
 ### Conceptos de proceso
 
@@ -1359,6 +1367,15 @@ Total: **270 tests pasando, 0 skipped**.
 
 **Correccion post-archive del smoke test:** tras archivar el change, el smoke test seguia apareciendo como skipped en ejecucion local aunque `REDDIT_API_KEY` estuviera en `.env`. Causa: `os.getenv()` no lee `.env`; solo ve variables ya presentes en el proceso. Solucion: `load_dotenv()` anadido antes del env-gate y `python-dotenv` formalizado en dev deps. El env-gate paso a usar fallback `REDDIT_SMOKE_API_KEY or REDDIT_API_KEY` para no requerir una clave dedicada. Resultado: 270 pasando, 0 skipped.
 
+**Change 7 — smoke tests de Telegram** (change 7): se anado `TestTelegramSmokeOptional` con tres escenarios live:
+- S1: texto plano, `send_message()` devuelve `True`
+- S2: token invalido, `send_message()` devuelve `False` sin excepcion
+- S3: HTML formateado, `send_message()` devuelve `True`
+
+Gate: `TELEGRAM_SMOKE_BOT_TOKEN` y `TELEGRAM_SMOKE_CHAT_ID` deben estar presentes; sin fallback a produccion por diseno. Los tres tests pasaron en ejecucion live real contra la Bot API de Telegram. Suite: 273 pasando, 0 skipped.
+
+Tambien se crearon `.env.example` con todas las variables documentadas por dominio, y `settings.py` recibio `"extra": "ignore"` para no rechazar variables de smoke desconocidas.
+
 Leccion importante: la diferencia entre tests unitarios y de integracion no es el tamano. Es el nivel de abstraccion. Los unitarios prueban que cada pieza hace lo que dice. Los de integracion prueban que las piezas no interfieren entre si y que el sistema recuerda lo que hizo.
 
 ### 10.8 `TFM/`
@@ -1630,7 +1647,7 @@ Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas, det
 
 Si tuviera que resumirlo para un junior:
 
-> Seis changes archivados. Doscientos setenta tests. Cinco modulos funcionales mas integracion operacional. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan. El resultado es un sistema que cualquiera puede leer, entender, extender y verificar.
+> Siete changes archivados. Doscientos setenta y tres tests. Pipeline funcional, integracion operacional y smoke tests live contra Reddit y Telegram reales. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan y los smoke que confirman que las APIs externas responden. El resultado es un sistema que cualquiera puede leer, entender, extender y verificar.
 
 El proyecto no termina aqui. Termina el pipeline principal con su cobertura de integracion. Lo que sigue — observabilidad operativa, tests con APIs reales en CI, expansion a otras fuentes — tiene una base solida sobre la que construir.
 
@@ -1664,6 +1681,32 @@ Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo 
 **Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
 
 **Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+
+### Change 7 — `telegram-smoke-tests` — ARCHIVADO 2026-03-28
+
+**Alcance:** smoke tests opt-in live contra la Bot API de Telegram real, verificando que `send_message()` entrega texto plano, maneja tokens invalidos y entrega HTML. Sin funcionalidad nueva.
+
+**Lo que implemento:**
+
+- `tests/test_integration/test_operational.py`: clase nueva `TestTelegramSmokeOptional` con 3 tests (S1 texto plano, S2 token invalido, S3 HTML)
+- `src/auto_reddit/config/settings.py`: `"extra": "ignore"` en `model_config` para no rechazar variables de smoke desconocidas
+- `.env.example`: creado con todas las variables del proyecto documentadas y agrupadas por dominio
+- `.gitignore`: corregido para rastrear `.env.example` y mantener `.env` ignorado
+
+**Decisiones tecnicas clave:**
+
+- sin fallback a credenciales de produccion: a diferencia del smoke de Reddit, el de Telegram exige `TELEGRAM_SMOKE_*` dedicados; mezclar con produccion enviaria mensajes reales al canal del equipo
+- S2 (token invalido) dentro de la clase gated: podria correr sin credenciales pero se mantiene gated para respetar el contrato de opt-in explicito
+- gate con ambas variables obligatorias: `not _SMOKE_TG_TOKEN or not _SMOKE_TG_CHAT_ID`
+- el bot debe ser miembro del canal antes de correr el smoke; primer intento fallo con `chat not found`
+
+**Spec sync:** `openspec/specs/operational-integration-tests/spec.md` actualizada para incluir el requisito de smoke Telegram y la regla de credenciales dedicadas
+
+**Archivo:** `openspec/changes/archive/2026-03-28-telegram-smoke-tests/`
+
+**Verificacion:** PASS limpio — 8/8 tasks completas, 273 tests pasando en suite completa, 3 smoke live pasando contra Bot API real
+
+---
 
 ### Change 6 — `operational-integration-tests` — ARCHIVADO 2026-03-28
 

@@ -966,3 +966,101 @@ automaticamente salvo que se configure explicitamente (`python-dotenv`,
 `pytest-dotenv`, o un `conftest.py` con `load_dotenv()`). Si un test parece
 no ver variables que sabes que estan en `.env`, este es el primer lugar donde
 mirar.
+
+---
+
+## Entrada 15
+
+**Fecha:** 28/03/2026
+
+### SDD completo del change 7: smoke tests de Telegram
+
+Se ejecuto el ciclo SDD completo para `telegram-smoke-tests`: discovery,
+proposal, spec, design, tasks, apply, verify con ejecucion live real y
+archive.
+
+### Por que este change existe
+
+Tras cerrar el smoke de Reddit (change 6 y su correccion), quedaba sin
+verificacion real el cliente de Telegram. Los tests unitarios de `telegram.py`
+usan mocks HTTP. Ningun test habia llamado de verdad a la Bot API de Telegram
+y confirmado que `send_message()` funciona con credenciales reales. Este
+change cierra esa brecha con un smoke opt-in, igual que el de Reddit.
+
+### Contexto previo: Settings rechazaba variables desconocidas
+
+Durante el ciclo se detecto un bug de configuracion: `pydantic-settings` v2
+usa `extra="forbid"` por defecto. Si `.env` contiene variables no declaradas
+en `Settings` (como `REDDIT_SMOKE_API_KEY` o `TELEGRAM_SMOKE_BOT_TOKEN`),
+el modelo falla al arrancar con un error de validacion. La correccion fue
+anadir `"extra": "ignore"` a `Settings.model_config`, lo que permite
+variables adicionales en `.env` sin romper el modelo.
+
+### Commit auxiliar: .env.example documentado
+
+Antes del apply del smoke, se hizo un commit de mantenimiento
+(`aa05462`) para:
+
+- crear `.env.example` con todas las variables del proyecto documentadas
+  y agrupadas por dominio (IA, Telegram, Reddit, pipeline, persistencia,
+  smoke tests)
+- corregir `.gitignore` para rastrear `.env.example` y asegurar que `.env`
+  (con credenciales reales) siga ignorado
+
+Este fichero es el contrato publico de configuracion del proyecto: cualquier
+desarrollador o agente que llegue nuevo puede saber exactamente que variables
+necesita y para que sirven.
+
+### Lo que se implemento
+
+`tests/test_integration/test_operational.py` — clase nueva `TestTelegramSmokeOptional`:
+
+- Variables de gate a nivel de modulo:
+  ```python
+  _SMOKE_TG_TOKEN = os.getenv("TELEGRAM_SMOKE_BOT_TOKEN")
+  _SMOKE_TG_CHAT_ID = os.getenv("TELEGRAM_SMOKE_CHAT_ID")
+  ```
+- `@pytest.mark.skipif(not _SMOKE_TG_TOKEN or not _SMOKE_TG_CHAT_ID, ...)`
+- Tres escenarios smoke:
+  - `test_send_message_delivers_plain_text` (S1): texto plano, devuelve `True`
+  - `test_send_message_returns_false_for_invalid_token` (S2): token invalido,
+    devuelve `False` sin lanzar excepcion
+  - `test_send_message_delivers_html_formatting` (S3): cuerpo con etiquetas
+    HTML, devuelve `True`
+
+### Decisiones tecnicas clave
+
+- **No hay fallback a credenciales de produccion**: a diferencia del smoke de
+  Reddit (que hace fallback a `REDDIT_API_KEY`), el smoke de Telegram exige
+  credenciales dedicadas `TELEGRAM_SMOKE_*`. La razon: mezclar credenciales
+  de produccion y de smoke en Telegram enviaria mensajes reales al canal de
+  produccion del equipo. El riesgo es asimetrico respecto a Reddit.
+- **S2 dentro de la clase gated**: el test de token invalido podria ejecutarse
+  sin credenciales (usa un token dummy). Se decidio mantenerlo dentro de la
+  clase para respetar el contrato de la spec: todos los smoke de Telegram
+  requieren opt-in explicito.
+- **Bot debe estar en el canal**: el primer intento fallo con
+  `Bad Request: chat not found` porque el bot aun no era miembro del canal
+  de prueba. Una vez anadido, los tres tests pasaron.
+
+### Verificacion con ejecucion live real
+
+El verify no se dio por bueno hasta que los tres tests pasaron contra la Bot
+API de Telegram real:
+
+```
+TestTelegramSmokeOptional::test_send_message_delivers_plain_text       PASSED
+TestTelegramSmokeOptional::test_send_message_returns_false_for_invalid_token  PASSED
+TestTelegramSmokeOptional::test_send_message_delivers_html_formatting  PASSED
+3 passed in 4.53s
+```
+
+Suite completa: 273 pasando, 0 skipped.
+
+### Archive
+
+- artefactos en
+  `openspec/changes/archive/2026-03-28-telegram-smoke-tests/`
+- spec de `operational-integration-tests` actualizada para incluir el
+  requisito de smoke de Telegram y la regla de credenciales dedicadas
+- 273 tests pasando en total (50 + 20 + 37 + 56 + 96 + 11 + 3)
