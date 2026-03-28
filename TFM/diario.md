@@ -524,3 +524,81 @@ al unitario. Quedan pendientes.
   `openspec/changes/archive/2026-03-27-candidate-memory-and-uniqueness/`
 - spec promovida a `openspec/specs/candidate-memory/spec.md`
 - 70 tests pasando en total (50 change 1 + 20 change 2)
+
+---
+
+## Entrada 11
+
+**Fecha:** 28/03/2026
+
+### SDD completo del change 3: extraccion de contexto de hilo
+
+Se ejecuto el ciclo SDD completo para `thread-context-extraction`: discovery,
+proposal, spec, design, tasks, apply, verify y archive.
+
+### Problema que resuelve
+
+La IA necesita contexto real del hilo para evaluar si merece intervencion: el
+titulo y el selftext solos no son suficientes. Este change enriquece solo los
+posts ya seleccionados aguas arriba con el arbol de comentarios normalizado,
+sin mezclar esa extraccion con la evaluacion IA ni con la entrega.
+
+### Lo que se implemento
+
+- `src/auto_reddit/shared/contracts.py`: tres nuevos contratos:
+  - `ContextQuality` enum (`full`, `partial`, `degraded`) para indicar la
+    calidad del contexto segun el proveedor que respondio.
+  - `RedditComment` modelo con campos opcionales cuando el proveedor no los
+    expone (`comment_id`, `created_utc`, `permalink`, `parent_id`, `depth`
+    son `None` para reddapi).
+  - `ThreadContext` modelo que empaqueta el candidato original, la lista de
+    comentarios normalizados, el conteo, la calidad y el proveedor usado.
+- `src/auto_reddit/reddit/comments.py`: modulo nuevo con funcion publica
+  `fetch_thread_contexts` que recibe el review set y devuelve un dict
+  `post_id → ThreadContext`. Internamente tiene normalizers por proveedor y
+  fallback chain `reddit34 → reddit3 → reddapi`.
+- `src/auto_reddit/main.py`: `fetch_thread_contexts` conectado como change 3,
+  placeholder de change 4 actualizado con la variable `thread_contexts`.
+- `tests/test_reddit/test_comments.py`: 37 tests nuevos (total 107 en suite).
+
+### Hallazgo tecnico importante: reddit3 y la metadatos de anidamiento
+
+Durante el apply se detecto que los raws de reddit3 no incluyen `parent_id`
+ni `depth` como campos directos. El arbol se puede recorrer recursivamente
+via `replies[]`, pero derivar `depth` sintetico desde la posicion del arbol
+no es equivalente a un `depth` real del API.
+
+Decision: el normalizer de reddit3 deja `depth=None` y `parent_id=None` para
+todos los comentarios. Esto se refleja en `ContextQuality.partial` cuando
+reddit3 actua como proveedor. Los artefactos de design y tasks se alinearon
+con esta realidad durante la fase de apply.
+
+### Calidad de contexto por proveedor
+
+| Proveedor | Calidad | Razon |
+|---|---|---|
+| reddit34 | `full` | Arbol de replies, timestamps ISO 8601, sort=new garantizado |
+| reddit3  | `partial` | Lista recursiva completa, sin `depth`/`parent_id` |
+| reddapi  | `degraded` | Solo top comments, plano, sin `comment_id` ni timestamps |
+
+### Detalle tecnico: datetime de reddit34
+
+reddit34 devuelve el campo `created` de comentarios en formato ISO 8601
+(`"2026-03-27T13:46:04.000000+0000"`), no como unix timestamp. El normalizer
+aplica `fromisoformat()` con sustitucion `+0000` → `+00:00` para compatibilidad
+con Python antes de convertir a int.
+
+### Verificacion
+
+PASS — 14/14 tasks completas, 107 tests pasando, 7/7 escenarios de spec
+cubiertos. El primer verify detecto una discrepancia de wording en los
+artefactos sobre reddit3 y `depth`; se resolvio alineando design y tasks con
+la implementacion real (sin cambiar codigo) y el verify final quedo en PASS
+limpio.
+
+### Archive
+
+- artefactos en
+  `openspec/changes/archive/2026-03-28-thread-context-extraction/`
+- spec promovida a `openspec/specs/thread-context-extraction/spec.md`
+- 107 tests pasando en total (50 change 1 + 20 change 2 + 37 change 3)

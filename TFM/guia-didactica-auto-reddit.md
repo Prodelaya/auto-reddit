@@ -199,24 +199,25 @@ Esta es probablemente la parte mas importante para no enganarte.
 
 ### Estado real del repo — actualizado 2026-03-28
 
-Los changes 1 y 2 estan **completados y archivados**. El pipeline ya tiene recoleccion de candidatos, memoria operativa SQLite y unicidad por post funcionando.
+Los changes 1, 2 y 3 estan **completados y archivados**. El pipeline ya recoge candidatos, aplica memoria operativa, recorta a 8 y enriquece cada post seleccionado con el contexto bruto de su hilo de comentarios.
 
 La base ejecutable incluye:
 
-- contratos Pydantic reales: `RedditCandidate` con `is_complete`, `PostDecision` (enum de estados), `PostRecord`
-- cliente Reddit con tres normalizers, paginacion por cursor, reintentos y fallback chain
+- contratos Pydantic reales: `RedditCandidate`, `PostDecision`, `PostRecord`, `ContextQuality`, `RedditComment`, `ThreadContext`
+- cliente Reddit con fallback chain para posts (`reddit3 → reddit34 → reddapi`)
 - `CandidateStore` SQLite con estados `sent`, `rejected` y `pending_delivery`
-- `main.py` con `run()` que orquesta los dos primeros pasos del pipeline y deja marcados los siguientes
-- 70 tests que pasan: 50 de coleccion Reddit + 20 de persistencia
-- specs canonicas promovidas a `openspec/specs/`
+- `reddit/comments.py` con fallback chain para comentarios (`reddit34 → reddit3 → reddapi`) y `ContextQuality` segun proveedor
+- `main.py` con los tres primeros pasos del pipeline activos y los dos siguientes marcados
+- 107 tests que pasan: 50 (change 1) + 20 (change 2) + 37 (change 3)
+- tres specs canonicas promovidas a `openspec/specs/`
 
 ### Que esta maduro
 
 - producto bastante bien definido en `docs/product/product.md`
 - reglas editoriales de IA definidas en `docs/product/ai-style.md`, incluyendo modelo recomendado (`deepseek-chat`)
 - arquitectura modular claramente documentada en `docs/architecture.md`
-- estrategia Reddit trabajada y revalidada con raws reales en `docs/integrations/reddit/`
-- changes 1 y 2 completamente archivados con specs canonicas en `openspec/specs/`
+- estrategia Reddit trabajada, revalidada con raws reales y parcialmente implementada
+- changes 1, 2 y 3 completamente archivados con specs canonicas en `openspec/specs/`
 - skilling del repo y normas operativas para agentes bien consolidadas
 
 ### Que sigue scaffolded
@@ -229,17 +230,17 @@ La base ejecutable incluye:
 | Capa | Madurez | Comentario docente |
 |---|---|---|
 | Producto | Alta | Que, para que y limites bastante bien cerrados. |
-| Arquitectura | Alta | Validada en codigo real por dos changes completos. |
-| Contratos / shared | Alta | `RedditCandidate`, `PostDecision` y `PostRecord` implementados y archivados. |
-| Integracion Reddit | Alta | Cliente con fallback chain, paginacion, reintentos y 50 tests. |
+| Arquitectura | Alta | Validada en codigo real por tres changes completos. |
+| Contratos / shared | Alta | Seis contratos implementados y archivados. |
+| Integracion Reddit | Alta | Posts y comentarios con fallback chain y 87 tests. |
 | Persistencia | Alta | `CandidateStore` SQLite con modelo de estados y 20 tests. |
 | IA / evaluacion | Baja | Hay criterio y skill, pero el modulo sigue vacio. |
 | Delivery Telegram | Baja | El contrato de salida esta claro, pero el cliente no existe todavia. |
-| Testing | Media-alta | 70 tests reales; enriquecimiento, evaluacion y delivery aun sin cobertura. |
+| Testing | Alta | 107 tests reales cubriendo los tres primeros modulos del pipeline. |
 
 ### Lectura correcta de la madurez
 
-El pipeline tiene ya su columna vertebral: recoge candidatos, excluye los ya decididos, recorta a 8 y deja `pending_delivery` para reintentos Telegram sin re-evaluar la IA. Los tres modulos restantes (comentarios, evaluacion IA y entrega) esperan los changes 3, 4 y 5.
+El pipeline ya tiene tres de sus cinco pasos funcionando: recoge candidatos de Reddit, filtra por memoria y recorta a 8, y enriquece cada post seleccionado con el contexto bruto de comentarios. La IA evaluara ese contexto en el change 4; Telegram lo entregara en el change 5.
 
 ---
 
@@ -250,24 +251,28 @@ El pipeline tiene ya su columna vertebral: recoge candidatos, excluye los ya dec
 ```text
 auto-reddit/
 |- src/auto_reddit/
-|   |- shared/contracts.py             RedditCandidate, PostDecision, PostRecord — changes 1 y 2
-|   |- reddit/client.py                Fallback chain Reddit con paginacion — change 1
+|   |- shared/contracts.py             RedditCandidate, PostDecision, PostRecord,
+|   |                                  ContextQuality, RedditComment, ThreadContext — changes 1-3
+|   |- reddit/client.py                Fallback chain posts — change 1
+|   |- reddit/comments.py             Fallback chain comentarios + ContextQuality — change 3
 |   |- persistence/store.py            CandidateStore SQLite — change 2
-|   |- main.py                         Orquestador: changes 1+2 activos, 3-5 comentados
+|   |- main.py                         Orquestador: changes 1-3 activos, 4-5 comentados
 |   |- config/settings.py              Configuracion y validacion de entorno
 |   |- evaluation/evaluator.py         Evaluacion IA — scaffolded (change 4)
 |   |- delivery/telegram.py            Entrega Telegram — scaffolded (change 5)
 |- tests/
-|   |- test_reddit/                    50 tests — change 1
+|   |- test_reddit/                    50 tests (change 1) + 37 tests (change 3)
 |   |- test_persistence/               20 tests — change 2
 |- docs/                               Fuente de verdad funcional y tecnica
 |- openspec/
 |   |- specs/                          Specs canonicas (fuente de verdad permanente)
 |   |   |- reddit-candidate-collection/spec.md
 |   |   |- candidate-memory/spec.md
+|   |   |- thread-context-extraction/spec.md
 |   |- changes/archive/                Changes completados y archivados
 |   |   |- 2026-03-27-reddit-candidate-collection/
 |   |   |- 2026-03-27-candidate-memory-and-uniqueness/
+|   |   |- 2026-03-28-thread-context-extraction/
 |   |- changes/<activos>/              Changes en curso
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
@@ -324,6 +329,9 @@ No pienses el repo por carpetas. Piensalo por capas:
 - `estado transitorio`: estado operativo temporal que puede evolucionar; `pending_delivery` es transitorio porque representa "la IA dijo si, Telegram aun no confirma"
 - `upsert`: operacion de base de datos que inserta si no existe o actualiza si ya existe; evita duplicados sin necesidad de consultar antes de escribir
 - `idempotencia de reintentos`: capacidad de reintentar una operacion sin efectos secundarios adicionales; en este sistema, reintentar Telegram no re-evalua la IA porque `pending_delivery` guarda el resultado anterior
+- `ContextQuality`: enum que indica la riqueza del contexto de hilo extraido segun el proveedor; `full` (reddit34 con arbol y timestamps), `partial` (reddit3 sin metadatos de anidamiento), `degraded` (reddapi solo top comments y plano)
+- `ThreadContext`: contrato que empaqueta candidato original, lista de comentarios normalizados, calidad y proveedor; es la salida del change 3 y la entrada del change 4
+- `depth / parent_id`: metadatos de anidamiento en un hilo de comentarios; reddit34 los expone, reddit3 no los incluye en sus campos (su arbol se recorre via `replies[]` pero no hay valor directo), reddapi no los tiene
 
 ### Conceptos de proceso
 
@@ -806,7 +814,23 @@ def run() -> None:
 
 Rol: director de orquesta. Cada change nuevo conecta aqui sin tocar los anteriores.
 
-**Leccion docente:** el orquestador actua como indice vivo del pipeline. Leer `main.py` es suficiente para entender que hace el sistema, en que orden y que falta aun. Eso es un dise&ntilde;o honesto.
+Con el change 3 integrado, `main.py` tiene ahora este aspecto:
+
+```python
+# Change 2: store
+store = CandidateStore(settings.db_path); store.init_db()
+# Change 1: colectar
+candidates = collect_candidates(settings)
+# Change 2: filtrar y recortar
+eligible = [c for c in candidates if c.post_id not in store.get_decided_post_ids()]
+review_set = eligible[:settings.daily_review_limit]
+# Change 3: enriquecer con contexto de hilo
+thread_contexts = fetch_thread_contexts(review_set, settings)
+# Change 4 (pendiente): evaluacion IA
+# Change 5 (pendiente): entrega Telegram
+```
+
+**Leccion docente:** el orquestador actua como indice vivo del pipeline. Leer `main.py` es suficiente para entender que hace el sistema, en que orden y que falta aun. Eso es un diseno honesto.
 
 #### `src/auto_reddit/config/settings.py`
 
@@ -879,6 +903,43 @@ class PostRecord(BaseModel):
 
 Leccion docente sobre contratos: **un buen contrato no solo describe datos; describe semantica**. `pending_delivery` no es un estado tecnico de implementacion; es una decision de diseno que protege la idempotencia del sistema y el presupuesto de API.
 
+**`ContextQuality`** (change 3) — enum que indica la riqueza del contexto extraido:
+
+```python
+class ContextQuality(str, Enum):
+    full     = "full"      # reddit34: arbol, timestamps, sort=new garantizado
+    partial  = "partial"   # reddit3: lista recursiva, sin depth/parent_id
+    degraded = "degraded"  # reddapi: solo top comments, plano, sin timestamps
+```
+
+**`RedditComment`** (change 3) — comentario normalizado con campos opcionales segun proveedor:
+
+```python
+class RedditComment(BaseModel):
+    comment_id: str | None = None   # None en reddapi
+    author: str | None = None
+    body: str                       # normalizado desde text/content/body/comment
+    score: int | None = None
+    created_utc: int | None = None  # None en reddapi; ISO 8601 en reddit34
+    permalink: str | None = None
+    parent_id: str | None = None    # None en reddit3 y reddapi
+    depth: int | None = None        # None en reddit3 y reddapi
+    source_api: str
+```
+
+**`ThreadContext`** (change 3) — salida del paso de extraccion, entrada del paso de evaluacion IA:
+
+```python
+class ThreadContext(BaseModel):
+    candidate: RedditCandidate
+    comments: list[RedditComment]
+    comment_count: int
+    quality: ContextQuality
+    source_api: str
+```
+
+Esta separacion entre extraccion y evaluacion es una decision de diseno importante: el modulo de comentarios no sabe si el post merece respuesta; solo extrae y normaliza. La decision es del modulo de evaluacion.
+
 Rol: idioma comun del sistema. Ningun modulo importa de otro directamente; todos hablan a traves de este archivo.
 
 #### `src/auto_reddit/reddit/client.py`
@@ -920,6 +981,26 @@ Funcion generica de paginacion que no sabe nada del provider concreto. Recibe: U
 Implementa el fallback chain: `reddit3 → reddit34 → reddapi`. Si un provider lanza excepcion, pasa al siguiente. Si todos fallan, devuelve lista vacia y logea error. Aplica dos filtros sobre el resultado del provider ganador: ventana de 7 dias y subreddit == "odoo" (case-insensitive). Devuelve ordenado por recencia descendente.
 
 Rol: adaptador de entrada del sistema. Absorbe la heterogeneidad de tres APIs externas y entrega un contrato homogeneo al siguiente paso del pipeline.
+
+#### `src/auto_reddit/reddit/comments.py`
+
+**Change 3 implementado.** Modulo nuevo, analogo a `client.py` pero para comentarios.
+
+Punto de entrada publico: `fetch_thread_contexts(review_set, settings) → dict[str, ThreadContext]`.
+
+Internamente tiene la misma arquitectura que `client.py`:
+
+- un normalizer por proveedor (`_normalize_reddit34_comments`, `_normalize_reddit3_comments`, `_normalize_reddapi_comments`)
+- fallback chain: `reddit34 → reddit3 → reddapi`
+- si todos los providers fallan para un post, ese post queda fuera del dict resultado (no bloquea el pipeline)
+
+**Diferencia clave frente al fallback de posts:** el fallback de comentarios esta ordenado de forma distinta. `reddit34` es el proveedor primario para comentarios porque ofrece `sort=new`, timestamps ISO 8601, `parent_id`, `depth` y arbol de replies. `reddit3` como fallback parcial: tiene el arbol recursivo via `replies[]` pero no expone `depth` ni `parent_id` como campos directos. `reddapi` como fallback degradado: solo top comments, plano, sin timestamps ni identificadores de comentario.
+
+**Detalle tecnico de reddit34:** el campo `created` de comentarios llega como string ISO 8601 (`"2026-03-27T13:46:04.000000+0000"`), no como unix timestamp. El normalizer aplica `datetime.fromisoformat(v.replace("+0000", "+00:00"))` antes de convertir a int.
+
+**Detalle tecnico de reddit3:** los comentarios se recorren recursivamente via `replies[]`. Se podria derivar un `depth` sintetico contando niveles de recursion, pero eso no es equivalente a un `depth` real que viene del API. Decision explicita: `depth=None` y `parent_id=None` para todos los comentarios de reddit3, reflejado en `ContextQuality.partial`.
+
+Rol: adaptador de entrada de contexto de hilo. Normaliza la heterogeneidad de las APIs de comentarios al contrato `ThreadContext`.
 
 #### `src/auto_reddit/evaluation/evaluator.py`
 
@@ -1099,16 +1180,16 @@ Rol: convencion de despliegue.
 
 ### 10.7 `tests/`
 
-**Changes 1 y 2 implementados.**
+**Changes 1, 2 y 3 implementados.**
 
-`tests/test_reddit/` — 50 tests del change 1:
-- fixtures con raws reales de los tres providers (snapshots sanitizados)
-- tests de normalizacion, filtrado, paginacion, fallback chain, reintentos e `is_complete`
+`tests/test_reddit/` — 87 tests:
+- 50 del change 1: normalizacion, filtrado, paginacion, fallback chain, reintentos e `is_complete`
+- 37 del change 3: normalizacion de comentarios por provider, fallback chain de comentarios, `ContextQuality` por proveedor, campos opcionales (`depth`/`parent_id` None en reddit3 y reddapi), parsing de ISO 8601 de reddit34, posts sin comentarios
 
 `tests/test_persistence/` — 20 tests del change 2:
-- `test_store.py`: init de DB, upserts, transiciones de estado, `get_decided_post_ids` (verifica que `pending_delivery` no aparece), `get_pending_deliveries`, comportamiento con DB vacia
+- init de DB, upserts, transiciones de estado, `get_decided_post_ids` sin `pending_delivery`, `get_pending_deliveries`, DB vacia
 
-Total: **70 tests pasando**.
+Total: **107 tests pasando**.
 
 Advertencias preservadas del verify (no blockers): no existe test de dos ejecuciones consecutivas que pruebe "skipped today, eligible tomorrow"; no existe test end-to-end de reintento Telegram sin re-evaluar IA. Ambas son pruebas de integracion que requieren estado entre runs y no estan cubiertas aun.
 
@@ -1200,13 +1281,13 @@ Si ejecutaras `python -m auto_reddit.main` con las variables de entorno configur
 
 1. Arranca logging
 2. Inicializa `CandidateStore` y crea la tabla SQLite si no existe
-3. Llama `collect_candidates(settings)`: intenta los tres providers, filtra por 7 dias y subreddit, ordena por recencia
-4. Consulta `store.get_decided_post_ids()` y excluye posts ya decididos (`sent` o `rejected`)
-5. Ordena los elegibles por recencia y recorta a `settings.daily_review_limit` (8)
-6. Logea: total recogidos, excluidos por memoria, elegibles, en revision
-7. Termina — los pasos 3, 4 y 5 del pipeline estan comentados esperando los changes 3, 4 y 5
+3. Llama `collect_candidates(settings)`: intenta los tres providers de posts, filtra por 7 dias y subreddit, ordena por recencia
+4. Excluye posts ya decididos (`sent` o `rejected`), recorta a 8 elegibles
+5. Llama `fetch_thread_contexts(review_set, settings)`: para cada post del review set intenta `reddit34 → reddit3 → reddapi`, normaliza comentarios al contrato `ThreadContext` con calidad segun proveedor
+6. Logea cuantos posts se enriquecieron
+7. Termina — evaluacion IA y entrega Telegram esperan los changes 4 y 5
 
-Lo que ya funciona de verdad: recoleccion, normalizacion, memoria operativa y unicidad por post. Lo que todavia no existe: enriquecimiento con comentarios, evaluacion IA y entrega Telegram.
+Lo que ya funciona de verdad: recoleccion, filtrado por memoria, recorte a 8 y extraccion de contexto de hilo con calidad graduada. Lo que todavia no existe: evaluacion IA y entrega Telegram.
 
 ---
 
@@ -1368,23 +1449,23 @@ Estas pruebas requieren estado persistente entre runs y un enfoque de integracio
 
 ## 15. Cierre: que es hoy auto-reddit de verdad
 
-Dos changes completados. Setenta tests pasando. El pipeline tiene ya su columna vertebral operativa.
+Tres changes completados. Ciento siete tests pasando. El pipeline ya hace algo real y util de principio a fin de su tramo implementado.
 
 Lo que existe hoy:
 
-- recoleccion de candidatos de Reddit con fallback chain entre tres providers
-- memoria operativa SQLite que garantiza unicidad entre ejecuciones diarias
-- modelo de estados que distingue decisiones finales (`sent`, `rejected`) de estados transitorios (`pending_delivery`) para hacer reintentos sin re-evaluar la IA
-- 70 tests que permiten seguir construyendo con confianza
-- `main.py` que actua como mapa vivo del pipeline: muestra lo que esta y lo que falta
+- recoleccion de candidatos de r/Odoo con fallback chain entre tres providers
+- memoria operativa SQLite con unicidad entre ejecuciones y modelo de estados para reintentos sin re-evaluar la IA
+- extraccion de contexto bruto de hilo para cada post seleccionado, con calidad graduada segun proveedor
+- 107 tests que cubren los tres primeros modulos del pipeline
+- `main.py` como mapa vivo del sistema: tres pasos activos, dos marcados
 
-Si ejecutas el sistema hoy, recoge candidatos de r/Odoo, excluye los ya procesados, recorta a 8 y para. Los tres modulos siguientes esperan sus propios changes.
+Si ejecutas el sistema hoy, recoge candidatos de r/Odoo, filtra los ya decididos, recorta a 8 y enriquece cada uno con los comentarios de su hilo. La IA todavia no evalua; Telegram todavia no entrega. Pero el contexto que necesita la IA ya esta preparado y normalizado.
 
 Si tuviera que resumirlo para un junior:
 
-> `auto-reddit` demuestra que construir bien desde el principio no es mas lento; es lo que permite que cada nuevo modulo encaje sin romper lo anterior.
+> Tres modulos distintos, tres fallback chains, seis contratos, ciento siete tests. Todo encaja porque se diseño para encajar antes de escribir la primera linea.
 
-El change 2 no es el final. Es la confirmacion de que el metodo escala.
+El change 3 no es el final. Es la prueba de que la arquitectura modular aguanta conforme el sistema crece.
 
 ---
 
@@ -1416,6 +1497,32 @@ Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo 
 **Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
 
 **Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+
+### Change 3 — `thread-context-extraction` — ARCHIVADO 2026-03-28
+
+**Alcance:** enriquecer solo los posts ya seleccionados aguas arriba con el contexto bruto normalizado de su hilo de comentarios, sin mezclar extraccion con evaluacion IA ni con entrega.
+
+**Lo que implemento:**
+
+- `shared/contracts.py`: `ContextQuality` enum, `RedditComment` con campos opcionales segun proveedor y `ThreadContext` como salida del paso
+- `reddit/comments.py`: modulo nuevo con `fetch_thread_contexts`, normalizers por proveedor y fallback chain `reddit34 → reddit3 → reddapi`
+- `main.py`: change 3 conectado, placeholder de change 4 actualizado
+- `tests/test_reddit/test_comments.py`: 37 tests nuevos
+
+**Decisiones tecnicas clave:**
+
+- el fallback de comentarios esta ordenado diferente al de posts: `reddit34` primero porque tiene `sort=new`, timestamps, `depth` y `parent_id`; `reddit3` como parcial sin metadatos de anidamiento; `reddapi` degradado sin timestamps ni ids de comentario
+- reddit34 devuelve `created` como ISO 8601 string, no unix; el normalizer aplica `fromisoformat` con sustitucion de timezone antes de convertir
+- reddit3 no tiene `depth`/`parent_id` en sus campos directos; derivarlos sinteticamente desde la posicion del arbol no es equivalente a un valor real; decision: `None` para ambos + `ContextQuality.partial`
+- si todos los providers fallan para un post, ese post queda fuera del dict de resultados; el pipeline no se rompe
+
+**Spec canonica:** `openspec/specs/thread-context-extraction/spec.md`
+
+**Archivo:** `openspec/changes/archive/2026-03-28-thread-context-extraction/`
+
+**Verificacion:** PASS — 14/14 tasks completas, 107 tests pasando, 7/7 escenarios de spec cubiertos; el primer verify detecto discrepancia de wording en artefactos sobre reddit3 y depth, resuelta alineando design y tasks sin cambiar codigo
+
+---
 
 ### Change 2 — `candidate-memory-and-uniqueness` — ARCHIVADO 2026-03-27
 
