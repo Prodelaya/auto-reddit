@@ -46,13 +46,13 @@ The system MUST persist `rejected` when the AI determines the post is not a vali
 
 ### Requirement: Preserve accepted opportunities for delivery retry
 
-When AI accepts a post, the system MUST persist a minimal operational pre-send record that preserves retry-readiness, SHALL keep it distinct from `sent`, and MUST reuse the accepted result for Telegram retries without re-evaluating AI.
+When AI accepts a post, the system MUST persist the structured evaluation output as the retry source of truth in `opportunity_data`, SHALL keep that pre-send record distinct from `sent`, and MUST reuse the persisted structured result for downstream deterministic rendering and Telegram retries without re-evaluating AI.
 
-#### Scenario: Retry Telegram after prior AI acceptance
+#### Scenario: Reuse persisted structured evaluation on retry
 
-- GIVEN a post was accepted by AI and its pre-send operational record exists
-- WHEN Telegram delivery fails and a later retry is attempted
-- THEN the retry uses the previously accepted opportunity
+- GIVEN a post was accepted and its structured evaluation was persisted in `opportunity_data`
+- WHEN a later delivery retry is attempted
+- THEN downstream rendering uses that persisted structured evaluation
 - AND no new AI evaluation is triggered
 
 ### Requirement: Mark sent only after successful Telegram delivery

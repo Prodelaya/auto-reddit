@@ -1,0 +1,14 @@
+change: ai-opportunity-evaluation
+status: tasks-ready
+sequence: 4
+phase: tasks
+dependencies:
+  - reddit-candidate-collection
+  - candidate-memory-and-uniqueness
+  - thread-context-extraction
+notes:
+  - Product and AI style docs are both required references
+  - Design resolves all pending discovery items (rejection types, degraded handling, failure behavior, schema)
+  - DeepSeek json_object mode + Pydantic validation (json_schema not available for response_format)
+  - Per-post skip on failure without business rejection
+  - 18 tasks across 4 phases (foundation, core, integration, testing)
