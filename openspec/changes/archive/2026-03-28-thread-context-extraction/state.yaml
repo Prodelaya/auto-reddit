@@ -1,7 +1,7 @@
 change: thread-context-extraction
-status: identified
+status: in-progress
 sequence: 3
-phase: identified
+phase: tasks
 dependencies:
   - reddit-candidate-collection
   - candidate-memory-and-uniqueness
