@@ -22,3 +22,4 @@
 
 - [x] 4.1 Add `@pytest.mark.skipif(not os.getenv("REDDIT_SMOKE_API_KEY"))` smoke test class. Verify real Reddit API returns non-empty candidates. Non-blocking, skipped by default.
 - [x] 4.2 Run `uv run pytest tests/ -x --tb=short` — 269 passed, 1 skipped. No regressions.
+- [x] 4.3 Post-archive correction: add `python-dotenv` to dev deps + `load_dotenv()` before smoke env gate so `.env` is loaded for manual runs. Result: 270 passed, 0 skipped. Smoke test passes live.

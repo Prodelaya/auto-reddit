@@ -798,15 +798,22 @@ class TestMultiRunMemoryBoundaries:
 # Optional smoke tests — env-gated, non-blocking
 # ---------------------------------------------------------------------------
 
+from dotenv import load_dotenv
+
+load_dotenv()  # Ensure .env is loaded for manual/local smoke-test runs.
+
+_SMOKE_API_KEY = os.getenv("REDDIT_SMOKE_API_KEY") or os.getenv("REDDIT_API_KEY")
+
 
 @pytest.mark.skipif(
-    not os.getenv("REDDIT_SMOKE_API_KEY"),
-    reason="REDDIT_SMOKE_API_KEY not set — smoke tests skipped by default",
+    not _SMOKE_API_KEY,
+    reason="Neither REDDIT_SMOKE_API_KEY nor REDDIT_API_KEY is set — smoke tests skipped",
 )
 class TestRedditSmokeOptional:
     """Optional smoke tests against real Reddit API providers.
 
-    These tests only run when REDDIT_SMOKE_API_KEY is set in the environment.
+    These tests run when REDDIT_SMOKE_API_KEY is set, falling back to
+    REDDIT_API_KEY if the dedicated smoke key is absent.
     They are non-blocking: their absence does not affect CI pass/fail.
     """
 
@@ -815,9 +822,9 @@ class TestRedditSmokeOptional:
         from auto_reddit.config.settings import Settings
         from auto_reddit.reddit.client import collect_candidates
 
-        # Build minimal settings from env-provided key
+        # Build minimal settings from env-provided key (prefers REDDIT_SMOKE_API_KEY)
         settings = MagicMock()
-        settings.reddit_api_key = os.getenv("REDDIT_SMOKE_API_KEY")
+        settings.reddit_api_key = _SMOKE_API_KEY
         settings.review_window_days = 7
 
         candidates = collect_candidates(settings)

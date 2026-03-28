@@ -15,6 +15,7 @@ Exercise the real `main.run()` orchestration path against a real SQLite database
 | 5 | `pytest.mark.skipif(not os.getenv("REDDIT_SMOKE_API_KEY"))` for smoke tests | Settings-based flag / custom marker | Constraint: env-gated via `os.getenv`, not Settings. `skipif` is idiomatic pytest. |
 | 6 | Deterministic `time.time` via `freezegun` or `mock.patch("time.time")` | Real clock | `selector._expiry_ts` and delivery retry/new classification depend on `time.time()`. Fixed timestamps eliminate flakiness. |
 | 7 | Controlled-empty patch strategy for P2 (not hard-fail sentinels) | Patching upstream boundaries as raising sentinels + refactoring `main.run()` to skip phases | `main.run()` unconditionally traverses the full pipeline; making upstream boundaries hard-fail sentinels would require refactoring production code, which is out of scope. The accepted proof strategy patches them to return empty/controlled results so the traversal has zero side effect, then asserts delivery output comes only from the pre-inserted persisted set. |
+| 8 | `python-dotenv` + `load_dotenv()` for smoke test env loading | Relying on pre-sourced shell env / pytest-dotenv plugin | `os.getenv()` does not read `.env` files; manual smoke runs would skip even with a valid `.env`. `python-dotenv` is already a transitive dep of `pydantic-settings`, so adding it to dev deps is zero-cost. |
 
 ## Data Flow
 
@@ -92,14 +93,17 @@ Both runs use the SAME `db_path` fixture value — `tmp_path` scoping ensures is
 ## Smoke-Test Gating
 
 ```python
-REDDIT_SMOKE_KEY = os.getenv("REDDIT_SMOKE_API_KEY")
+from dotenv import load_dotenv
+load_dotenv()  # Ensure .env is loaded for manual/local runs.
 
-@pytest.mark.skipif(not REDDIT_SMOKE_KEY, reason="REDDIT_SMOKE_API_KEY not set")
+REDDIT_SMOKE_KEY = os.getenv("REDDIT_SMOKE_API_KEY") or os.getenv("REDDIT_API_KEY")
+
+@pytest.mark.skipif(not REDDIT_SMOKE_KEY, reason="Neither REDDIT_SMOKE_API_KEY nor REDDIT_API_KEY is set")
 def test_reddit_api_smoke():
     """Live Reddit API connectivity check — skipped by default."""
 ```
 
-No Settings involved. No `.env.example` change. Non-blocking: failure in smoke does not affect P1-P4 pass/fail.
+`python-dotenv` is a dev dependency (already a transitive dep of `pydantic-settings`). The `load_dotenv()` call is placed before the env-gate module-level variable so `.env` values are available to `os.getenv()` during manual/local execution. No Settings involved. No `.env.example` change. Non-blocking: failure in smoke does not affect P1-P4 pass/fail.
 
 ## Flakiness Prevention
 
