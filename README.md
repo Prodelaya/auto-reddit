@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/auto-reddit-logo.png" alt="auto-reddit" width="200">
+</p>
+
 # auto-reddit
 
 ## Descripción general del proyecto
@@ -50,6 +54,8 @@ uv run pytest tests/ -x --tb=short
 
 ```
 auto-reddit/
+├── assets/
+│   └── auto-reddit-logo.png
 ├── src/
 │   └── auto_reddit/
 │       ├── __init__.py
