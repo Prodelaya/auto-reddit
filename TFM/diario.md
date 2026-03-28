@@ -931,3 +931,38 @@ pendientes — este change cierra las brechas abiertas en los changes 4 y 5.
 - spec promovida a `openspec/specs/operational-integration-tests/spec.md`
 - 269 tests pasando + 1 skipped (50 + 20 + 37 + 56 + 96 + 10)
 - **Cobertura completa**: unitaria + integracion operacional archivadas
+
+### Corrección post-archive del smoke test (28/03/2026)
+
+Tras archivar el change, se detecto que el smoke test seguia apareciendo como
+skipped incluso teniendo `REDDIT_API_KEY` en `.env`. La causa: `os.getenv()`
+no lee ficheros `.env`; solo lee variables ya presentes en el entorno del
+proceso. En ejecucion manual local, `.env` no se carga automaticamente salvo
+que el shell lo haya hecho antes.
+
+Dos cambios aplicados en un unico commit (`fix: load .env explicitly in Reddit
+smoke test`):
+
+1. `python-dotenv` anadido a dependencias dev en `pyproject.toml` y
+   `uv.lock`. Es una dependencia transitiva de `pydantic-settings` que ya
+   estaba presente en el entorno; formalizarla en dev deps la hace explicita.
+2. `load_dotenv()` anadido antes del env-gate en `test_operational.py` para
+   que `.env` se cargue en ejecucion local sin necesidad de pre-sourcear el
+   entorno en el shell.
+3. La variable de gate paso de `os.getenv("REDDIT_SMOKE_API_KEY")` a
+   `os.getenv("REDDIT_SMOKE_API_KEY") or os.getenv("REDDIT_API_KEY")`.
+   Prefiere una clave dedicada para smoke si existe, pero hace fallback a la
+   clave general de Reddit que la mayoria de usuarios ya tienen en `.env`.
+
+Resultado: 270 tests pasando, 0 skipped. El smoke test se ejecuta y pasa
+contra la API real cuando `.env` esta configurado.
+
+Los artefactos del change archivado (archive-report, verify-report, design,
+tasks) se actualizaron para reflejar la correccion y los nuevos conteos.
+
+Este caso es una leccion util para un junior: `os.getenv()` y la carga de
+`.env` son dos cosas distintas. Los test runners no cargan `.env`
+automaticamente salvo que se configure explicitamente (`python-dotenv`,
+`pytest-dotenv`, o un `conftest.py` con `load_dotenv()`). Si un test parece
+no ver variables que sabes que estan en `.env`, este es el primer lugar donde
+mirar.

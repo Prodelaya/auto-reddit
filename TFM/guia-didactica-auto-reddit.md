@@ -209,7 +209,7 @@ La base ejecutable e incluye:
 - evaluador IA con system prompt de dos fases, retry y validacion Pydantic estricta
 - modulo `delivery/` con selector determinista, renderer HTML y cliente Telegram
 - `main.py` con los cinco pasos del pipeline activos
-- 269 tests: 50 + 20 + 37 + 56 + 96 + 10 (+ 1 smoke opcional skipped)
+- 270 tests: 50 + 20 + 37 + 56 + 96 + 11 (smoke incluido tras correccion post-archive)
 - seis specs canonicas en `openspec/specs/`
 
 ### Que esta maduro
@@ -238,7 +238,7 @@ Lo que queda como trabajo potencial futuro: observabilidad operativa avanzada, t
 | Persistencia | Alta | `CandidateStore` con modelo de estados, TTL y 20 tests. |
 | IA / evaluacion | Alta | Evaluador completo con prompt de dos fases, retry y 56 tests. |
 | Delivery Telegram | Alta | Selector, renderer, cliente y 96 tests. |
-| Testing | Alta | 269 tests: unitarios + integracion operacional entre fases. |
+| Testing | Alta | 270 tests: unitarios + integracion operacional entre fases (smoke incluido). |
 
 ### Lectura correcta de la madurez
 
@@ -356,7 +356,7 @@ No pienses el repo por carpetas. Piensalo por capas:
 - `TTL de entrega`: tiempo maximo de vida de un registro `pending_delivery`; en este sistema son 7 dias desde `decided_at`; pasado ese tiempo el post ya no es editorialmente relevante y se purga
 - `test de integracion operacional`: test que prueba el comportamiento del sistema como orquestador, no de un modulo aislado; usa SQLite real y mocks de I/O externo para verificar que las fases no interfieren entre si y que el estado persiste correctamente entre ejecuciones
 - `boundary isolation test`: test que verifica que una fase del pipeline no llama a otra fase que no le corresponde; usa un sentinel que lanza `AssertionError` si se invoca; si el test pasa, el boundary se respeto
-- `env-gated test`: test que se salta automaticamente si no existe una variable de entorno especifica; util para smoke tests contra APIs reales que no deben ejecutarse en CI normal
+- `env-gated test`: test que se salta automaticamente si no existe una variable de entorno especifica; util para smoke tests contra APIs reales que no deben ejecutarse en CI normal; ojo: `os.getenv()` solo ve variables ya presentes en el proceso, no lee `.env` automaticamente — hay que llamar a `load_dotenv()` explicitamente para ejecucion local
 - `parche en namespace del caller`: tecnica de mocking en Python; los patches deben aplicarse en el modulo donde se usa el nombre importado, no donde esta definido; si `main.py` importa `evaluate_batch`, el patch va en `auto_reddit.main.evaluate_batch`, no en `auto_reddit.evaluation.evaluator`
 
 ### Conceptos de proceso
@@ -1351,11 +1351,13 @@ Los tests de integracion son cualitativamente distintos a los unitarios. No prue
 - `TestDeliveryBoundaryIsolation`: delivery solo consume registros persistidos; nunca re-entra en coleccion ni evaluacion
 - `TestEvaluationBoundaryIsolation`: una aceptacion queda persistida antes del delivery; un rechazo no toca el cliente Telegram
 - `TestMultiRunMemoryBoundaries` (SQLite real, no mock): sent y rejected de la primera ejecucion quedan excluidos en la segunda; `pending_delivery` se reintenta en la segunda sin llamar a la IA
-- `TestRedditSmokeOptional`: llamada real a Reddit, env-gated con `REDDIT_SMOKE_API_KEY`, skipped por defecto
+- `TestRedditSmokeOptional`: llamada real a Reddit, env-gated con `REDDIT_SMOKE_API_KEY` (fallback a `REDDIT_API_KEY`), carga `.env` explicitamente con `load_dotenv()` para ejecucion local
 
 Las advertencias de los changes 4 y 5 sobre ausencia de tests de integracion quedan cerradas por este change.
 
-Total: **269 tests pasando + 1 skipped**.
+Total: **270 tests pasando, 0 skipped**.
+
+**Correccion post-archive del smoke test:** tras archivar el change, el smoke test seguia apareciendo como skipped en ejecucion local aunque `REDDIT_API_KEY` estuviera en `.env`. Causa: `os.getenv()` no lee `.env`; solo ve variables ya presentes en el proceso. Solucion: `load_dotenv()` anadido antes del env-gate y `python-dotenv` formalizado en dev deps. El env-gate paso a usar fallback `REDDIT_SMOKE_API_KEY or REDDIT_API_KEY` para no requerir una clave dedicada. Resultado: 270 pasando, 0 skipped.
 
 Leccion importante: la diferencia entre tests unitarios y de integracion no es el tamano. Es el nivel de abstraccion. Los unitarios prueban que cada pieza hace lo que dice. Los de integracion prueban que las piezas no interfieren entre si y que el sistema recuerda lo que hizo.
 
@@ -1451,7 +1453,7 @@ Con `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` y `REDDIT_API_K
 8. Purga registros expirados de SQLite
 9. Logea el `DeliveryReport` con todos los contadores del ciclo
 
-El sistema es operativo y tiene cobertura de integracion. No es un prototipo ni un scaffolding: es un pipeline diario funcional con 269 tests que verifican tanto el comportamiento individual de cada modulo como el comportamiento del sistema como orquestador.
+El sistema es operativo y tiene cobertura de integracion. No es un prototipo ni un scaffolding: es un pipeline diario funcional con 270 tests que verifican tanto el comportamiento individual de cada modulo como el comportamiento del sistema como orquestador.
 
 ---
 
@@ -1628,7 +1630,7 @@ Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas, det
 
 Si tuviera que resumirlo para un junior:
 
-> Seis changes archivados. Doscientos sesenta y nueve tests. Cinco modulos funcionales mas integracion operacional. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan. El resultado es un sistema que cualquiera puede leer, entender, extender y verificar.
+> Seis changes archivados. Doscientos setenta tests. Cinco modulos funcionales mas integracion operacional. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan. El resultado es un sistema que cualquiera puede leer, entender, extender y verificar.
 
 El proyecto no termina aqui. Termina el pipeline principal con su cobertura de integracion. Lo que sigue — observabilidad operativa, tests con APIs reales en CI, expansion a otras fuentes — tiene una base solida sobre la que construir.
 
@@ -1688,7 +1690,7 @@ Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo 
 
 **Archivo:** `openspec/changes/archive/2026-03-28-operational-integration-tests/`
 
-**Verificacion:** PASS limpio — 10/10 tasks completas, 269 tests pasando + 1 skipped; cierra las advertencias de integracion abiertas en los changes 4 y 5; sin advertencias residuales
+**Verificacion:** PASS limpio — 10/10 tasks completas, 270 tests pasando (0 skipped tras correccion post-archive); cierra las advertencias de integracion abiertas en los changes 4 y 5; sin advertencias residuales
 
 ---
 
