@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     db_path: str = "auto_reddit.db"
     deepseek_model: str = "deepseek-chat"
 
-    model_config = {"env_file": ".env"}
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()

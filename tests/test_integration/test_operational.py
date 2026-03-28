@@ -803,6 +803,8 @@ from dotenv import load_dotenv
 load_dotenv()  # Ensure .env is loaded for manual/local smoke-test runs.
 
 _SMOKE_API_KEY = os.getenv("REDDIT_SMOKE_API_KEY") or os.getenv("REDDIT_API_KEY")
+_SMOKE_TG_TOKEN = os.getenv("TELEGRAM_SMOKE_BOT_TOKEN")
+_SMOKE_TG_CHAT_ID = os.getenv("TELEGRAM_SMOKE_CHAT_ID")
 
 
 @pytest.mark.skipif(
@@ -837,3 +839,66 @@ class TestRedditSmokeOptional:
             assert c.subreddit.lower() == "odoo", (
                 f"Unexpected subreddit: {c.subreddit!r}"
             )
+
+
+@pytest.mark.skipif(
+    not _SMOKE_TG_TOKEN or not _SMOKE_TG_CHAT_ID,
+    reason="TELEGRAM_SMOKE_BOT_TOKEN / TELEGRAM_SMOKE_CHAT_ID not set — Telegram smoke skipped",
+)
+class TestTelegramSmokeOptional:
+    """Optional smoke tests against the real Telegram Bot API.
+
+    These tests run only when both TELEGRAM_SMOKE_BOT_TOKEN and
+    TELEGRAM_SMOKE_CHAT_ID are set, targeting a controlled non-production
+    bot/chat.  They are non-blocking: their absence does not affect CI
+    pass/fail.
+
+    S1 — plain text delivery succeeds.
+    S2 — invalid token returns False without raising.
+    S3 — HTML-formatted delivery succeeds.
+    """
+
+    def test_send_message_delivers_plain_text(self):
+        """S1: send_message() returns True for a valid plain-text message."""
+        from auto_reddit.delivery.telegram import send_message
+
+        result = send_message(
+            _SMOKE_TG_TOKEN,
+            _SMOKE_TG_CHAT_ID,
+            "🧪 auto-reddit smoke test — plain",
+        )
+        assert result is True, (
+            "Expected send_message() to return True for plain text delivery"
+        )
+
+    def test_send_message_returns_false_for_invalid_token(self):
+        """S2: send_message() returns False for a dummy/invalid token — no exception."""
+        from auto_reddit.delivery.telegram import send_message
+
+        result = send_message(
+            "0000000000:INVALID",
+            _SMOKE_TG_CHAT_ID,
+            "🧪 auto-reddit smoke test — invalid token check",
+        )
+        assert result is False, (
+            "Expected send_message() to return False for an invalid bot token"
+        )
+
+    def test_send_message_delivers_html_formatting(self):
+        """S3: send_message() returns True when the body contains HTML tags."""
+        from auto_reddit.delivery.telegram import send_message
+
+        html_body = (
+            "🧪 auto-reddit smoke test — HTML\n"
+            "<b>Bold text</b>\n"
+            '<a href="https://example.com">Link</a>\n'
+            "<code>code block</code>"
+        )
+        result = send_message(
+            _SMOKE_TG_TOKEN,
+            _SMOKE_TG_CHAT_ID,
+            html_body,
+        )
+        assert result is True, (
+            "Expected send_message() to return True for HTML-formatted delivery"
+        )
