@@ -715,3 +715,113 @@ no bloqueantes preservadas:
 - spec de `candidate-memory` actualizada para reflejar el modelo de
   `opportunity_data` como fuente de reintento
 - 163 tests pasando en total (50 + 20 + 37 + 56)
+
+---
+
+## Entrada 13
+
+**Fecha:** 28/03/2026
+
+### SDD completo del change 5: entrega diaria por Telegram
+
+Se ejecuto el ciclo SDD completo para `telegram-daily-delivery`: discovery,
+proposal, spec, design, tasks, apply, verify (con ciclo correctivo) y archive.
+Es el ultimo change del pipeline principal.
+
+### Problema que resuelve
+
+Los resultados de la evaluacion IA quedan persistidos en SQLite como
+`pending_delivery`. Sin este change, nunca llegarian al equipo humano. Este
+change cierra el circuito: selecciona los registros pendientes, los formatea
+como mensajes Telegram en HTML y los entrega con retry semantico, enviando
+el `sent` a la base de datos solo tras confirmacion de entrega.
+
+### Arquitectura del modulo de delivery
+
+Se creo el modulo `delivery/` con tres colaboradores separados por
+responsabilidad, mas el orquestador publico:
+
+- `delivery/selector.py`: seleccion deterministica del set diario a partir de
+  los registros `pending_delivery` en SQLite. Aplica TTL (7 dias desde
+  `decided_at`), ordena reintentos antes que nuevos dentro del cap, y excluye
+  registros con `opportunity_data` malformed antes de gastar el cap.
+- `delivery/renderer.py`: renderizado deterministico de mensajes Telegram en
+  HTML. `render_opportunity` formatea un mensaje por oportunidad;
+  `render_summary` genera el mensaje de resumen diario con fecha, posts
+  revisados y conteo de oportunidades (campos exigidos por `product.md §10`).
+- `delivery/telegram.py`: cliente minimo de la Bot API de Telegram.
+  `send_message` hace una llamada HTTP POST y devuelve `bool`. Sin logica de
+  negocio: solo transporte.
+- `delivery/__init__.py`: `deliver_daily` como punto de entrada unico. Orquesta
+  selector, renderer y cliente; marca `sent` en SQLite solo tras confirmacion;
+  envia el resumen de forma no bloqueante (fallo del resumen no aborta
+  entregas individuales); purga registros expirados al final.
+
+### Contratos nuevos
+
+- `DeliveryReport` en `shared/contracts.py`: informe de una ejecucion de
+  entrega con campos `total_selected`, `retries`, `new`, `sent_ok`,
+  `sent_failed`, `summary_sent`, `expired_skipped`.
+- `CandidateStore.purge_expired(post_ids)` en `persistence/store.py`: elimina
+  registros `pending_delivery` con TTL expirado; llamado por `deliver_daily`
+  al final del ciclo.
+
+### Integracion en `main.py`
+
+El change 5 cierra el pipeline:
+
+```python
+report = deliver_daily(store, settings, reviewed_post_count=len(review_set))
+```
+
+El parametro `reviewed_post_count` viene del tramo upstream para que el
+resumen de Telegram informe cuantos posts se revisaron ese dia, tal como
+exige el documento de producto.
+
+### Ciclo correctivo post-verify
+
+El primer verify detecto tres issues reales:
+
+1. El selector consumia cap con registros de `opportunity_data` malformed; los
+   registros invalidos deberian excluirse antes de entrar en el recuento.
+2. `render_summary` no incluia fecha ni conteo de posts revisados, campos
+   exigidos explicitamente en `product.md §10`.
+3. `purge_expired` no estaba implementado; el metodo existia pero el cuerpo
+   era un `pass`.
+
+Los tres se corrigieron en el apply correctivo. El verify final dio PASS.
+
+### Decisiones tecnicas clave
+
+- **Retry-first dentro del cap**: los reintentos (registros ya con intento
+  previo fallido) tienen prioridad sobre registros nuevos. Maximiza la
+  probabilidad de que una oportunidad ya evaluada llegue al equipo aunque
+  Telegram haya fallado ayer.
+- **`sent` solo tras confirmacion**: el estado `sent` no se escribe hasta que
+  Telegram confirma la entrega. Un fallo de red entre evaluacion y entrega no
+  produce un post marcado como enviado sin haberlo entregado.
+- **Resumen no bloqueante**: si el mensaje de resumen falla, las entregas
+  individuales ya estan enviadas. El sistema no deshace lo entregado por un
+  fallo de un mensaje de menor criticidad.
+- **TTL de 7 dias**: un registro `pending_delivery` que no se haya podido
+  entregar en 7 dias se descarta; despues de esa ventana el post ya no es
+  relevante editorialmente.
+- **Separation of concerns estricta**: selector no sabe de Telegram; renderer
+  no sabe de SQLite; cliente no sabe del negocio. `deliver_daily` los conecta.
+
+### Verificacion
+
+PASS CON ADVERTENCIAS — 18/18 tasks completas, 259 tests pasando. Advertencias
+no bloqueantes preservadas:
+
+- no existe test de orquestacion que pruebe que la entrega nunca re-entra en
+  la evaluacion IA ni en paths de publicacion directa en Reddit
+- no hay build/type-check configurado (por reglas del proyecto)
+
+### Archive
+
+- artefactos en
+  `openspec/changes/archive/2026-03-28-telegram-daily-delivery/`
+- spec promovida a `openspec/specs/telegram-daily-delivery/spec.md`
+- 259 tests pasando en total (50 + 20 + 37 + 56 + 96)
+- **Pipeline completo**: los cinco changes del proyecto estan archivados

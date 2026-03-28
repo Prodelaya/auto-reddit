@@ -197,48 +197,51 @@ Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
 
 Esta es probablemente la parte mas importante para no enganarte.
 
-### Estado real del repo — actualizado 2026-03-28
+### Estado real del repo — actualizado 2026-03-28 (pipeline completo)
 
-Los changes 1, 2, 3 y 4 estan **completados y archivados**. El pipeline recoge candidatos, aplica memoria operativa, enriquece con contexto de hilo y evalua con IA. Solo falta la entrega por Telegram.
+Los cinco changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo: recoge candidatos de Reddit, filtra por memoria, enriquece con contexto de hilo, evalua con IA y entrega al equipo humano por Telegram.
 
 La base ejecutable incluye:
 
-- doce contratos Pydantic en `shared/contracts.py` cubriendo todo el pipeline hasta evaluacion
+- trece contratos Pydantic en `shared/contracts.py` cubriendo todo el pipeline
 - cliente Reddit con fallback chain para posts y comentarios
-- `CandidateStore` SQLite con modelo de estados completo
-- evaluador IA con system prompt de dos fases, retry con tenacity y validacion Pydantic estricta
-- `main.py` con los cuatro primeros pasos activos y el quinto marcado
-- 163 tests: 50 + 20 + 37 + 56
-- cuatro specs canonicas en `openspec/specs/`
+- `CandidateStore` SQLite con modelo de estados y purga de TTL
+- evaluador IA con system prompt de dos fases, retry y validacion Pydantic estricta
+- modulo `delivery/` con selector determinista, renderer HTML y cliente Telegram
+- `main.py` con los cinco pasos del pipeline activos
+- 259 tests: 50 + 20 + 37 + 56 + 96
+- cinco specs canonicas en `openspec/specs/`
 
 ### Que esta maduro
 
 - producto definido en `docs/product/product.md`
-- reglas editoriales de IA en `docs/product/ai-style.md` con modelo recomendado (`deepseek-chat`)
-- arquitectura modular documentada y validada en cuatro changes
-- changes 1 a 4 completamente archivados con specs canonicas
+- reglas editoriales de IA en `docs/product/ai-style.md` con modelo recomendado
+- arquitectura modular documentada y validada en cinco changes completos
+- los cinco changes archivados con specs canonicas y trazabilidad completa
 - skilling del repo y normas operativas consolidadas
 
 ### Que sigue scaffolded
 
-- `src/auto_reddit/delivery/telegram.py` — solo docstring (change 5)
+Nada. El pipeline principal esta completo.
+
+Lo que queda como trabajo potencial futuro: tests de integracion end-to-end entre modulos, observabilidad operativa avanzada, expansion a otros subreddits o fuentes.
 
 ### Nivel de madurez por capas
 
 | Capa | Madurez | Comentario docente |
 |---|---|---|
 | Producto | Alta | Que, para que y limites bien cerrados. |
-| Arquitectura | Alta | Validada en cuatro changes completos. |
-| Contratos / shared | Alta | Doce contratos implementados y archivados. |
+| Arquitectura | Alta | Validada en cinco changes completos de extremo a extremo. |
+| Contratos / shared | Alta | Trece contratos implementados cubriendo todo el pipeline. |
 | Integracion Reddit | Alta | Posts y comentarios con fallback chain y 87 tests. |
-| Persistencia | Alta | `CandidateStore` con modelo de estados y 20 tests. |
+| Persistencia | Alta | `CandidateStore` con modelo de estados, TTL y 20 tests. |
 | IA / evaluacion | Alta | Evaluador completo con prompt de dos fases, retry y 56 tests. |
-| Delivery Telegram | Baja | Contrato de salida claro, cliente aun sin implementar. |
-| Testing | Alta | 163 tests cubriendo cuatro de los cinco modulos del pipeline. |
+| Delivery Telegram | Alta | Selector, renderer, cliente y 96 tests. |
+| Testing | Alta | 259 tests cubriendo los cinco modulos del pipeline. |
 
 ### Lectura correcta de la madurez
 
-El pipeline esta a un change de ser completo. Cuatro modulos funcionan en cadena: recoleccion, memoria, extraccion de contexto y evaluacion IA. El change 5 cierra el circuito con la entrega a Telegram.
+El sistema es funcionalmente completo. Con las variables de entorno configuradas, ejecuta el pipeline diario entero: detecta, filtra, enriquece, evalua y entrega. Lo que no tiene aun es observabilidad avanzada, tests de integracion orquestados y cobertura de edge cases operativos que solo aparecen en produccion real.
 
 ---
 
@@ -249,19 +252,23 @@ El pipeline esta a un change de ser completo. Cuatro modulos funcionan en cadena
 ```text
 auto-reddit/
 |- src/auto_reddit/
-|   |- shared/contracts.py             12 contratos Pydantic — changes 1-4
+|   |- shared/contracts.py             13 contratos Pydantic — todo el pipeline
 |   |- reddit/client.py                Fallback chain posts — change 1
 |   |- reddit/comments.py             Fallback chain comentarios + ContextQuality — change 3
-|   |- persistence/store.py            CandidateStore SQLite — change 2
+|   |- persistence/store.py            CandidateStore SQLite + purge_expired — changes 2 y 5
 |   |- evaluation/evaluator.py         Evaluador IA DeepSeek con prompt 2 fases — change 4
 |   |- evaluation/__init__.py          Expone evaluate_batch
-|   |- main.py                         Orquestador: changes 1-4 activos, 5 comentado
+|   |- delivery/selector.py            Seleccion determinista con TTL y retry-first — change 5
+|   |- delivery/renderer.py            Renderizado HTML para Telegram — change 5
+|   |- delivery/telegram.py            Cliente Bot API Telegram — change 5
+|   |- delivery/__init__.py            Orquesta deliver_daily — change 5
+|   |- main.py                         Pipeline completo: 5 pasos activos
 |   |- config/settings.py              Configuracion y validacion de entorno
-|   |- delivery/telegram.py            Entrega Telegram — scaffolded (change 5)
 |- tests/
 |   |- test_reddit/                    87 tests (changes 1 y 3)
 |   |- test_persistence/               20 tests — change 2
 |   |- test_evaluation/                56 tests — change 4
+|   |- test_delivery/                  96 tests — change 5
 |- docs/                               Fuente de verdad funcional y tecnica
 |- openspec/
 |   |- specs/                          Specs canonicas (fuente de verdad permanente)
@@ -269,12 +276,13 @@ auto-reddit/
 |   |   |- candidate-memory/spec.md
 |   |   |- thread-context-extraction/spec.md
 |   |   |- ai-opportunity-evaluation/spec.md
-|   |- changes/archive/                Changes completados y archivados
+|   |   |- telegram-daily-delivery/spec.md
+|   |- changes/archive/                Todos los changes archivados
 |   |   |- 2026-03-27-reddit-candidate-collection/
 |   |   |- 2026-03-27-candidate-memory-and-uniqueness/
 |   |   |- 2026-03-28-thread-context-extraction/
 |   |   |- 2026-03-28-ai-opportunity-evaluation/
-|   |- changes/<activos>/              Changes en curso
+|   |   |- 2026-03-28-telegram-daily-delivery/
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
 |- TFM/                                Documentacion academica
@@ -338,6 +346,10 @@ No pienses el repo por carpetas. Piensalo por capas:
 - `prompt cacheado`: system prompt estatico que los modelos modernos pueden mantener en cache de prefijo para reducir latencia y coste; en este proyecto `_build_system_prompt()` devuelve siempre el mismo string
 - `retry con tenacity`: libreria de Python para reintentos declarativos con decoradores; `@retry(stop=stop_after_attempt(3), wait=wait_exponential(...))` es mas limpio y testeable que un bucle manual
 - `union discriminada (EvaluationResult)`: tipo que puede ser `AcceptedOpportunity` o `RejectedPost`; el caller usa `isinstance()` para saber cual recibio, sin castings inseguros
+- `retry-first selection`: politica de priorizacion en el selector de entregas; los registros que ya tuvieron un intento fallido de entrega se seleccionan antes que los nuevos dentro del cap diario; maximiza la probabilidad de que una oportunidad evaluada llegue al equipo
+- `sent solo tras confirmacion`: el estado `sent` no se escribe en SQLite hasta que Telegram confirma la entrega; un fallo de red no produce un post marcado como enviado sin haberlo entregado
+- `resumen no bloqueante`: el mensaje de resumen diario (fecha, posts revisados, oportunidades detectadas) se envia al final; si falla, las entregas individuales ya estan hechas y no se deshacen
+- `TTL de entrega`: tiempo maximo de vida de un registro `pending_delivery`; en este sistema son 7 dias desde `decided_at`; pasado ese tiempo el post ya no es editorialmente relevante y se purga
 
 ### Conceptos de proceso
 
@@ -820,28 +832,24 @@ def run() -> None:
 
 Rol: director de orquesta. Cada change nuevo conecta aqui sin tocar los anteriores.
 
-Con el change 4 integrado, `main.py` tiene ahora este aspecto:
+Con el change 5 integrado, `main.py` tiene el pipeline completo:
 
 ```python
-# Change 2: store
-store = CandidateStore(settings.db_path); store.init_db()
-# Change 1: colectar
-candidates = collect_candidates(settings)
-# Change 2: filtrar y recortar a 8
-review_set = eligible[:settings.daily_review_limit]
-# Change 3: enriquecer con contexto de hilo
-thread_contexts = fetch_thread_contexts(review_set, settings)
-# Change 4: evaluacion IA
-evaluation_results = evaluate_batch(thread_contexts, settings)
+store = CandidateStore(settings.db_path); store.init_db()          # change 2
+candidates = collect_candidates(settings)                           # change 1
+review_set = eligible[:settings.daily_review_limit]                 # change 2
+thread_contexts = fetch_thread_contexts(review_set, settings)       # change 3
+evaluation_results = evaluate_batch(thread_contexts, settings)      # change 4
 for result in evaluation_results:
     if isinstance(result, AcceptedOpportunity):
         store.save_pending_delivery(result.post_id, result.model_dump_json())
     else:
         store.save_rejected(result.post_id)
-# Change 5 (pendiente): entrega Telegram
+report = deliver_daily(store, settings,                             # change 5
+                       reviewed_post_count=len(review_set))
 ```
 
-**Leccion docente:** el orquestador actua como indice vivo del pipeline. Leer `main.py` es suficiente para entender que hace el sistema, en que orden y que falta. Y la persistencia del resultado de la IA en `pending_delivery` es el puente entre el change 4 y el change 5: cuando Telegram llegue, no necesitara llamar a la IA de nuevo.
+**Leccion docente:** este archivo es el mejor resumen del sistema. Cinco lineas logicas, cinco responsabilidades separadas, cinco modulos que no se conocen entre si. Cada change añadio exactamente una linea al orquestador sin tocar las anteriores. Eso es lo que hace que la arquitectura modular valga la pena.
 
 #### `src/auto_reddit/evaluation/evaluator.py`
 
@@ -1017,6 +1025,21 @@ EvaluationResult = Annotated[Union[AcceptedOpportunity, RejectedPost], ...]
 
 **Otra leccion:** `warning` y `human_review_bullets` solo existen en `AcceptedOpportunity`. Si un post es rechazado, el humano no necesita esas senales — solo necesita saber el tipo de rechazo. Este nivel de granularidad en el contrato comunica la intencion del diseno sin necesidad de comentarios.
 
+**`DeliveryReport`** (change 5) — informe de una ejecucion de entrega:
+
+```python
+class DeliveryReport(BaseModel):
+    total_selected: int    # candidatos seleccionados por el selector (≤ cap)
+    retries: int           # reintentos (ya tuvieron intento previo fallido)
+    new: int               # nuevos (primer intento)
+    sent_ok: int           # mensajes individuales entregados con exito
+    sent_failed: int       # mensajes que fallaron en Telegram
+    summary_sent: bool     # True si el mensaje de resumen se envio con exito
+    expired_skipped: int   # registros excluidos por TTL expirado
+```
+
+`DeliveryReport` no es solo un log; es el contrato que permite al orquestador loguear con precision lo que paso en cada ciclo de entrega y detectar anomalias (muchos `sent_failed`, `expired_skipped` alto, etc.).
+
 Rol: idioma comun del sistema. Ningun modulo importa de otro directamente; todos hablan a traves de este archivo.
 
 #### `src/auto_reddit/reddit/client.py`
@@ -1058,6 +1081,47 @@ Funcion generica de paginacion que no sabe nada del provider concreto. Recibe: U
 Implementa el fallback chain: `reddit3 → reddit34 → reddapi`. Si un provider lanza excepcion, pasa al siguiente. Si todos fallan, devuelve lista vacia y logea error. Aplica dos filtros sobre el resultado del provider ganador: ventana de 7 dias y subreddit == "odoo" (case-insensitive). Devuelve ordenado por recencia descendente.
 
 Rol: adaptador de entrada del sistema. Absorbe la heterogeneidad de tres APIs externas y entrega un contrato homogeneo al siguiente paso del pipeline.
+
+#### `src/auto_reddit/persistence/store.py` (ampliado en change 5)
+
+El change 5 añadio `purge_expired(post_ids)` a `CandidateStore`:
+
+```python
+def purge_expired(self, post_ids: list[str]) -> int:
+    """Elimina registros pending_delivery con TTL expirado."""
+```
+
+Llamado por `deliver_daily` al final del ciclo con la lista de `post_id` que el selector descarto por TTL. Limpia SQLite de registros que ya no pueden entregarse. Devuelve el numero de filas eliminadas.
+
+El selector identifica los registros expirados antes de construir el set de entrega; `purge_expired` los borra despues de que el ciclo ha terminado.
+
+#### `src/auto_reddit/delivery/` (change 5)
+
+Modulo nuevo con cuatro colaboradores. La separacion de responsabilidades aqui es especialmente clara:
+
+**`selector.py`** — `select_deliveries(records, now, cap)` → `(selected, expired_post_ids)`
+
+Recibe todos los registros `pending_delivery`, filtra los expirados (TTL > 7 dias), ordena reintentos antes que nuevos, excluye registros con `opportunity_data` malformed antes de consumir el cap, y devuelve el set seleccionado mas la lista de expirados para purga. No sabe nada de Telegram.
+
+**`renderer.py`** — `render_opportunity(opp)` y `render_summary(date, reviewed, opportunities)`
+
+Renderiza mensajes Telegram en HTML. `render_opportunity` formatea un mensaje por oportunidad aceptada. `render_summary` genera el mensaje de resumen diario con fecha, posts revisados y numero de oportunidades — campos exigidos explicitamente en `product.md §10`. No sabe nada de SQLite.
+
+**`telegram.py`** — `send_message(token, chat_id, text)` → `bool`
+
+Cliente minimo de la Bot API de Telegram: una llamada HTTP POST, devuelve `True` si Telegram responde 200. Sin logica de negocio, sin estado. La responsabilidad de reintentar o saltar es del orquestador, no del cliente.
+
+**`__init__.py`** — `deliver_daily(store, settings, reviewed_post_count)` → `DeliveryReport`
+
+El orquestador de delivery. Conecta los tres colaboradores:
+1. obtiene `pending_delivery` del store
+2. llama al selector para el set del dia
+3. para cada registro seleccionado: renderiza, envia, marca `sent` solo si Telegram confirma
+4. envia el mensaje de resumen (no bloqueante: fallo no deshace entregas)
+5. purga expirados del store
+6. devuelve `DeliveryReport`
+
+Leccion docente clave: este modulo demuestra que una responsabilidad compleja (entregar con retry, respetar el cap, no re-evaluar la IA, purgar TTL) se puede implementar de forma legible cuando se separa en colaboradores con contratos claros.
 
 #### `src/auto_reddit/reddit/comments.py`
 
@@ -1257,17 +1321,21 @@ Rol: convencion de despliegue.
 
 ### 10.7 `tests/`
 
-**Changes 1, 2, 3 y 4 implementados.**
+**Los cinco changes implementados.**
 
 `tests/test_reddit/` — 87 tests (changes 1 y 3)
 
 `tests/test_persistence/` — 20 tests (change 2)
 
-`tests/test_evaluation/` — 56 tests (change 4):
-- `test_contracts.py`: validacion de `AIRawResponse`, `AcceptedOpportunity`, `RejectedPost`, `EvaluationResult`; comportamiento de `warning`/`bullets` solo en aceptaciones; campos deterministicos separados de los generados por IA
-- `test_evaluator.py`: llamadas mockeadas a DeepSeek, aceptacion con contexto full/partial/degraded, rechazo, retry con tenacity, skip de posts que fallan, comportamiento del batch completo
+`tests/test_evaluation/` — 56 tests (change 4)
 
-Total: **163 tests pasando**.
+`tests/test_delivery/` — 96 tests (change 5):
+- `test_selector.py`: seleccion con cap, retry-first, exclusion de malformed, TTL, mezcla de reintentos y nuevos
+- `test_renderer.py`: formato HTML de oportunidades, campos del resumen exigidos por `product.md §10`, escape de caracteres especiales
+- `test_telegram.py`: llamadas HTTP mockeadas, respuesta 200 y error
+- `test_deliver_daily.py`: ciclo completo con mocks de store y Telegram; `sent` solo tras confirmacion; resumen no bloqueante; purga de expirados; `DeliveryReport` correcto
+
+Total: **259 tests pasando**.
 
 Advertencias preservadas del verify (no blockers): no existe test de dos ejecuciones consecutivas que pruebe "skipped today, eligible tomorrow"; no existe test end-to-end de reintento Telegram sin re-evaluar IA. Ambas son pruebas de integracion que requieren estado entre runs y no estan cubiertas aun.
 
@@ -1353,18 +1421,21 @@ Tambien hay un flujo muy real, aunque no sea el producto final:
 
 Esto es valioso en un TFM porque enseña que la ingenieria seria empieza mucho antes del `def main():`.
 
-### 11.5 Flujo actualmente ejecutable del producto si lo lanzaras hoy
+### 11.5 Flujo completo ejecutable hoy
 
-Si ejecutaras `python -m auto_reddit.main` con las variables de entorno configuradas y una `DEEPSEEK_API_KEY` valida, el sistema ejecuta el pipeline casi completo:
+Con `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` y `REDDIT_API_KEY` configuradas, el sistema ejecuta el pipeline completo:
 
 1. Inicializa `CandidateStore` y la tabla SQLite
 2. Recolecta candidatos de r/Odoo via fallback chain de posts
-3. Excluye decididos, recorta a 8, extrae contexto de comentarios
-4. Llama `evaluate_batch`: para cada post con contexto, llama a DeepSeek, valida con Pydantic, persiste `AcceptedOpportunity` como `pending_delivery` y `RejectedPost` como `rejected`
-5. Logea aceptados, rechazados y saltados
-6. Termina — la entrega Telegram espera el change 5
+3. Excluye decididos, recorta a 8, extrae contexto de comentarios via fallback chain de comentarios
+4. Evalua con DeepSeek: decision justificada por post, persiste aceptados como `pending_delivery` y rechazados como `rejected`
+5. Selecciona registros `pending_delivery` con retry-first y cap 8, excluye malformed y expirados
+6. Renderiza mensajes HTML, envia cada oportunidad a Telegram, marca `sent` solo tras confirmacion
+7. Envia mensaje de resumen diario (no bloqueante)
+8. Purga registros expirados de SQLite
+9. Logea el `DeliveryReport` con todos los contadores del ciclo
 
-Lo que ya funciona de verdad: todo el pipeline de deteccion, filtrado, enriquecimiento y evaluacion IA. Lo que falta: formatear y enviar los resultados al equipo humano.
+El sistema es operativo. No es un prototipo ni un scaffolding: es un pipeline diario funcional.
 
 ---
 
@@ -1526,23 +1597,24 @@ Estas pruebas requieren estado persistente entre runs y un enfoque de integracio
 
 ## 15. Cierre: que es hoy auto-reddit de verdad
 
-Cuatro changes completados. Ciento sesenta y tres tests pasando. El pipeline detecta, filtra, enriquece y evalua. Solo falta entregar.
+Cinco changes completados. Doscientos cincuenta y nueve tests pasando. El pipeline es funcional de extremo a extremo.
 
 Lo que existe hoy:
 
 - recoleccion de candidatos con fallback chain entre tres providers de posts
-- memoria operativa SQLite con unicidad y modelo de estados para reintentos sin re-evaluar la IA
+- memoria operativa SQLite con unicidad, modelo de estados y TTL
 - extraccion de contexto de hilo con calidad graduada segun proveedor de comentarios
-- evaluacion IA con DeepSeek: prompt de dos fases, decision justificada, respuesta sugerida en dos idiomas, tipo de oportunidad/rechazo cerrado, senales de revision para contexto degradado
-- `main.py` como mapa vivo del sistema: cuatro pasos activos, uno marcado
+- evaluacion IA con DeepSeek: prompt de dos fases, decision justificada, respuesta sugerida en dos idiomas, tipos cerrados de oportunidad y rechazo
+- entrega determinista a Telegram: retry-first, cap, HTML formateado, `sent` solo tras confirmacion, resumen diario, purga de expirados
+- `main.py` como mapa completo del pipeline en cinco lineas logicas
 
-Si ejecutas el sistema hoy con una API key de DeepSeek, obtendras una lista de oportunidades evaluadas y persiste en SQLite listas para que el change 5 las entregue. El humano todavia no recibe nada, pero la logica que decide que merece su atencion ya funciona.
+Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas, detecta oportunidades en r/Odoo, evalua cuales merecen respuesta y las entrega al equipo humano por Telegram con resumen del dia.
 
 Si tuviera que resumirlo para un junior:
 
-> Cuatro modulos distintos, cuatro responsabilidades separadas, doce contratos, ciento sesenta y tres tests. Y el change 5 sabe exactamente que esperar porque el contrato ya esta definido.
+> Cinco modulos, cinco responsabilidades, trece contratos, doscientos cincuenta y nueve tests, cinco changes archivados con trazabilidad completa. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden. El resultado es un sistema que cualquiera puede leer, entender y extender.
 
-El change 4 no es el final. Es la penultima pieza de un sistema que se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa por orden.
+El proyecto no termina aqui. Termina la primera version del pipeline principal. Lo que sigue — observabilidad, tests de integracion, expansion a otras fuentes — tiene una base solida sobre la que construir.
 
 ---
 
@@ -1574,6 +1646,40 @@ Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo 
 **Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
 
 **Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+
+### Change 5 — `telegram-daily-delivery` — ARCHIVADO 2026-03-28
+
+**Alcance:** entrega determinista de oportunidades aceptadas al equipo humano por Telegram, con retry-first dentro del cap diario, `sent` solo tras confirmacion, resumen no bloqueante y purga de registros expirados por TTL.
+
+**Lo que implemento:**
+
+- `shared/contracts.py`: `DeliveryReport` con contadores del ciclo de entrega
+- `persistence/store.py`: `purge_expired(post_ids)` para limpiar registros TTL expirados
+- `delivery/selector.py`: `select_deliveries` — retry-first, exclusion de malformed, TTL 7 dias, devuelve seleccionados y expirados
+- `delivery/renderer.py`: `render_opportunity` y `render_summary` — mensajes HTML con campos exigidos por `product.md §10`
+- `delivery/telegram.py`: `send_message` — cliente minimo Bot API
+- `delivery/__init__.py`: `deliver_daily` — orquestador del ciclo completo
+- `main.py`: change 5 activo, pipeline completo
+- `tests/test_delivery/`: 96 tests en cuatro ficheros
+
+**Decisiones tecnicas clave:**
+
+- retry-first: reintentos antes que nuevos dentro del cap; maximiza entrega de oportunidades ya evaluadas
+- `sent` solo tras confirmacion de Telegram; nunca antes
+- resumen no bloqueante: su fallo no deshace entregas individuales
+- exclusion de malformed antes de consumir el cap (correccion post-verify)
+- TTL de 7 dias: pasada esa ventana el post ya no es editorialmente relevante
+- `reviewed_post_count` pasado desde upstream para el resumen de Telegram
+
+**Spec canonica:** `openspec/specs/telegram-daily-delivery/spec.md`
+
+**Archivo:** `openspec/changes/archive/2026-03-28-telegram-daily-delivery/`
+
+**Verificacion:** PASS CON ADVERTENCIAS — 18/18 tasks completas, 259 tests pasando; advertencia de baja severidad sobre ausencia de test de orquestacion end-to-end que pruebe que delivery nunca re-entra en evaluacion IA
+
+**Estado del proyecto:** pipeline principal completo — cinco changes archivados
+
+---
 
 ### Change 4 — `ai-opportunity-evaluation` — ARCHIVADO 2026-03-28
 
