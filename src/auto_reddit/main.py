@@ -5,6 +5,7 @@ import logging
 from auto_reddit.config.settings import settings
 from auto_reddit.persistence.store import CandidateStore
 from auto_reddit.reddit.client import collect_candidates
+from auto_reddit.reddit.comments import fetch_thread_contexts
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +43,13 @@ def run() -> None:
         len(review_set),
     )
 
-    # Change 3 (pendiente): enriquecer con comentarios
-    # review_set = enrich_with_comments(review_set, settings)
+    # Change 3: enriquecer con contexto bruto del hilo
+    thread_contexts = fetch_thread_contexts(review_set, settings)
+    logger.info(
+        "Contextos de hilo extraídos: %d/%d posts enriquecidos",
+        len(thread_contexts),
+        len(review_set),
+    )
 
     # Change 4 (pendiente): evaluación IA
     # for candidate in review_set:

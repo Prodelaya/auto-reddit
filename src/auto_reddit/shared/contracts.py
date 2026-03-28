@@ -5,6 +5,19 @@ from enum import Enum
 from pydantic import BaseModel, computed_field
 
 
+class ContextQuality(str, Enum):
+    """Indicador de degradación del contexto de hilo extraído para un post.
+
+    - ``full``: recuperado vía reddit34 (árbol de replies, timestamps, sort=new garantizado)
+    - ``partial``: recuperado vía reddit3 (lista recursiva, sin garantía de orden estricto)
+    - ``degraded``: recuperado vía reddapi (flat, top comments, sin comment_id ni timestamps)
+    """
+
+    full = "full"
+    partial = "partial"
+    degraded = "degraded"
+
+
 class PostDecision(str, Enum):
     """Decisiones de negocio finales y estado operativo pre-envío para un post."""
 
@@ -58,3 +71,34 @@ class RedditCandidate(BaseModel):
             and self.selftext is not None
             and self.author is not None
         )
+
+
+class RedditComment(BaseModel):
+    """Comentario normalizado de Reddit, independiente del proveedor fuente.
+
+    Campos opcionales (`None`) cuando el proveedor no los expone (ver api-strategy.md §9):
+    - ``comment_id``, ``created_utc``, ``permalink``, ``parent_id``, ``depth``: ausentes en reddapi.
+    """
+
+    comment_id: str | None = None
+    author: str | None = None
+    body: str  # normalizado desde text/content/body/comment según proveedor
+    score: int | None = None
+    created_utc: int | None = None
+    permalink: str | None = None
+    parent_id: str | None = None
+    depth: int | None = None
+    source_api: str
+
+
+class ThreadContext(BaseModel):
+    """Contexto bruto normalizado de un hilo para un post seleccionado.
+
+    Salida del paso de extracción de contexto (Change 3). No contiene decisiones de negocio.
+    """
+
+    candidate: RedditCandidate
+    comments: list[RedditComment]
+    comment_count: int
+    quality: ContextQuality
+    source_api: str
