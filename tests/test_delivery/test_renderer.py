@@ -280,3 +280,58 @@ class TestRenderSummaryProductAlignment:
             count=5, retry_count=2, new_count=3, reviewed_post_count=8
         )
         assert "5" in result
+
+
+# ---------------------------------------------------------------------------
+# 4.5: render_summary(count=0) — valid HTML for zero-opportunity runs
+# ---------------------------------------------------------------------------
+
+
+class TestRenderSummaryZeroOpportunities:
+    """Spec: render_summary with count=0 produces valid HTML for 0-opportunity runs."""
+
+    def test_zero_count_produces_nonempty_string(self):
+        """render_summary(count=0) must not raise and must return non-empty HTML."""
+        result = render_summary(count=0, retry_count=0, new_count=0)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_zero_count_shows_zero_opportunities(self):
+        """El resumen de 0 oportunidades incluye '0' en el texto."""
+        result = render_summary(count=0, retry_count=0, new_count=0)
+        assert "0" in result
+
+    def test_zero_count_has_no_oportunidades_hoy_message(self):
+        """Con count=0 aparece el texto 'No hay oportunidades nuevas hoy.'"""
+        result = render_summary(count=0, retry_count=0, new_count=0)
+        assert "No hay oportunidades nuevas hoy" in result
+
+    def test_zero_count_no_trailing_arrow(self):
+        """Con count=0, el pie 'A continuación recibirás' NO aparece (no hay mensajes siguientes)."""
+        result = render_summary(count=0, retry_count=0, new_count=0)
+        assert "A continuación" not in result
+
+    def test_zero_count_no_retry_line(self):
+        """Con count=0, no aparece la línea de Reintentos."""
+        result = render_summary(count=0, retry_count=0, new_count=0)
+        assert "Reintentos" not in result
+
+    def test_zero_count_no_new_line(self):
+        """Con count=0, no aparece la línea de Nuevas."""
+        result = render_summary(count=0, retry_count=0, new_count=0)
+        assert "Nuevas" not in result
+
+    def test_zero_count_still_has_header(self):
+        """Con count=0, el resumen sigue teniendo el header de Resumen."""
+        result = render_summary(count=0, retry_count=0, new_count=0)
+        assert "Resumen" in result
+
+    def test_nonzero_count_does_not_show_no_opportunities_message(self):
+        """Con count>0, no debe aparecer 'No hay oportunidades nuevas hoy'."""
+        result = render_summary(count=3, retry_count=1, new_count=2)
+        assert "No hay oportunidades nuevas hoy" not in result
+
+    def test_nonzero_count_shows_trailing_message(self):
+        """Con count>0, aparece 'A continuación recibirás'."""
+        result = render_summary(count=3, retry_count=1, new_count=2)
+        assert "A continuación" in result

@@ -26,7 +26,7 @@ def deliver_daily(
 
     Flujo:
     1. Obtiene todos los ``pending_delivery`` del store.
-    2. Selecciona el subconjunto a entregar hoy (retry-first, cap = max_daily_deliveries).
+    2. Selecciona el subconjunto a entregar hoy (retry-first, cap = max_daily_opportunities).
        Registros con ``opportunity_data`` None o JSON malformado son excluidos en el
        selector antes de consumir cuota del cap.
     3. Envía un mensaje de resumen (no bloqueante si falla), incluyendo fecha y número
@@ -58,7 +58,7 @@ def deliver_daily(
     expired_count = count_expired(all_pending, now)
 
     # 2. Seleccionar candidatos de hoy (retry-first, TTL-filtrado)
-    selected = select_deliveries(all_pending, now, cap=settings.max_daily_deliveries)
+    selected = select_deliveries(all_pending, now, cap=settings.max_daily_opportunities)
     total_selected = len(selected)
 
     # Calcular retries vs nuevas para el informe:
@@ -73,25 +73,24 @@ def deliver_daily(
     retry_count = sum(1 for r in selected if r.decided_at < today_start)
     new_count = total_selected - retry_count
 
-    # 3. Resumen (no bloqueante)
-    summary_sent = False
-    if total_selected > 0:
-        summary_html = render_summary(
-            total_selected,
-            retry_count,
-            new_count,
-            date=run_date,
-            reviewed_post_count=reviewed_post_count,
+    # 3. Resumen (no bloqueante) — se emite SIEMPRE en cada ejecución de día laborable,
+    #    incluso cuando no hay oportunidades seleccionadas (0-opportunity run).
+    summary_html = render_summary(
+        total_selected,
+        retry_count,
+        new_count,
+        date=run_date,
+        reviewed_post_count=reviewed_post_count,
+    )
+    summary_sent = send_message(
+        settings.telegram_bot_token,
+        settings.telegram_chat_id,
+        summary_html,
+    )
+    if not summary_sent:
+        logger.warning(
+            "Resumen Telegram fallido — la entrega de oportunidades continúa"
         )
-        summary_sent = send_message(
-            settings.telegram_bot_token,
-            settings.telegram_chat_id,
-            summary_html,
-        )
-        if not summary_sent:
-            logger.warning(
-                "Resumen Telegram fallido — la entrega de oportunidades continúa"
-            )
 
     # 4. Entregar oportunidades individuales
     sent_ok = 0

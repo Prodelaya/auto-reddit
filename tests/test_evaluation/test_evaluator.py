@@ -560,18 +560,24 @@ class TestMainIntegration:
         )
 
     def test_accepted_triggers_save_pending_delivery(self):
+        import datetime as _datetime
+
         accepted = self._make_accepted_opportunity("post_a")
         mock_store = MagicMock()
 
         mock_store.get_decided_post_ids.return_value = set()
 
         with (
+            patch("auto_reddit.main.datetime") as mock_dt,
             patch("auto_reddit.main.collect_candidates") as mock_collect,
             patch("auto_reddit.main.fetch_thread_contexts") as mock_fetch,
             patch("auto_reddit.main.evaluate_batch") as mock_eval,
             patch("auto_reddit.main.CandidateStore") as mock_store_cls,
             patch("auto_reddit.main.settings") as mock_settings,
+            patch("auto_reddit.main.deliver_daily"),
         ):
+            # Force weekday (Wednesday) to bypass weekend guard
+            mock_dt.date.today.return_value = _datetime.date(2026, 3, 25)
             mock_settings.db_path = ":memory:"
             mock_settings.daily_review_limit = 8
             mock_settings.deepseek_model = "deepseek-chat"
@@ -590,17 +596,23 @@ class TestMainIntegration:
         mock_store.save_rejected.assert_not_called()
 
     def test_rejected_triggers_save_rejected(self):
+        import datetime as _datetime
+
         rejected = self._make_rejected_post("post_b")
         mock_store = MagicMock()
         mock_store.get_decided_post_ids.return_value = set()
 
         with (
+            patch("auto_reddit.main.datetime") as mock_dt,
             patch("auto_reddit.main.collect_candidates") as mock_collect,
             patch("auto_reddit.main.fetch_thread_contexts") as mock_fetch,
             patch("auto_reddit.main.evaluate_batch") as mock_eval,
             patch("auto_reddit.main.CandidateStore") as mock_store_cls,
             patch("auto_reddit.main.settings") as mock_settings,
+            patch("auto_reddit.main.deliver_daily"),
         ):
+            # Force weekday (Wednesday) to bypass weekend guard
+            mock_dt.date.today.return_value = _datetime.date(2026, 3, 25)
             mock_settings.db_path = ":memory:"
             mock_settings.daily_review_limit = 8
             mock_settings.deepseek_model = "deepseek-chat"
@@ -617,18 +629,24 @@ class TestMainIntegration:
         mock_store.save_pending_delivery.assert_not_called()
 
     def test_mixed_batch_calls_correct_persistence_methods(self):
+        import datetime as _datetime
+
         accepted = self._make_accepted_opportunity("post_a")
         rejected = self._make_rejected_post("post_b")
         mock_store = MagicMock()
         mock_store.get_decided_post_ids.return_value = set()
 
         with (
+            patch("auto_reddit.main.datetime") as mock_dt,
             patch("auto_reddit.main.collect_candidates") as mock_collect,
             patch("auto_reddit.main.fetch_thread_contexts") as mock_fetch,
             patch("auto_reddit.main.evaluate_batch") as mock_eval,
             patch("auto_reddit.main.CandidateStore") as mock_store_cls,
             patch("auto_reddit.main.settings") as mock_settings,
+            patch("auto_reddit.main.deliver_daily"),
         ):
+            # Force weekday (Wednesday) to bypass weekend guard
+            mock_dt.date.today.return_value = _datetime.date(2026, 3, 25)
             mock_settings.db_path = ":memory:"
             mock_settings.daily_review_limit = 8
             mock_settings.deepseek_model = "deepseek-chat"

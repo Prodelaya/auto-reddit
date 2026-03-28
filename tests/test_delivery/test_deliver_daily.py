@@ -37,7 +37,7 @@ def _make_settings(cap: int = 8) -> MagicMock:
     settings = MagicMock()
     settings.telegram_bot_token = "BOT_TOKEN"
     settings.telegram_chat_id = "CHAT_ID"
-    settings.max_daily_deliveries = cap
+    settings.max_daily_opportunities = cap
     return settings
 
 
@@ -87,19 +87,26 @@ def _make_store(records: list[PostRecord]) -> MagicMock:
 
 
 class TestDeliverDailyEmptyQueue:
-    def test_empty_pending_deliveries_returns_empty_report(self):
+    def test_empty_pending_deliveries_sends_summary_no_opportunities(self):
+        """
+        Spec (updated): El resumen se emite SIEMPRE en cada ejecución de día laborable,
+        incluso cuando la cola está vacía (0-opportunity run).
+        No se envían mensajes individuales de oportunidades.
+        """
         store = _make_store([])
         settings = _make_settings()
 
-        with patch("auto_reddit.delivery.send_message") as mock_send:
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
             report = deliver_daily(store, settings)
 
-        mock_send.assert_not_called()
+        # Se llama UNA vez: el resumen de 0 oportunidades
+        mock_send.assert_called_once()
         store.mark_sent.assert_not_called()
         assert report.total_selected == 0
         assert report.sent_ok == 0
         assert report.sent_failed == 0
-        assert report.summary_sent is False
+        # El resumen sí se envió
+        assert report.summary_sent is True
 
     def test_empty_queue_report_is_delivery_report_instance(self):
         store = _make_store([])
@@ -397,7 +404,7 @@ class TestInvalidOpportunityData:
         assert report.sent_failed == 0
 
     def test_cap_applied_correctly_in_facade(self):
-        """El cap settings.max_daily_deliveries se aplica correctamente."""
+        """El cap settings.max_daily_opportunities se aplica correctamente."""
         records = [_make_record(f"p{i}") for i in range(12)]
         store = _make_store(records)
         settings = _make_settings(cap=5)
@@ -458,3 +465,96 @@ class TestDeliverDailyReviewedPostCount:
 
         assert report.total_selected == 1
         assert report.sent_ok == 1
+
+
+# ---------------------------------------------------------------------------
+# 4.4: Spec scenario "Zero-opportunity weekday run still emits a summary"
+# ---------------------------------------------------------------------------
+
+
+class TestZeroOpportunitySummary:
+    """Spec scenario: Un run de día laborable con 0 oportunidades aún emite resumen."""
+
+    def test_empty_queue_emits_summary(self):
+        """
+        Spec scenario: Zero-opportunity weekday run still emits a summary.
+        Con 0 candidatos seleccionados, el resumen de Telegram SE ENVÍA igualmente.
+        """
+        store = _make_store([])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            report = deliver_daily(store, settings)
+
+        # El resumen SE envía aunque no haya oportunidades
+        mock_send.assert_called_once()  # solo la llamada del resumen
+        assert report.summary_sent is True
+        assert report.total_selected == 0
+        assert report.sent_ok == 0
+
+    def test_empty_queue_summary_contains_zero_count(self):
+        """El resumen de 0 oportunidades incluye '0' en el texto."""
+        store = _make_store([])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            deliver_daily(store, settings)
+
+        summary_text = mock_send.call_args_list[0][0][2]
+        assert "0" in summary_text
+
+    def test_empty_queue_summary_sent_before_any_opportunity(self):
+        """Con 0 candidatos, se emite exactamente 1 mensaje (solo el resumen)."""
+        store = _make_store([])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            deliver_daily(store, settings)
+
+        assert mock_send.call_count == 1
+
+    def test_empty_queue_summary_failure_is_recorded(self):
+        """Si el resumen de 0-oportunidades falla, summary_sent es False."""
+        store = _make_store([])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=False):
+            report = deliver_daily(store, settings)
+
+        assert report.summary_sent is False
+        assert report.total_selected == 0
+
+
+# ---------------------------------------------------------------------------
+# 4.3: Spec scenarios "Runtime enforces configured cap" / "Lowering cap"
+# ---------------------------------------------------------------------------
+
+
+class TestDeliveryCapFromMaxDailyOpportunities:
+    """Spec scenarios: cap governed by max_daily_opportunities (single cap)."""
+
+    def test_cap_8_from_10_selects_8(self):
+        """
+        Spec scenario: max_daily_opportunities=8 y 10 candidatos → exactamente 8.
+        """
+        records = [_make_record(f"p{i}") for i in range(10)]
+        store = _make_store(records)
+        settings = _make_settings(cap=8)
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.total_selected == 8
+
+    def test_cap_3_from_5_selects_3(self):
+        """
+        Spec scenario: max_daily_opportunities=3 y 5 candidatos → exactamente 3.
+        """
+        records = [_make_record(f"p{i}") for i in range(5)]
+        store = _make_store(records)
+        settings = _make_settings(cap=3)
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings)
+
+        assert report.total_selected == 3

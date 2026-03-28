@@ -54,20 +54,20 @@ El sistema solo ejecuta de lunes a viernes. Si la ejecución se lanza un sábado
 
 ### 7.3 Ventana temporal
 
-Solo se consideran posts cuya creación esté dentro de los últimos 7 días.
+Solo se consideran posts cuya creación esté dentro de la ventana configurada por `review_window_days` (valor operativo por defecto: 7 días). El parámetro `review_window_days` en `config/settings.py` es la fuente de verdad que gobierna el recorte temporal tanto en colección como en toda la documentación.
 
 ### 7.4 Tamaño de la revisión diaria
 
-La recolección inicial conserva todos los posts dentro de la ventana de 7 días.
+La recolección inicial conserva todos los posts dentro de la ventana configurada por `review_window_days`.
 
 El recorte diario ocurre después de aplicar memoria operativa mínima: cada día se revisan con IA los 8 posts elegibles más recientes ordenados por fecha de creación, no por última actividad.
 
-No existe un backlog editorial explícito ni un estado `approved`. Si un post no se selecciona hoy pero sigue dentro de la ventana de 7 días y no está marcado como `sent` ni como `rejected`, mañana vuelve a competir normalmente desde la ventana.
+No existe un backlog editorial explícito ni un estado `approved`. Si un post no se selecciona hoy pero sigue dentro de la ventana configurada por `review_window_days` y no está marcado como `sent` ni como `rejected`, mañana vuelve a competir normalmente desde la ventana.
 
 ### 7.5 Límite de envío diario
 
-- Se envían como máximo 8 oportunidades al día.
-- Si de los 8 revisados solo hay 3 válidos, se envían solo 3.
+- Se envían como máximo `max_daily_opportunities` oportunidades al día. El parámetro `max_daily_opportunities` en `config/settings.py` es la única fuente de verdad para este límite (valor operativo por defecto: 8).
+- Si de los revisados solo hay 3 válidos, se envían solo 3.
 
 ### 7.6 Regla de unicidad
 
@@ -111,8 +111,8 @@ Los criterios detallados de cómo comportarse, cuándo intervenir y qué evitar 
 
 La entrega diaria en Telegram debe tener esta estructura:
 
-- 1 mensaje inicial de resumen.
-- 1 mensaje por oportunidad.
+- 1 mensaje inicial de resumen (se emite siempre en cada ejecución de día laborable, incluso si no hay oportunidades seleccionadas).
+- 1 mensaje por oportunidad (solo cuando hay oportunidades).
 
 El mensaje inicial de resumen debe incluir:
 

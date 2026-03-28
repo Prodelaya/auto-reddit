@@ -15,7 +15,6 @@ from auto_reddit.shared.contracts import RedditCandidate
 logger = logging.getLogger(__name__)
 
 _REDDIT_BASE = "https://www.reddit.com"
-_7_DAYS_SECONDS = 7 * 24 * 3600
 
 # ---------------------------------------------------------------------------
 # Per-provider normalizers
@@ -191,9 +190,9 @@ def _paginate(
     cursor_extractor: Callable[[dict], str | None],
     cutoff_utc: int,
 ) -> list[RedditCandidate]:
-    """Fetches pages until oldest post in page is outside 7-day window or no cursor.
+    """Fetches pages until oldest post in page is outside the configured review window or no cursor.
 
-    Returns all posts found (pre-filter; caller applies final 7-day filter).
+    Returns all posts found (pre-filter; caller applies final review-window filter).
     """
     all_candidates: list[RedditCandidate] = []
     cursor: str | None = None
@@ -298,15 +297,17 @@ def _collect_via_reddapi(api_key: str, cutoff_utc: int) -> list[RedditCandidate]
 
 
 def collect_candidates(settings: Settings) -> list[RedditCandidate]:
-    """Collect all r/Odoo posts from the last 7 days using fallback chain.
+    """Collect all r/Odoo posts within the configured review window using fallback chain.
 
     Strategy: reddit3 → reddit34 → reddapi. First successful provider wins.
     On all-fail: logs error and returns empty list.
 
+    The review window is governed by ``settings.review_window_days``.
+
     Returns list sorted descending by created_utc. No cut to 8 applied here.
     """
     now_utc = int(datetime.now(tz=timezone.utc).timestamp())
-    cutoff_utc = now_utc - _7_DAYS_SECONDS
+    cutoff_utc = now_utc - (settings.review_window_days * 86400)
 
     providers: list[tuple[str, Callable]] = [
         ("reddit3", lambda: _collect_via_reddit3(settings.reddit_api_key, cutoff_utc)),
@@ -322,7 +323,7 @@ def collect_candidates(settings: Settings) -> list[RedditCandidate]:
             logger.info("Trying provider: %s", provider_name)
             raw_candidates = provider_fn()
 
-            # Apply 7-day filter
+            # Apply review window filter (governed by settings.review_window_days)
             candidates = [c for c in raw_candidates if c.created_utc >= cutoff_utc]
 
             # Explicit subreddit guard: only r/Odoo posts, case-insensitive
@@ -332,9 +333,10 @@ def collect_candidates(settings: Settings) -> list[RedditCandidate]:
             candidates.sort(key=lambda c: c.created_utc, reverse=True)
 
             logger.info(
-                "Provider %s returned %d candidates within 7-day window",
+                "Provider %s returned %d candidates within %d-day window",
                 provider_name,
                 len(candidates),
+                settings.review_window_days,
             )
             return candidates
 

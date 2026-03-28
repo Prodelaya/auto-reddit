@@ -1,5 +1,6 @@
 """Orquestador del proceso diario: conecta todos los módulos y ejecuta el flujo completo."""
 
+import datetime
 import logging
 
 from auto_reddit.config.settings import settings
@@ -19,13 +20,23 @@ def run() -> None:
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
     )
 
+    # Guardia de fin de semana: solo ejecutar de lunes a viernes (weekday 0–4).
+    # Esta lógica vive aquí (main.py), no en el cron externo.
+    today = datetime.date.today()
+    if today.weekday() >= 5:
+        logger.info(
+            "Ejecución programada en fin de semana (%s) — pipeline omitido sin efectos secundarios",
+            today.strftime("%A %d/%m/%Y"),
+        )
+        return
+
     logger.info("Iniciando pipeline auto-reddit")
 
     # Change 2: inicializar store de memoria operativa
     store = CandidateStore(settings.db_path)
     store.init_db()
 
-    # Change 1: recoger candidatos de r/Odoo (ventana 7 días, sin recorte)
+    # Change 1: recoger candidatos de r/Odoo (ventana configurada por review_window_days, sin recorte)
     candidates = collect_candidates(settings)
     total_collected = len(candidates)
     logger.info("Candidatos recogidos: %d", total_collected)
@@ -73,7 +84,7 @@ def run() -> None:
         skipped_count,
     )
 
-    # Change 5: entrega Telegram (retry-first, cap max_daily_deliveries)
+    # Change 5: entrega Telegram (retry-first, cap max_daily_opportunities)
     # reviewed_post_count = len(review_set) para el resumen de producto (product.md §10)
     report = deliver_daily(store, settings, reviewed_post_count=len(review_set))
     logger.info(

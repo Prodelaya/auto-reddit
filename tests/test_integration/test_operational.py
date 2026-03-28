@@ -13,6 +13,7 @@ I/O boundaries patched at auto_reddit.main.* caller namespace per design decisio
 
 from __future__ import annotations
 
+import datetime
 import os
 import time
 from unittest.mock import MagicMock, patch
@@ -31,6 +32,31 @@ from auto_reddit.shared.contracts import (
     RejectionType,
     ThreadContext,
 )
+
+# ---------------------------------------------------------------------------
+# Module-level fixture: force weekday for all integration tests.
+# The weekend guard in main.run() uses datetime.date.today().weekday().
+# Without this, tests run on a Saturday/Sunday would skip the pipeline.
+# ---------------------------------------------------------------------------
+
+_WEEKDAY_DATE = datetime.date(2026, 3, 25)  # Wednesday — guaranteed weekday
+
+
+@pytest.fixture(autouse=True)
+def force_weekday(monkeypatch):
+    """Patch auto_reddit.main.datetime so date.today() always returns a Wednesday."""
+    import auto_reddit.main as _main_module
+
+    class _FakeDatetime:
+        @staticmethod
+        def today():
+            return _WEEKDAY_DATE
+
+    class _FakeDateTime:
+        date = _FakeDatetime
+
+    monkeypatch.setattr(_main_module, "datetime", _FakeDateTime)
+
 
 # ---------------------------------------------------------------------------
 # Helpers — follow pattern from tests/test_delivery/test_deliver_daily.py
@@ -62,7 +88,7 @@ def _make_settings(tmp_path: "pytest.TempPathFactory", cap: int = 8) -> MagicMoc
     settings.db_path = str(tmp_path / "test.db")
     settings.telegram_bot_token = "BOT_TOKEN"
     settings.telegram_chat_id = "CHAT_ID"
-    settings.max_daily_deliveries = cap
+    settings.max_daily_opportunities = cap
     settings.daily_review_limit = cap
     settings.reddit_api_key = "DUMMY_REDDIT_KEY"
     settings.review_window_days = 7
@@ -355,12 +381,12 @@ class TestEvaluationBoundaryIsolation:
         GIVEN evaluation receives controlled normalized thread-context input
         WHEN Reddit and delivery boundaries are patched as sentinels
         THEN evaluation returns its bounded outcome (rejected) from that input only
-        AND no Telegram delivery side effect occurs during the evaluation phase
+        AND no individual opportunity Telegram message is sent (only the summary is allowed)
 
-        Telegram is patched as a strict sentinel (raises if called). Since the
-        evaluation result is a RejectedPost, no pending_delivery is created and
-        the delivery phase has nothing to send — proving evaluation does not
-        accidentally trigger Telegram as a side effect of its own execution.
+        The daily summary IS always sent per spec (even on 0-opportunity runs).
+        The strict check here is that no OPPORTUNITY-specific message is sent when
+        evaluation rejects the post — proving evaluation does not accidentally trigger
+        opportunity delivery as a side effect of its own execution.
         """
         mock_settings = _make_settings(tmp_path)
 
@@ -372,12 +398,19 @@ class TestEvaluationBoundaryIsolation:
             rejection_type=RejectionType.no_useful_contribution,
         )
 
-        def strict_sentinel_send(token, chat_id, text):
-            raise AssertionError(
-                "send_message must NOT be called during evaluation-boundary proof: "
-                "no accepted opportunity was produced, so Telegram delivery "
-                "is a forbidden side effect here"
-            )
+        opportunity_send_calls = []
+
+        def track_send_sentinel(token, chat_id, text):
+            # The summary message is expected (even with 0 opportunities — spec §10).
+            # An opportunity-specific message must NOT be sent after a rejection.
+            if "del día" not in text:
+                opportunity_send_calls.append(text)
+                raise AssertionError(
+                    "send_message called with a non-summary message after rejection: "
+                    "no accepted opportunity was produced, so individual Telegram "
+                    "opportunity messages are a forbidden side effect here"
+                )
+            return True  # summary is OK
 
         with (
             patch("time.time", return_value=_FIXED_EPOCH),
@@ -387,11 +420,16 @@ class TestEvaluationBoundaryIsolation:
             patch("auto_reddit.main.evaluate_batch", return_value=[rejected]),
             patch(
                 "auto_reddit.delivery.send_message",
-                side_effect=strict_sentinel_send,
+                side_effect=track_send_sentinel,
             ),
         ):
-            # Must NOT raise — evaluation result should not trigger Telegram
+            # Must NOT raise — evaluation rejection should not trigger opportunity delivery
             run()
+
+        # No opportunity messages were sent
+        assert opportunity_send_calls == [], (
+            f"Opportunity messages sent after rejection: {opportunity_send_calls}"
+        )
 
         # Rejected post stored correctly — evaluation produced its bounded outcome
         import sqlite3
@@ -466,8 +504,14 @@ class TestEvaluationBoundaryIsolation:
             "Telegram send_message should have been called in the delivery phase"
         )
 
-    def test_rejected_post_stored_without_delivery_side_effect(self, tmp_path):
-        """Rejected posts must be stored as rejected without triggering Telegram delivery."""
+    def test_rejected_post_stored_without_opportunity_delivery_side_effect(
+        self, tmp_path
+    ):
+        """
+        Rejected posts must not trigger individual opportunity Telegram delivery.
+        The daily summary IS sent unconditionally (spec §10), but no opportunity
+        message should be sent for a rejected post.
+        """
         mock_settings = _make_settings(tmp_path)
 
         candidate = _make_candidate("eval_rejected", created_utc=_FIXED_EPOCH)
@@ -478,18 +522,29 @@ class TestEvaluationBoundaryIsolation:
             rejection_type=RejectionType.no_useful_contribution,
         )
 
+        send_calls = []
+
         with (
             patch("time.time", return_value=_FIXED_EPOCH),
             patch("auto_reddit.main.settings", mock_settings),
             patch("auto_reddit.main.collect_candidates", return_value=[candidate]),
             patch("auto_reddit.main.fetch_thread_contexts", return_value=[thread_ctx]),
             patch("auto_reddit.main.evaluate_batch", return_value=[rejected]),
-            patch("auto_reddit.delivery.send_message", return_value=True) as mock_send,
+            patch(
+                "auto_reddit.delivery.send_message",
+                side_effect=lambda tok, chat, text: send_calls.append(text) or True,
+            ),
         ):
             run()
 
-        # No delivery for rejected post (no pending_delivery records → no Telegram call)
-        mock_send.assert_not_called()
+        # Exactly 1 call: the daily summary (0-opportunity run)
+        assert len(send_calls) == 1, (
+            f"Expected exactly 1 send (summary). Got {len(send_calls)}: {send_calls}"
+        )
+        # The single call must be the summary, not an opportunity message
+        assert "del día" in send_calls[0], (
+            "The only send_message call should be the daily summary"
+        )
 
         import sqlite3
 

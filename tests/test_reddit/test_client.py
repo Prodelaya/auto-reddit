@@ -11,6 +11,7 @@ Cubre:
 - Más de 8 candidatos entregados sin truncación (spec runtime guarantee)
 - url relativa → absoluta
 - Retry/backoff (_fetch_with_retry)
+- 4.2: review_window_days gobierna el cutoff de colección (Shorter/Larger window scenarios)
 """
 
 from __future__ import annotations
@@ -177,6 +178,7 @@ class TestSevenDayFilter:
     def _mock_settings(self):
         s = MagicMock()
         s.reddit_api_key = "test-key"
+        s.review_window_days = 7
         return s
 
     def _make_raw_reddit3(self, utc_timestamps: list[int]) -> dict:
@@ -247,6 +249,7 @@ class TestCursorPagination:
     def _mock_settings(self):
         s = MagicMock()
         s.reddit_api_key = "test-key"
+        s.review_window_days = 7
         return s
 
     @patch("auto_reddit.reddit.client.datetime")
@@ -362,6 +365,7 @@ class TestFallbackChain:
     def _mock_settings(self):
         s = MagicMock()
         s.reddit_api_key = "test-key"
+        s.review_window_days = 7
         return s
 
     @patch("auto_reddit.reddit.client.datetime")
@@ -422,6 +426,7 @@ class TestCollectCandidatesIntegration:
     def _mock_settings(self):
         s = MagicMock()
         s.reddit_api_key = "test-key"
+        s.review_window_days = 7
         return s
 
     @patch("auto_reddit.reddit.client.datetime")
@@ -681,6 +686,7 @@ class TestSubredditFilter:
     def _mock_settings(self):
         s = MagicMock()
         s.reddit_api_key = "test-key"
+        s.review_window_days = 7
         return s
 
     @patch("auto_reddit.reddit.client.datetime")
@@ -870,6 +876,7 @@ class TestNoTruncationAboveEight:
     def _mock_settings(self):
         s = MagicMock()
         s.reddit_api_key = "test-key"
+        s.review_window_days = 7
         return s
 
     @patch("auto_reddit.reddit.client.datetime")
@@ -986,3 +993,122 @@ class TestRetryBackoff:
 
         _fetch_with_retry(mock_client, "https://api.example.com", {}, {})
         mock_sleep.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# 4.2: review_window_days governs the collection cutoff
+# Spec scenarios: Shorter/Larger configured window
+# ---------------------------------------------------------------------------
+
+
+class TestReviewWindowDays:
+    """Spec scenarios: review_window_days governs the temporal cutoff in collect_candidates.
+
+    - Shorter window (3 days): day-4 candidate excluded, day-2 included.
+    - Larger window (5 days): day-4 candidate still within window, included.
+    """
+
+    def _mock_settings(self, review_window_days: int) -> MagicMock:
+        s = MagicMock()
+        s.reddit_api_key = "test-key"
+        s.review_window_days = review_window_days
+        return s
+
+    def _make_raw_reddit3(self, utc_timestamps: list[int]) -> dict:
+        body = [
+            {
+                "id": f"post{i}",
+                "title": f"Post {i}",
+                "selftext": "body",
+                "url": f"https://www.reddit.com/r/Odoo/comments/post{i}/",
+                "permalink": f"/r/Odoo/comments/post{i}/test/",
+                "author": "user",
+                "subreddit": "Odoo",
+                "created_utc": ts,
+                "num_comments": 0,
+            }
+            for i, ts in enumerate(utc_timestamps)
+        ]
+        return {"meta": {"cursor": None}, "body": body}
+
+    @patch("auto_reddit.reddit.client.datetime")
+    @patch("auto_reddit.reddit.client.httpx.Client")
+    def test_shorter_window_3_days_excludes_day_4_includes_day_2(
+        self, mock_client_cls, mock_dt
+    ):
+        """
+        Spec scenario: Shorter configured window excludes older candidates.
+        review_window_days=3: day-2 candidate included, day-4 excluded.
+        """
+        fake_now = 1_700_000_000
+        mock_dt.now.return_value.timestamp.return_value = float(fake_now)
+
+        day_2_ago = fake_now - 2 * 86400  # 2 days ago — within 3-day window
+        day_4_ago = fake_now - 4 * 86400  # 4 days ago — outside 3-day window
+
+        raw = self._make_raw_reddit3([day_2_ago, day_4_ago])
+        mock_response = MagicMock()
+        mock_response.json.return_value = raw
+        mock_client_instance = MagicMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_client_cls.return_value.__enter__.return_value = mock_client_instance
+
+        settings = self._mock_settings(review_window_days=3)
+        candidates = collect_candidates(settings)
+
+        ids = [c.post_id for c in candidates]
+        assert "post0" in ids  # day-2 → included
+        assert "post1" not in ids  # day-4 → excluded (outside 3-day window)
+
+    @patch("auto_reddit.reddit.client.datetime")
+    @patch("auto_reddit.reddit.client.httpx.Client")
+    def test_larger_window_5_days_includes_day_4(self, mock_client_cls, mock_dt):
+        """
+        Spec scenario: Larger configured window includes still-valid candidates.
+        review_window_days=5: day-4 candidate still within window.
+        """
+        fake_now = 1_700_000_000
+        mock_dt.now.return_value.timestamp.return_value = float(fake_now)
+
+        day_2_ago = fake_now - 2 * 86400  # within 5-day window
+        day_4_ago = fake_now - 4 * 86400  # within 5-day window
+
+        raw = self._make_raw_reddit3([day_2_ago, day_4_ago])
+        mock_response = MagicMock()
+        mock_response.json.return_value = raw
+        mock_client_instance = MagicMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_client_cls.return_value.__enter__.return_value = mock_client_instance
+
+        settings = self._mock_settings(review_window_days=5)
+        candidates = collect_candidates(settings)
+
+        ids = [c.post_id for c in candidates]
+        assert "post0" in ids  # day-2 → included
+        assert "post1" in ids  # day-4 → included (within 5-day window)
+
+    @patch("auto_reddit.reddit.client.datetime")
+    @patch("auto_reddit.reddit.client.httpx.Client")
+    def test_window_3_boundary_exactly_3_days_ago_is_included(
+        self, mock_client_cls, mock_dt
+    ):
+        """Boundary: a post created exactly review_window_days * 86400 seconds ago is included."""
+        fake_now = 1_700_000_000
+        mock_dt.now.return_value.timestamp.return_value = float(fake_now)
+
+        exactly_3_days_ago = fake_now - 3 * 86400
+        one_second_more = exactly_3_days_ago - 1  # outside
+
+        raw = self._make_raw_reddit3([exactly_3_days_ago, one_second_more])
+        mock_response = MagicMock()
+        mock_response.json.return_value = raw
+        mock_client_instance = MagicMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_client_cls.return_value.__enter__.return_value = mock_client_instance
+
+        settings = self._mock_settings(review_window_days=3)
+        candidates = collect_candidates(settings)
+
+        ids = [c.post_id for c in candidates]
+        assert "post0" in ids  # exactly at boundary → included
+        assert "post1" not in ids  # one second outside → excluded

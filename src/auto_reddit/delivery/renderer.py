@@ -126,6 +126,10 @@ def render_summary(
         lines.append(f"  • Reintentos: <b>{retry_count}</b>")
     if new_count > 0:
         lines.append(f"  • Nuevas: <b>{new_count}</b>")
-    lines.append("")
-    lines.append("A continuación recibirás cada oportunidad por separado. 👇")
+    if count == 0:
+        lines.append("")
+        lines.append("No hay oportunidades nuevas hoy.")
+    else:
+        lines.append("")
+        lines.append("A continuación recibirás cada oportunidad por separado. 👇")
     return "\n".join(lines)

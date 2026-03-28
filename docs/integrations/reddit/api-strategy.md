@@ -47,7 +47,9 @@ Descartada del flujo principal. La probe reciente confirma `200 OK` y resultados
 
 ## 4. Cuotas y reparto mensual
 
-Escenario de referencia vigente para planning: modelo 8/8, ejecucion de lunes a viernes (~22 dias/mes), hasta 8 llamadas diarias de comentarios para los posts que sigan aguas arriba y con el consumo de posts pendiente de recalculo fino si la recoleccion completa de la ventana exige mas de una llamada diaria.
+Escenario de referencia vigente para planning: modelo `max_daily_opportunities`/`daily_review_limit` (8/8 por defecto), ejecucion de lunes a viernes (~22 dias/mes), hasta 8 llamadas diarias de comentarios para los posts que sigan aguas arriba y con el consumo de posts pendiente de recalculo fino si la recoleccion completa de la ventana exige mas de una llamada diaria.
+
+La ventana temporal de coleccion esta gobernada por el parametro `review_window_days` (valor operativo por defecto: 7 dias). El cap de entrega diaria esta gobernado por `max_daily_opportunities` (valor operativo por defecto: 8). Ambos parametros viven en `config/settings.py` y son la fuente de verdad operativa.
 
 - Consumo de referencia vigente: `~198 req/mes` bajo el supuesto de 1 llamada diaria para posts (`22` de posts + `176` de comentarios); debe revisarse si la recoleccion completa requiere paginacion o batches adicionales.
 - Capacidad nominal catalogada combinando las 4 APIs: `320 req/mes`
@@ -177,10 +179,11 @@ Nota: reddapi no devuelve `comment_id`, `created_utc` ni `permalink` en comentar
 - Devuelve posts de multiples subreddits mezclados
 - No util para el flujo principal del MVP
 
-## 11. Parametros provisionales
+## 11. Parametros operativos configurables
 
-- `daily_review_limit`: 8 posts/dia (referencia operativa vigente para design)
-- `max_daily_opportunities`: 8/dia (referencia operativa vigente para design)
+- `daily_review_limit`: 8 posts/dia (referencia operativa vigente para design; gobernado por `Settings.daily_review_limit`)
+- `max_daily_opportunities`: 8/dia (cap unico de entrega diaria; gobernado por `Settings.max_daily_opportunities`)
+- `review_window_days`: 7 dias (ventana temporal de coleccion; gobernado por `Settings.review_window_days`)
 - Ejecucion: solo lunes-viernes
 - Logica de fin de semana en `main.py`, no en cron
 
