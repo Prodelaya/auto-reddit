@@ -357,3 +357,170 @@ cuota y de integracion con RapidAPI.
 El change 1 queda mejor aterrizado para entrar en `sdd-tasks`: ya no solo hay
 direccion funcional, sino tambien evidencia tecnica reciente, ajuste de
 capacidad y un design apoyado en pruebas reales.
+
+---
+
+## Entrada 7
+
+**Fecha:** 27/03/2026
+
+### SDD apply del change 1: implementacion real
+
+Se ejecuto el ciclo completo de apply para `reddit-candidate-collection`. El
+change paso de tener spec, design y tasks a tener codigo funcional real.
+
+### Lo que se implemento
+
+- `src/auto_reddit/shared/contracts.py`: modelo `RedditCandidate` con todos los
+  campos del contrato minimo y el campo computado `is_complete`, que marca
+  candidatos incompletos sin descartarlos.
+- `src/auto_reddit/reddit/client.py`: cliente completo con tres normalizers
+  independientes por provider (`reddit3`, `reddit34`, `reddapi`), helper
+  `_to_absolute_url` para canonizar URLs relativas, extractores de cursor
+  separados por provider, funcion `_fetch_with_retry` con backoff exponencial
+  (2s, 4s), bucle de paginacion generico `_paginate` y punto de entrada publico
+  `collect_candidates` con fallback chain `reddit3 → reddit34 → reddapi`.
+- `src/auto_reddit/main.py`: funcion `run()` que llama `collect_candidates` y
+  deja placeholders comentados para los changes siguientes.
+- `tests/test_reddit/`: 50 tests con fixtures de raws reales (sanitizados) de
+  los tres providers, cubriendo normalizacion, filtrado temporal, filtrado por
+  subreddit, paginacion, fallback chain, reintentos e `is_complete`.
+
+### Decisiones tecnicas cerradas durante el apply
+
+- Los candidatos incompletos se conservan con `is_complete=False`; no se
+  descartan. La decision de que hacer con ellos es del paso siguiente.
+- `url` y `permalink` se canonican a URL absoluta en el normalizer, no en el
+  consumidor.
+- El filtro de subreddit se aplica post-normalizacion con
+  `subreddit.lower() == "odoo"` como guard explicito.
+- El fallback chain es whole-step: si un provider falla en cualquier punto se
+  descarta entero y se intenta el siguiente.
+- `User-Agent: RapidAPI Playground` es obligatorio para `reddapi`; sin el,
+  Cloudflare devuelve 403.
+- La incognita sobre la ubicacion del cursor por provider quedo resuelta
+  verificando los raws: `reddit3` en `meta.cursor`, `reddit34` en
+  `data.cursor`, `reddapi` en `cursor` raiz.
+
+### Resultado
+
+21 tasks completadas, 50 tests pasando. El change 1 listo para verificacion.
+
+---
+
+## Entrada 8
+
+**Fecha:** 27/03/2026
+
+### Verificacion y archivo del change 1
+
+Se ejecuto el ciclo de verify para `reddit-candidate-collection`. El primer
+verify detecto gaps de cumplimiento reales:
+
+- `is_complete` no validaba todos los campos minimos del contrato.
+- Faltaba filtro explicito de subreddit post-normalizacion.
+- `url` no se canonizaba, solo `permalink`.
+
+Se hizo un apply correctivo que cerro los tres gaps. El segundo verify dio
+PASS: 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos.
+
+El change quedo archivado formalmente:
+
+- artefactos movidos a
+  `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
+- spec promovida a `openspec/specs/reddit-candidate-collection/spec.md` como
+  fuente de verdad permanente
+- archive report guardado en OpenSpec y Engram
+
+### Modelo DeepSeek recomendado
+
+En paralelo se actualizo `docs/product/ai-style.md` para recomendar
+oficialmente `deepseek-chat` (DeepSeek-V3) en lugar de `deepseek-reasoner`
+(R1). La razon: el pipeline necesita clasificacion NLP, estructura JSON estricta
+(Pydantic) y tono breve y pragmatico. Los modelos reasoning sobreexplican,
+violan el tono editorial y resultan mas lentos y costosos para este caso de uso.
+
+---
+
+## Entrada 9
+
+**Fecha:** 27/03/2026
+
+### Guia didactica TFM
+
+Se creo `TFM/guia-didactica-auto-reddit.md`, un documento unico que actua como
+guia de aprendizaje para juniors usando el proyecto como hilo conductor.
+
+La guia no es un manual de onboarding al proyecto. Su objetivo es que alguien
+que empiece a leerla sin conocer el repo entienda por que se toman decisiones
+de arquitectura, que son los contratos, como funciona el desarrollo asistido por
+IA con disciplina y como esta construido este sistema concretamente.
+
+Contiene: overview, project map, glosario, arquitectura explicada para juniors,
+decisiones con trade-offs, explicacion de OpenSpec/SDD/skills/AGENTS/GitNexus/
+Engram/MCP, recorrido por carpetas y archivos Python, flujos del sistema,
+riesgos y mitigaciones, learning notes e historial de changes archivados.
+
+La guia es un documento vivo: se actualiza con cada change archivado.
+
+---
+
+## Entrada 10
+
+**Fecha:** 27/03/2026 — 28/03/2026
+
+### SDD completo del change 2: memoria operativa y unicidad
+
+Se ejecuto el ciclo SDD completo para `candidate-memory-and-uniqueness`:
+discovery, proposal, spec, design, tasks, apply, verify y archive.
+
+### Problema que resuelve
+
+Sin memoria operativa, el pipeline enviaria por Telegram los mismos posts cada
+dia. Tampoco habria forma de reintentar una entrega fallida sin volver a llamar
+a la IA, lo que consume cuota y puede cambiar el resultado.
+
+### Lo que se implemento
+
+- `src/auto_reddit/shared/contracts.py`: enum `PostDecision` (`sent`,
+  `rejected`, `pending_delivery`) y modelo `PostRecord` con `opportunity_data`
+  para reintentos sin re-evaluar la IA.
+- `src/auto_reddit/persistence/store.py`: clase `CandidateStore` con SQLite.
+  Operaciones: `init_db`, `get_decided_post_ids`, `save_rejected`,
+  `save_pending_delivery`, `mark_sent`, `get_pending_deliveries`. Todos los
+  writes usan upsert (`INSERT ... ON CONFLICT DO UPDATE`).
+- `src/auto_reddit/main.py`: integracion del store — inicializacion, exclusion
+  de decididos, recorte a 8, placeholders comentados para changes 3, 4 y 5.
+- `src/auto_reddit/config/settings.py`: campo `db_path` para la ruta del
+  fichero SQLite.
+- `tests/test_persistence/test_store.py`: 20 tests unitarios.
+
+### Decisiones tecnicas clave
+
+- `get_decided_post_ids` devuelve `sent` y `rejected` pero NO
+  `pending_delivery`. Un post en `pending_delivery` sigue siendo elegible para
+  reintento Telegram sin re-evaluar la IA.
+- El estado transitorio se llama `pending_delivery`, no `approved`. El nombre
+  comunica la semantica exacta: la IA acepto, Telegram aun no ha confirmado.
+- `opportunity_data` guarda el JSON del resultado IA para poder reintentar sin
+  volver a llamar al modelo.
+
+### Verificacion
+
+PASS CON ADVERTENCIAS — 16/16 tasks completas, 70 tests pasando. Advertencias
+no bloqueantes preservadas en el archive:
+
+- no existe test que pruebe "skipped today, eligible tomorrow" en dos runs
+  consecutivos.
+- no existe test end-to-end de reintento Telegram usando `pending_delivery` sin
+  re-llamar a la IA.
+
+Ambas son pruebas de integracion entre runs que requieren un enfoque diferente
+al unitario. Quedan pendientes.
+
+### Archive
+
+- artefactos en
+  `openspec/changes/archive/2026-03-27-candidate-memory-and-uniqueness/`
+- spec promovida a `openspec/specs/candidate-memory/spec.md`
+- 70 tests pasando en total (50 change 1 + 20 change 2)
