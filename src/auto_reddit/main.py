@@ -3,9 +3,11 @@
 import logging
 
 from auto_reddit.config.settings import settings
+from auto_reddit.evaluation import evaluate_batch
 from auto_reddit.persistence.store import CandidateStore
 from auto_reddit.reddit.client import collect_candidates
 from auto_reddit.reddit.comments import fetch_thread_contexts
+from auto_reddit.shared.contracts import AcceptedOpportunity
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +53,24 @@ def run() -> None:
         len(review_set),
     )
 
-    # Change 4 (pendiente): evaluación IA
-    # for candidate in review_set:
-    #     result = evaluate_candidate(candidate, settings)
-    #     if result.is_opportunity:
-    #         store.save_pending_delivery(candidate.post_id, result.model_dump_json())
-    #     else:
-    #         store.save_rejected(candidate.post_id)
+    # Change 4: evaluación IA
+    evaluation_results = evaluate_batch(thread_contexts, settings)
+    accepted_count = 0
+    rejected_count = 0
+    for result in evaluation_results:
+        if isinstance(result, AcceptedOpportunity):
+            store.save_pending_delivery(result.post_id, result.model_dump_json())
+            accepted_count += 1
+        else:
+            store.save_rejected(result.post_id)
+            rejected_count += 1
+    skipped_count = len(thread_contexts) - len(evaluation_results)
+    logger.info(
+        "Evaluación IA: aceptados=%d, rechazados=%d, saltados=%d",
+        accepted_count,
+        rejected_count,
+        skipped_count,
+    )
 
     # Change 5 (pendiente): entrega Telegram
     # for record in store.get_pending_deliveries():

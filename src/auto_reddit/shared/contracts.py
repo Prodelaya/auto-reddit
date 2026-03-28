@@ -1,6 +1,7 @@
 """Contratos Pydantic compartidos entre módulos. Ningún módulo importa de otro; solo de aquí y de config/."""
 
 from enum import Enum
+from typing import Annotated, Union
 
 from pydantic import BaseModel, computed_field
 
@@ -102,3 +103,101 @@ class ThreadContext(BaseModel):
     comment_count: int
     quality: ContextQuality
     source_api: str
+
+
+# ---------------------------------------------------------------------------
+# Change 4: AI Opportunity Evaluation contracts
+# ---------------------------------------------------------------------------
+
+
+class OpportunityType(str, Enum):
+    """Taxonomía cerrada de tipos de oportunidad en r/Odoo."""
+
+    funcionalidad = "funcionalidad"
+    desarrollo = "desarrollo"
+    dudas_si_merece_la_pena = "dudas_si_merece_la_pena"
+    comparativas = "comparativas"
+
+
+class RejectionType(str, Enum):
+    """Tipos de rechazo distintos para clasificación precisa del descarte."""
+
+    resolved_or_closed = "resolved_or_closed"
+    no_useful_contribution = "no_useful_contribution"
+    excluded_topic = "excluded_topic"
+    insufficient_evidence = "insufficient_evidence"
+
+
+class AIRawResponse(BaseModel):
+    """Respuesta estructurada devuelta por DeepSeek.
+
+    Validada con Pydantic tras parsear el JSON. Los campos condicionales son
+    opcionales porque solo aplican según ``accept``.
+
+    - Campos de aceptación: solo presentes cuando ``accept=True``.
+    - Campos de rechazo: solo presentes cuando ``accept=False``.
+    - ``warning`` y ``human_review_bullets``: el modelo los puede incluir; solo se propagan al output final cuando ``accept=True`` (se descartan en ``RejectedPost``).
+    """
+
+    accept: bool
+
+    # Campos de aceptación (presentes si accept=True)
+    opportunity_type: OpportunityType | None = None
+    opportunity_reason: str | None = None  # por qué la intervención aporta valor
+    post_summary_es: str | None = None
+    comment_summary_es: str | None = None
+    suggested_response_es: str | None = None
+    suggested_response_en: str | None = None
+    post_language: str | None = (
+        None  # único campo detectado por la IA (no determinístico)
+    )
+
+    # Campos de rechazo (presentes si accept=False)
+    rejection_type: RejectionType | None = None
+
+    # Contexto degradado: presente en ambos outcomes cuando quality=degraded
+    warning: str | None = None
+    human_review_bullets: list[str] | None = None
+
+
+class AcceptedOpportunity(BaseModel):
+    """Oportunidad aceptada por la IA.
+
+    Combina campos determinísticos del pipeline (post_id, title, link) con los
+    campos generados por la IA. ``model_dump_json()`` produce el JSON listo para
+    persistir en ``opportunity_data``.
+    """
+
+    # Campos determinísticos del pipeline (no pedidos a la IA)
+    post_id: str
+    title: str
+    link: str
+
+    # Campos generados por la IA
+    post_language: str
+    opportunity_type: OpportunityType
+    opportunity_reason: (
+        str  # por qué la intervención aporta valor (distinto del resumen del post)
+    )
+    post_summary_es: str
+    comment_summary_es: str | None = None  # None cuando no hay comentarios útiles
+    suggested_response_es: str
+    suggested_response_en: str
+
+    # Contexto degradado — solo en oportunidades aceptadas con quality=degraded.
+    # Los posts rechazados NO llevan warning ni bullets.
+    warning: str | None = None
+    human_review_bullets: list[str] | None = None
+
+
+class RejectedPost(BaseModel):
+    """Post rechazado por la IA con tipo de rechazo explícito."""
+
+    post_id: str
+    rejection_type: RejectionType
+
+
+# Unión discriminada para el resultado de evaluación de un ThreadContext
+EvaluationResult = Annotated[
+    Union[AcceptedOpportunity, RejectedPost], "EvaluationResult"
+]
