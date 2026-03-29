@@ -181,10 +181,18 @@ class TestStandardVerificationCommand:
             "The spec/proposal require exactly `uv run pytest tests/ -x --tb=short`."
         )
 
-    def test_workflow_uses_uv_sync_dev_for_deps(self, workflow_text: str):
-        """Workflow MUST use `uv sync --dev` for dependency installation."""
-        assert "uv sync --dev" in workflow_text, (
-            "Workflow must install dependencies with 'uv sync --dev'."
+    def test_workflow_uses_uv_sync_extra_dev_for_deps(self, workflow_text: str):
+        """Workflow MUST use `uv sync --extra dev` for dependency installation.
+
+        pyproject.toml defines dev deps under [project.optional-dependencies].dev,
+        NOT under [dependency-groups]. `uv sync --dev` only reads [dependency-groups]
+        and would therefore skip pytest entirely, causing 'Failed to spawn: pytest'.
+        The correct flag for optional-dependencies is `--extra dev`.
+        """
+        assert "uv sync --extra dev" in workflow_text, (
+            "Workflow must install dependencies with 'uv sync --extra dev'. "
+            "The project uses [project.optional-dependencies].dev, not [dependency-groups], "
+            "so --dev is incorrect and --extra dev is required."
         )
 
     def test_workflow_uses_no_pip_or_alternate_installers(self, workflow_text: str):
