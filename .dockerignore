@@ -1,0 +1,81 @@
+# ─── Control de versiones ────────────────────────────────────────────────────
+.git/
+.github/
+
+# ─── Entorno virtual y caché uv ──────────────────────────────────────────────
+.venv/
+venv/
+env/
+.uv/
+
+# ─── Caché Python ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+
+# ─── Variables de entorno y secretos ─────────────────────────────────────────
+.env
+.env.*
+
+# ─── Tests y cobertura ────────────────────────────────────────────────────────
+tests/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+htmlcov/
+junit.xml
+test-results/
+
+# ─── Bases de datos locales ───────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ─── Caché de herramientas ────────────────────────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.cache/
+.gitnexus/
+
+# ─── Tooling de agentes / AI ─────────────────────────────────────────────────
+.atl/
+.claude/
+AGENTS.md
+CLAUDE.md
+openspec/
+skills/
+
+# ─── Documentación y TFM ──────────────────────────────────────────────────────
+docs/
+TFM/
+assets/
+README.md
+License.md
+
+# ─── Scripts de automatización local ─────────────────────────────────────────
+scripts/
+
+# ─── Logs y profiling ─────────────────────────────────────────────────────────
+*.log
+*.prof
+*.pstats
+
+# ─── Node (gitnexus) ──────────────────────────────────────────────────────────
+node_modules/
+
+# ─── Sistema operativo y editores ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
