@@ -1,4 +1,4 @@
-# Python
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
@@ -8,57 +8,71 @@ __pycache__/
 *.egg
 .eggs/
 
-# Entornos virtuales
+# ─── Entornos virtuales ───────────────────────────────────────────────────────
 .venv/
 venv/
 env/
 
-# Distribución
+# ─── uv ───────────────────────────────────────────────────────────────────────
+# .uv/ es la caché interna del gestor; uv.lock SÍ se commitea
+.uv/
+
+# ─── Distribución / build ─────────────────────────────────────────────────────
 dist/
 build/
 
-# Variables de entorno y secretos
+# ─── Variables de entorno y secretos ─────────────────────────────────────────
+# Regla amplia: ignora cualquier variante de .env salvo el ejemplo documentado
 .env
 .env.*
 !.env.example
 
-# Base de datos SQLite
+# ─── Base de datos SQLite ─────────────────────────────────────────────────────
+# Nombre por defecto de Settings.db_path + cobertura genérica
+auto_reddit.db
 *.db
 *.sqlite
 *.sqlite3
 
-# macOS
-.DS_Store
+# ─── Tests y cobertura ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+htmlcov/
+junit.xml
+test-results/
 
-# Node
-node_modules/
+# ─── Profiling ────────────────────────────────────────────────────────────────
+*.prof
+*.pstats
 
-# Caché de herramientas
+# ─── Caché de herramientas ────────────────────────────────────────────────────
 .ruff_cache/
 .mypy_cache/
-.pytest_cache/
 .cache/
 
-# uv
-.uv/
-
-# Coverage
-.coverage
-htmlcov/
-coverage.xml
-
-# Logs
+# ─── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 
-# Versión de Python
-# .python-version  # descomenta si no quieres commitear la versión fijada
+# ─── Sistema operativo ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
 
-# Editor
+# ─── Editores ─────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
-.gitnexus
+*~
+
+# ─── Node (gitnexus y herramientas locales) ───────────────────────────────────
+node_modules/
+
+# ─── Herramientas de agentes / AI tooling ────────────────────────────────────
+# Contexto local de agentes — no forma parte del código del producto
+.gitnexus/
 .atl/
 .claude/
 CLAUDE.md

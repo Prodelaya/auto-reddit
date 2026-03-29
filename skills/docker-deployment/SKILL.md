@@ -26,7 +26,7 @@ metadata:
 ### Imagen base
 - `python:3.14-slim`
 - uv instalado desde imagen oficial `ghcr.io/astral-sh/uv:latest`
-- Entrypoint: `python -m auto_reddit.main`
+- Entrypoint: `uv run python -m auto_reddit.main`
 
 ### Volúmenes
 - SQLite en volumen Docker montado en `/data/`
@@ -43,10 +43,10 @@ metadata:
 FROM python:3.14-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /app
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 COPY src/ src/
-RUN uv pip install --system --no-cache .
-ENTRYPOINT ["python", "-m", "auto_reddit.main"]
+RUN uv sync --frozen --no-dev
+ENTRYPOINT ["uv", "run", "python", "-m", "auto_reddit.main"]
 ```
 
 ### Cron en VPS
