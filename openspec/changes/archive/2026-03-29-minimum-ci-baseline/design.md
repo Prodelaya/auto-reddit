@@ -2,9 +2,9 @@
 
 ## Technical Approach
 
-Single-file GitHub Actions workflow (`.github/workflows/ci.yml`) that mirrors the local developer verification command exactly: `uv sync --dev && uv run pytest tests/ -x --tb=short`. Uses `astral-sh/setup-uv@v7` for uv installation and caching. Python 3.14 is read from `.python-version` by uv automatically — no explicit version pin in the workflow.
+Single-file GitHub Actions workflow (`.github/workflows/ci.yml`) that mirrors the local developer verification command exactly: `uv sync --extra dev && uv run pytest tests/ -x --tb=short`. Uses `astral-sh/setup-uv@v7` for uv installation and caching. Python 3.14 is read from `.python-version` by uv automatically — no explicit version pin in the workflow.
 
-> **Note (post-apply correction)**: The initial implementation used `uv run --frozen pytest` but the spec/proposal require the exact command `uv run pytest tests/ -x --tb=short` (without `--frozen`). The workflow has been updated to match the spec. The `--frozen` flag is not needed here since `uv sync --dev` already locks the environment; omitting it keeps CI aligned with the local developer command.
+> **Note (post-apply correction)**: The initial design documented `uv sync --dev`, but this repo declares dev dependencies under `[project.optional-dependencies].dev` in `pyproject.toml`, not under `[dependency-groups]`. The `--dev` flag targets `[dependency-groups]` only; the correct command is `uv sync --extra dev`. The workflow and this design now reflect the implemented truth.
 
 ## Architecture Decisions
 
@@ -14,7 +14,8 @@ Single-file GitHub Actions workflow (`.github/workflows/ci.yml`) that mirrors th
 | Let uv read `.python-version` (no `python-version:` input) | Hardcode `python-version: "3.14"` in workflow | Single source of truth — `.python-version` already pins 3.14. No drift between local and CI. |
 | `enable-cache: true` | No caching | Default on GitHub-hosted runners; near-zero config cost, significant speedup on repeat runs. |
 | Single `ubuntu-latest` job | OS matrix / Python version matrix | Proposal explicitly excludes multi-version matrices. One job = minimum viable signal. |
-| No `--frozen` flag on pytest run | `uv run --frozen pytest` | Spec/proposal mandate `uv run pytest tests/ -x --tb=short` exactly. `uv sync --dev` already locks deps; `--frozen` is redundant and deviates from the documented developer command. |
+| `uv sync --extra dev` (not `--dev`) | `uv sync --dev` | This repo uses `[project.optional-dependencies].dev` in `pyproject.toml`. `uv sync --dev` targets `[dependency-groups]` only — pytest is not installed. `--extra dev` installs optional deps including pytest. |
+| No `--frozen` flag on pytest run | `uv run --frozen pytest` | Spec/proposal mandate `uv run pytest tests/ -x --tb=short` exactly. `uv sync --extra dev` already resolves deps; `--frozen` is redundant and deviates from the documented developer command. |
 
 ## Data Flow
 
@@ -28,7 +29,7 @@ GitHub Actions trigger
 checkout ──→ setup-uv (install uv + Python 3.14 from .python-version + cache)
                 │
                 ▼
-         uv sync --dev (install all deps incl. pytest, pytest-cov, python-dotenv)
+         uv sync --extra dev (install all deps incl. pytest, pytest-cov, python-dotenv)
                 │
                 ▼
          uv run pytest tests/ -x --tb=short
@@ -68,7 +69,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --extra dev
 
       - name: Run tests
         run: uv run pytest tests/ -x --tb=short

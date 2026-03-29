@@ -26,3 +26,9 @@
 - [x] 4.2 Update `design.md` architecture decision table and data flow to reflect the corrected command (no `--frozen`)
 - [x] 4.3 Create `tests/test_ci_workflow.py` with 22 automated tests covering all 4 spec scenarios (trigger semantics, command shape, secrets-free baseline, smoke skip behaviour) — stdlib only, no pyyaml required
 - [x] 4.4 Confirm full suite passes: `uv run pytest tests/ -x --tb=short` → 316 passed, 4 skipped (smoke tests auto-skip without credentials)
+
+## Phase 5: Bugfix — uv sync flag correction (re-apply)
+
+- [x] 5.1 Fix `.github/workflows/ci.yml`: `uv sync --dev` → `uv sync --extra dev` (dev deps are in `[project.optional-dependencies].dev`, not `[dependency-groups]`; `--dev` flag is wrong)
+- [x] 5.2 Update `tests/test_ci_workflow.py`: rename `test_workflow_uses_uv_sync_dev_for_deps` → `test_workflow_uses_uv_sync_extra_dev_for_deps` and fix assertion to match corrected command
+- [x] 5.3 Validate: `uv sync --extra dev` + `uv run pytest tests/ -x --tb=short` → 340 passed, 3 skipped ✅
