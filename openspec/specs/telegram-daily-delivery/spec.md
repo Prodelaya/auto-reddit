@@ -25,39 +25,37 @@ The system MUST select delivery candidates only from persisted accepted records 
 
 ### Requirement: Apply deterministic retry-first selection within the daily cap
 
-The system MUST apply a daily delivery cap of 8 opportunity messages. Retryable valid `pending_delivery` records MUST be prioritized before newly accepted unsent records, and the selected set SHALL be deterministic from persisted state alone.
+The system MUST apply a daily delivery cap equal to the configured `max_daily_opportunities`. Retryable valid `pending_delivery` records MUST be prioritized before newly accepted unsent records, and runtime plus documentation MUST NOT define different effective caps.
 
-#### Scenario: Retry backlog consumes the daily cap first
+#### Scenario: Runtime enforces the configured cap
 
-- GIVEN more than 8 valid retryable `pending_delivery` records exist
+- GIVEN `max_daily_opportunities` is 8 and 10 valid delivery candidates exist
 - WHEN the daily delivery step selects today’s opportunities
-- THEN only 8 retry records are selected
-- AND no new accepted record is delivered that day
+- THEN exactly 8 opportunities are selected
 
-#### Scenario: Remaining capacity is filled with new opportunities
+#### Scenario: Lowering the cap reduces the same-day selection
 
-- GIVEN 3 valid retryable `pending_delivery` records and 6 new accepted unsent records exist
+- GIVEN `max_daily_opportunities` is 3 and 5 valid delivery candidates exist
 - WHEN the daily delivery step selects today’s opportunities
-- THEN the 3 retries are selected first
-- AND only 5 new records are added to reach the cap of 8
+- THEN exactly 3 opportunities are selected
 
-### Requirement: Send Telegram messages with HTML formatting and non-blocking summary
+### Requirement: Send Telegram messages with daily summary coverage
 
-The system MUST render Telegram opportunity messages deterministically from persisted `opportunity_data` and MUST send them using Telegram HTML parse mode. The system SHOULD send one summary message before individual opportunity messages, but summary failure MUST NOT block the opportunity deliveries.
+The system MUST render Telegram opportunity messages deterministically from persisted `opportunity_data` and MUST send them using Telegram HTML parse mode. The system MUST emit exactly one daily summary for every executed weekday run, including when 0 opportunities are selected. When summary delivery succeeds, it MUST precede any individual opportunity messages. Summary failure MUST NOT block opportunity deliveries.
 
-#### Scenario: Summary succeeds before opportunity delivery
+#### Scenario: Zero-opportunity weekday run still emits a summary
 
-- GIVEN the daily run has selected opportunity messages to send
-- WHEN the summary message is accepted by Telegram
-- THEN the summary is sent first
-- AND the individual opportunity messages are still sent afterward in the selected order
+- GIVEN an executed weekday daily run selects 0 opportunities
+- WHEN the delivery phase finishes selection
+- THEN one daily summary is emitted stating the 0-opportunity outcome
+- AND no individual opportunity message is sent
 
-#### Scenario: Summary failure does not stop opportunity delivery
+#### Scenario: Summary failure does not stop selected deliveries
 
-- GIVEN the daily run has selected opportunity messages to send
+- GIVEN an executed weekday daily run selects one or more opportunities
 - WHEN the summary message fails to send
-- THEN the failure is recorded as non-blocking
-- AND the individual opportunity messages are still attempted
+- THEN the failure is treated as non-blocking
+- AND the selected opportunity messages are still attempted
 
 ### Requirement: Close records only on Telegram success and retry until TTL expiry
 
