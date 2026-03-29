@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import time
 
 from auto_reddit.shared.contracts import AcceptedOpportunity, DeliveryReport
 
@@ -14,12 +13,15 @@ from .telegram import send_message
 
 logger = logging.getLogger(__name__)
 
+_UTC = datetime.timezone.utc
+
 
 def deliver_daily(
     store: "CandidateStore",  # type: ignore[name-defined]
     settings: "Settings",  # type: ignore[name-defined]
     *,
     reviewed_post_count: int | None = None,
+    now_utc: datetime.datetime | None = None,
     run_date: datetime.date | None = None,
 ) -> DeliveryReport:
     """Ejecuta la entrega diaria de oportunidades aceptadas a Telegram.
@@ -45,32 +47,44 @@ def deliver_daily(
         reviewed_post_count: Número de posts revisados en el ciclo IA actual.
             Pasado desde ``main.py`` para incluirlo en el resumen de Telegram.
             Si es None, la línea se omite del resumen.
-        run_date: Fecha del ciclo de entrega (UTC). Si es None se usa la fecha
-            actual UTC. Inyectable para determinismo en tests.
+        now_utc: Referencia temporal única (UTC) que gobierna TTL/selección,
+            clasificación retry/new y fecha del resumen. Si es None se usa
+            ``datetime.datetime.now(UTC)``. Inyectable para determinismo total.
+        run_date: Alias de compatibilidad. Si se proporciona y ``now_utc`` es None,
+            se construye ``now_utc`` como el inicio de ese día (00:00:00 UTC).
+            Si se proporciona junto con ``now_utc``, ``now_utc`` tiene precedencia.
 
     Returns:
         DeliveryReport con totales de selección, envío y errores.
     """
-    now = int(time.time())
+    # --- Referencia temporal única ---
+    if now_utc is None:
+        if run_date is not None:
+            now_utc = datetime.datetime(
+                run_date.year, run_date.month, run_date.day, tzinfo=_UTC
+            )
+        else:
+            now_utc = datetime.datetime.now(tz=_UTC)
+
+    now_ts: int = int(now_utc.timestamp())
+    today_date: datetime.date = now_utc.date()
+    today_start_ts: int = int(
+        now_utc.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    )
 
     # 1. Obtener todos los pending_delivery
     all_pending = store.get_pending_deliveries()
-    expired_count = count_expired(all_pending, now)
+    expired_count = count_expired(all_pending, now_ts)
 
     # 2. Seleccionar candidatos de hoy (retry-first, TTL-filtrado)
-    selected = select_deliveries(all_pending, now, cap=settings.max_daily_opportunities)
+    selected = select_deliveries(
+        all_pending, now_ts, cap=settings.max_daily_opportunities
+    )
     total_selected = len(selected)
 
     # Calcular retries vs nuevas para el informe:
-    # "reintento" = registros cuyo decided_at es anterior al día actual (ya existían antes del run de hoy)
-    import datetime
-
-    today_start = int(
-        datetime.datetime.now(tz=datetime.timezone.utc)
-        .replace(hour=0, minute=0, second=0, microsecond=0)
-        .timestamp()
-    )
-    retry_count = sum(1 for r in selected if r.decided_at < today_start)
+    # "reintento" = registros cuyo decided_at es anterior al inicio del día actual
+    retry_count = sum(1 for r in selected if r.decided_at < today_start_ts)
     new_count = total_selected - retry_count
 
     # 3. Resumen (no bloqueante) — se emite SIEMPRE en cada ejecución de día laborable,
@@ -79,7 +93,7 @@ def deliver_daily(
         total_selected,
         retry_count,
         new_count,
-        date=run_date,
+        date=today_date,
         reviewed_post_count=reviewed_post_count,
     )
     summary_sent = send_message(

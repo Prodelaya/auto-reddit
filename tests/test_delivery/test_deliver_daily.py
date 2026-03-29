@@ -8,10 +8,12 @@ Cubre:
 - 4.4: Registros con opportunity_data inválido excluidos ANTES del cap (corrective)
 - 4.4: Lista vacía → DeliveryReport vacío sin envíos
 - corrective: deliver_daily acepta reviewed_post_count y lo pasa al resumen
+- determinism: now_utc governa TTL/selección, retry/new y fecha del resumen con coherencia
 """
 
 from __future__ import annotations
 
+import datetime
 import json
 import time
 from unittest.mock import MagicMock, call, patch
@@ -558,3 +560,126 @@ class TestDeliveryCapFromMaxDailyOpportunities:
             report = deliver_daily(store, settings)
 
         assert report.total_selected == 3
+
+
+# ---------------------------------------------------------------------------
+# Determinism: now_utc governa TTL, retry/new y fecha del resumen coherentemente
+# ---------------------------------------------------------------------------
+
+_UTC = datetime.timezone.utc
+
+
+class TestNowUtcDeterminism:
+    """now_utc es la única fuente de verdad temporal: TTL, clasificación y resumen
+    deben derivar todos de la misma referencia lógica."""
+
+    def _make_record_dt(self, post_id: str, decided_at: int) -> PostRecord:
+        return PostRecord(
+            post_id=post_id,
+            status=PostDecision.pending_delivery,
+            opportunity_data=_make_opportunity_json(post_id),
+            decided_at=decided_at,
+        )
+
+    def test_now_utc_governs_summary_date(self):
+        """El resumen usa la fecha derivada de now_utc, no datetime.now()."""
+        fixed_now = datetime.datetime(2025, 6, 15, 10, 30, 0, tzinfo=_UTC)
+        store = _make_store([])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            deliver_daily(store, settings, now_utc=fixed_now)
+
+        summary_text = mock_send.call_args_list[0][0][2]
+        assert "15/06/2025" in summary_text
+
+    def test_now_utc_governs_ttl_filtering(self):
+        """TTL usa el timestamp de now_utc: un registro expirado según now_utc no se selecciona."""
+        # Registro creado el lunes 2025-06-09 → expira el viernes 2025-06-13 23:59:59 UTC
+        monday_ts = int(
+            datetime.datetime(2025, 6, 9, 12, 0, 0, tzinfo=_UTC).timestamp()
+        )
+        record = self._make_record_dt("p_expiry", monday_ts)
+
+        # now_utc = sábado 14/06/2025 → el registro ya expiró
+        saturday_now = datetime.datetime(2025, 6, 14, 8, 0, 0, tzinfo=_UTC)
+        store = _make_store([record])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings, now_utc=saturday_now)
+
+        assert report.total_selected == 0
+        assert report.expired_skipped == 1
+
+    def test_now_utc_governs_retry_vs_new_classification(self):
+        """La clasificación retry/new usa today_start derivado de now_utc."""
+        # now_utc = 2025-06-11 14:00 UTC (miércoles)
+        fixed_now = datetime.datetime(2025, 6, 11, 14, 0, 0, tzinfo=_UTC)
+
+        # Registro "retry": decided_at = martes → anterior al inicio de hoy
+        retry_ts = int(
+            datetime.datetime(2025, 6, 10, 10, 0, 0, tzinfo=_UTC).timestamp()
+        )
+        # Registro "new": decided_at = hoy mismo (miércoles) → >= today_start
+        new_ts = int(datetime.datetime(2025, 6, 11, 10, 0, 0, tzinfo=_UTC).timestamp())
+
+        records = [
+            self._make_record_dt("p_retry", retry_ts),
+            self._make_record_dt("p_new", new_ts),
+        ]
+        store = _make_store(records)
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True):
+            report = deliver_daily(store, settings, now_utc=fixed_now)
+
+        assert report.retries == 1
+        assert report.new == 1
+
+    def test_summary_date_matches_ttl_reference(self):
+        """La fecha del resumen y el TTL usan la misma referencia temporal."""
+        # now_utc = viernes 13/06/2025 23:50 — registro del lunes justo en el borde
+        fixed_now = datetime.datetime(2025, 6, 13, 23, 50, 0, tzinfo=_UTC)
+        monday_ts = int(
+            datetime.datetime(2025, 6, 9, 12, 0, 0, tzinfo=_UTC).timestamp()
+        )
+        record = self._make_record_dt("p_border", monday_ts)
+
+        store = _make_store([record])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            report = deliver_daily(store, settings, now_utc=fixed_now)
+
+        # Aún no expirado: expiry=Vie 23:59:59, now=Vie 23:50
+        assert report.total_selected == 1
+        # El resumen muestra la fecha de now_utc (viernes 13/06/2025)
+        summary_text = mock_send.call_args_list[0][0][2]
+        assert "13/06/2025" in summary_text
+
+    def test_run_date_compat_derives_now_utc(self):
+        """run_date como alias construye now_utc = inicio del día dado (00:00:00 UTC)."""
+        fixed_date = datetime.date(2025, 6, 11)
+        store = _make_store([])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            deliver_daily(store, settings, run_date=fixed_date)
+
+        summary_text = mock_send.call_args_list[0][0][2]
+        assert "11/06/2025" in summary_text
+
+    def test_now_utc_takes_precedence_over_run_date(self):
+        """Si se pasan ambos, now_utc tiene precedencia sobre run_date."""
+        now_utc = datetime.datetime(2025, 7, 4, 15, 0, 0, tzinfo=_UTC)
+        run_date = datetime.date(2025, 1, 1)  # distinto — debe ignorarse
+        store = _make_store([])
+        settings = _make_settings()
+
+        with patch("auto_reddit.delivery.send_message", return_value=True) as mock_send:
+            deliver_daily(store, settings, now_utc=now_utc, run_date=run_date)
+
+        summary_text = mock_send.call_args_list[0][0][2]
+        assert "04/07/2025" in summary_text
+        assert "01/01/2025" not in summary_text

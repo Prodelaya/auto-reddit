@@ -40,11 +40,21 @@ from auto_reddit.shared.contracts import (
 # ---------------------------------------------------------------------------
 
 _WEEKDAY_DATE = datetime.date(2026, 3, 25)  # Wednesday — guaranteed weekday
+_FIXED_EPOCH = (
+    1_700_000_000  # deterministic time anchor (14 Nov 2023 22:13:20 UTC — Tuesday)
+)
+# Coherent datetime.datetime for _FIXED_EPOCH
+_FIXED_DATETIME_UTC = datetime.datetime.fromtimestamp(
+    _FIXED_EPOCH, tz=datetime.timezone.utc
+)
 
 
 @pytest.fixture(autouse=True)
 def force_weekday(monkeypatch):
-    """Patch auto_reddit.main.datetime so date.today() always returns a Wednesday."""
+    """Patch auto_reddit.main.datetime and auto_reddit.delivery datetime.now()
+    so the pipeline clock is coherent with _FIXED_EPOCH in all integration tests.
+    """
+    import auto_reddit.delivery as _delivery_module
     import auto_reddit.main as _main_module
 
     class _FakeDatetime:
@@ -57,12 +67,34 @@ def force_weekday(monkeypatch):
 
     monkeypatch.setattr(_main_module, "datetime", _FakeDateTime)
 
+    # Patch datetime.datetime.now() in the delivery module so that deliver_daily()
+    # derives now_utc from _FIXED_EPOCH instead of the real system clock.
+    # This keeps TTL filtering and retry/new classification coherent with the
+    # decided_at timestamps used throughout the integration test suite.
+    real_dt_module = _delivery_module.datetime  # the `datetime` stdlib module
+    real_dt_class = real_dt_module.datetime  # the `datetime.datetime` class
+
+    class _FakeDeliveryDatetime(real_dt_class):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is not None:
+                return _FIXED_DATETIME_UTC
+            return _FIXED_DATETIME_UTC.replace(tzinfo=None)
+
+    # Build a patched module wrapper that exposes _FakeDeliveryDatetime as .datetime
+    # while preserving everything else (date, timezone, timedelta, etc.)
+    class _PatchedDatetimeModule:
+        datetime = _FakeDeliveryDatetime
+        date = real_dt_module.date
+        timezone = real_dt_module.timezone
+        timedelta = real_dt_module.timedelta
+
+    monkeypatch.setattr(_delivery_module, "datetime", _PatchedDatetimeModule)
+
 
 # ---------------------------------------------------------------------------
 # Helpers — follow pattern from tests/test_delivery/test_deliver_daily.py
 # ---------------------------------------------------------------------------
-
-_FIXED_EPOCH = 1_700_000_000  # deterministic time.time() anchor
 
 
 def _make_opportunity_json(post_id: str = "abc123") -> str:
