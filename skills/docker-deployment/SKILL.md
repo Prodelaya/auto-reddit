@@ -71,3 +71,4 @@ docker volume ls                        # verificar volumen SQLite
 
 ## Resources
 - **Arquitectura**: Ver `docs/architecture.md`
+- **Operations runbook**: Ver `docs/operations.md`
