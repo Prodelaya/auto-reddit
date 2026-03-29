@@ -43,6 +43,9 @@ checkout ──→ setup-uv (install uv + Python 3.14 from .python-version + cac
 | File | Action | Description |
 |------|--------|-------------|
 | `.github/workflows/ci.yml` | Create | Single-job CI workflow: checkout → setup-uv → sync → pytest |
+| `tests/test_ci_workflow.py` | Create | 22 automated tests covering all 4 spec scenarios (trigger semantics, command shape, secrets-free baseline, smoke skip behaviour); added in Phase 4 corrective pass |
+| `tests/conftest.py` | Create | Sets default dummy env vars for all 4 required settings keys so pytest collection succeeds in CI where no `.env` exists; added in Phase 6 corrective pass |
+| `tests/test_integration/test_operational.py` | Modify | Fixed smoke-guard to use `REDDIT_SMOKE_API_KEY` only (not `REDDIT_API_KEY` fallback) so conftest dummy value does not activate smoke tests with invalid credentials; Phase 6 corrective fix |
 
 ## Interfaces / Contracts
 

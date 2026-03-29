@@ -17,7 +17,7 @@ Add the smallest versioned CI signal for this repo so pushes and PRs get automat
 
 ## Approach
 
-Create a single-job GitHub Actions workflow using `astral-sh/setup-uv`, then run the repo’s official verification interface: `uv sync --dev` and `uv run pytest tests/ -x --tb=short`. Optional smoke tests remain skipped by default through their existing env-gated pytest markers.
+Create a single-job GitHub Actions workflow using `astral-sh/setup-uv`, then run the repo’s official verification interface: `uv sync --extra dev` and `uv run pytest tests/ -x --tb=short`. Optional smoke tests remain skipped by default through their existing env-gated pytest markers.
 
 ## Affected Areas
 
@@ -39,7 +39,7 @@ Delete `.github/workflows/ci.yml` to fully remove the baseline; no product or ru
 ## Dependencies
 
 - GitHub Actions availability for repository workflows.
-- Existing repo commands: `uv sync --dev` and `uv run pytest tests/ -x --tb=short`.
+- Existing repo commands: `uv sync --extra dev` and `uv run pytest tests/ -x --tb=short`.
 
 ## Success Criteria
 

@@ -32,3 +32,9 @@
 - [x] 5.1 Fix `.github/workflows/ci.yml`: `uv sync --dev` → `uv sync --extra dev` (dev deps are in `[project.optional-dependencies].dev`, not `[dependency-groups]`; `--dev` flag is wrong)
 - [x] 5.2 Update `tests/test_ci_workflow.py`: rename `test_workflow_uses_uv_sync_dev_for_deps` → `test_workflow_uses_uv_sync_extra_dev_for_deps` and fix assertion to match corrected command
 - [x] 5.3 Validate: `uv sync --extra dev` + `uv run pytest tests/ -x --tb=short` → 340 passed, 3 skipped ✅
+
+## Phase 6: Bugfix — CI collection failure (corrective re-apply 2026-03-29)
+
+- [x] 6.1 Create `tests/conftest.py` with `os.environ.setdefault(...)` for all 4 required env vars (`DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `REDDIT_API_KEY`) to prevent `Settings()` ValidationError during pytest collection in CI (where no `.env` exists)
+- [x] 6.2 Fix `tests/test_integration/test_operational.py`: change `_SMOKE_API_KEY` guard from `os.getenv("REDDIT_SMOKE_API_KEY") or os.getenv("REDDIT_API_KEY")` to `os.getenv("REDDIT_SMOKE_API_KEY")` only — prevents dummy `REDDIT_API_KEY` from conftest activating smoke tests with invalid credentials
+- [x] 6.3 Validate: `uv run pytest tests/ -x --tb=short` → 339 passed, 4 skipped ✅

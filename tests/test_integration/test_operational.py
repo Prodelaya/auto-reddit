@@ -857,20 +857,20 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Ensure .env is loaded for manual/local smoke-test runs.
 
-_SMOKE_API_KEY = os.getenv("REDDIT_SMOKE_API_KEY") or os.getenv("REDDIT_API_KEY")
+_SMOKE_API_KEY = os.getenv("REDDIT_SMOKE_API_KEY")
 _SMOKE_TG_TOKEN = os.getenv("TELEGRAM_SMOKE_BOT_TOKEN")
 _SMOKE_TG_CHAT_ID = os.getenv("TELEGRAM_SMOKE_CHAT_ID")
 
 
 @pytest.mark.skipif(
     not _SMOKE_API_KEY,
-    reason="Neither REDDIT_SMOKE_API_KEY nor REDDIT_API_KEY is set — smoke tests skipped",
+    reason="REDDIT_SMOKE_API_KEY is not set — Reddit smoke tests skipped",
 )
 class TestRedditSmokeOptional:
     """Optional smoke tests against real Reddit API providers.
 
-    These tests run when REDDIT_SMOKE_API_KEY is set, falling back to
-    REDDIT_API_KEY if the dedicated smoke key is absent.
+    These tests run only when REDDIT_SMOKE_API_KEY is set (a dedicated smoke
+    key, distinct from the pipeline REDDIT_API_KEY).
     They are non-blocking: their absence does not affect CI pass/fail.
     """
 
