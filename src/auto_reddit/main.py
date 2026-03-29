@@ -46,14 +46,28 @@ def run() -> None:
     eligible = [c for c in candidates if c.post_id not in decided_ids]
     excluded_count = total_collected - len(eligible)
 
+    # Filtro de completitud: descartar candidatos con campos obligatorios ausentes.
+    # is_complete=False indica post_id/title/url/permalink/subreddit/source_api vacíos,
+    # created_utc=0, selftext=None o author=None — candidatos que romperían evaluación/persistencia.
+    complete = [c for c in eligible if c.is_complete]
+    incomplete_count = len(eligible) - len(complete)
+    if incomplete_count:
+        empty_ids = [c.post_id for c in eligible if not c.is_complete and not c.post_id]
+        logger.warning(
+            "Descartados %d candidatos incompletos (is_complete=False)%s",
+            incomplete_count,
+            f" — {len(empty_ids)} con post_id vacío" if empty_ids else "",
+        )
+
     # Change 2: ordenar por recencia descendente y aplicar recorte downstream
-    eligible.sort(key=lambda c: c.created_utc, reverse=True)
-    review_set = eligible[: settings.daily_review_limit]
+    complete.sort(key=lambda c: c.created_utc, reverse=True)
+    review_set = complete[: settings.daily_review_limit]
 
     logger.info(
-        "Memoria: excluidos=%d, elegibles=%d, revisión=%d",
+        "Memoria: excluidos=%d, elegibles=%d, incompletos=%d, revisión=%d",
         excluded_count,
         len(eligible),
+        incomplete_count,
         len(review_set),
     )
 
