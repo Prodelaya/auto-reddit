@@ -197,54 +197,67 @@ Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
 
 Esta es probablemente la parte mas importante para no enganarte.
 
-### Estado real del repo — actualizado 2026-03-28 (pipeline + integracion + smoke completos)
+### Estado real del repo — actualizado 2026-03-29 (pipeline + integracion + smoke + hardening + CI completos)
 
-Los siete changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo, tiene cobertura de integracion operacional y smoke tests live verificados contra Reddit y Telegram reales.
+Los diez changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo, con cobertura de integracion operacional, smoke tests live verificados contra Reddit y Telegram reales, hardening del contrato de despliegue y CI automatico en GitHub Actions.
 
 La base ejecutable incluye:
 
 - trece contratos Pydantic en `shared/contracts.py` cubriendo todo el pipeline
 - cliente Reddit con fallback chain para posts y comentarios
+- guard de fin de semana en `main.py`: el pipeline no se ejecuta en sabado ni domingo
+- `review_window_days` gobernando de verdad la ventana de coleccion en `client.py`
+- `max_daily_opportunities` como unico cap del pipeline (eliminado `max_daily_deliveries`)
+- resumen diario Telegram emitido en todo run laborable, incluyendo dias con 0 oportunidades
 - `CandidateStore` SQLite con modelo de estados y purga de TTL
 - evaluador IA con system prompt de dos fases, retry y validacion Pydantic estricta
 - modulo `delivery/` con selector determinista, renderer HTML y cliente Telegram
 - `main.py` con los cinco pasos del pipeline activos
-- 273 tests: 50 + 20 + 37 + 56 + 96 + 11 + 3
-- `.env.example` documentado con todas las variables del proyecto
-- siete specs canonicas en `openspec/specs/`
+- 339 tests: 50 + 20 + 37 + 56 + 96 + 11 + 3 + 25 (runtime governance) + 22 (CI workflow) + 4 (conftest + correcciones)
+- `.env.example` con `DB_PATH=/data/auto_reddit.db` explicitamente configurado
+- `docker-compose.yml` con `environment: DB_PATH=/data/auto_reddit.db` como safety net
+- `.github/workflows/ci.yml` ejecutando la suite completa en cada push y PR a `main`
+- `tests/conftest.py` con defaults dummy para CI sin `.env`
+- `tests/test_ci_workflow.py` con 22 tests automatizados del workflow
+- diez specs canonicas en `openspec/specs/`
 
 ### Que esta maduro
 
 - producto definido en `docs/product/product.md`
 - reglas editoriales de IA en `docs/product/ai-style.md` con modelo recomendado
-- arquitectura modular documentada y validada en siete changes completos
-- los siete changes archivados con specs canonicas y trazabilidad completa
+- arquitectura modular documentada y validada en diez changes completos
+- los diez changes archivados con specs canonicas y trazabilidad completa
 - cobertura de tests unitarios + integracion operacional + smoke live
+- runtime governance: los settings `review_window_days` y `max_daily_opportunities` gobiernan el runtime de verdad
+- guard de fin de semana operativo en `main.py`
+- contrato de despliegue cerrado: `DB_PATH` correcto en `docker-compose.yml` y `.env.example`
+- CI activo en GitHub Actions: validacion automatica en cada push y PR a `main`
 - `.env.example` como contrato publico de configuracion
 - skilling del repo y normas operativas consolidadas
 
 ### Que sigue scaffolded
 
-Nada. El pipeline, la integracion y los smoke tests estan completos.
-
-Lo que queda como trabajo potencial futuro: observabilidad operativa avanzada, expansion a otros subreddits o fuentes.
+Nada del pipeline ni del hardening operativo. Lo que queda como trabajo potencial futuro: observabilidad operativa avanzada, expansion a otros subreddits o fuentes, seccion de Execution Contract en `docs/architecture.md`.
 
 ### Nivel de madurez por capas
 
 | Capa | Madurez | Comentario docente |
 |---|---|---|
 | Producto | Alta | Que, para que y limites bien cerrados. |
-| Arquitectura | Alta | Validada en siete changes completos. |
+| Arquitectura | Alta | Validada en diez changes completos. |
 | Contratos / shared | Alta | Trece contratos cubriendo todo el pipeline. |
 | Integracion Reddit | Alta | Posts, comentarios, fallback chain y smoke live verificado. |
 | Persistencia | Alta | `CandidateStore` con modelo de estados, TTL y 20 tests. |
 | IA / evaluacion | Alta | Evaluador completo con prompt de dos fases, retry y 56 tests. |
 | Delivery Telegram | Alta | Selector, renderer, cliente, 96 tests y smoke live verificado. |
-| Testing | Alta | 273 tests: unitarios + integracion + smoke live Reddit y Telegram. |
+| Runtime governance | Alta | Guard de fin de semana, `review_window_days` y `max_daily_opportunities` activos. |
+| Testing | Alta | 339 tests: unitarios + integracion + smoke live + governance + CI workflow. |
+| Despliegue Docker | Alta | Contrato de DB_PATH cerrado en docker-compose y `.env.example`. |
+| CI | Alta | GitHub Actions activo: suite completa en cada push y PR a `main`. |
 
 ### Lectura correcta de la madurez
 
-El sistema es funcionalmente completo y tiene tres capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, y smoke tests live contra las APIs reales. Lo que no tiene aun es observabilidad avanzada en produccion.
+El sistema es funcionalmente completo y tiene cuatro capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, smoke tests live contra las APIs reales, y CI automatico en GitHub Actions. Los settings operativos ahora gobiernan el runtime de verdad. Lo que no tiene aun es observabilidad avanzada en produccion.
 
 ---
 
@@ -256,24 +269,31 @@ El sistema es funcionalmente completo y tiene tres capas de verificacion: tests 
 auto-reddit/
 |- src/auto_reddit/
 |   |- shared/contracts.py             13 contratos Pydantic — todo el pipeline
-|   |- reddit/client.py                Fallback chain posts — change 1
+|   |- reddit/client.py                Fallback chain posts + review_window_days — changes 1, 8
 |   |- reddit/comments.py             Fallback chain comentarios + ContextQuality — change 3
 |   |- persistence/store.py            CandidateStore SQLite + purge_expired — changes 2 y 5
 |   |- evaluation/evaluator.py         Evaluador IA DeepSeek con prompt 2 fases — change 4
 |   |- evaluation/__init__.py          Expone evaluate_batch
 |   |- delivery/selector.py            Seleccion determinista con TTL y retry-first — change 5
-|   |- delivery/renderer.py            Renderizado HTML para Telegram — change 5
+|   |- delivery/renderer.py            Renderizado HTML para Telegram + 0-oportunidades — changes 5, 8
 |   |- delivery/telegram.py            Cliente Bot API Telegram — change 5
-|   |- delivery/__init__.py            Orquesta deliver_daily — change 5
-|   |- main.py                         Pipeline completo: 5 pasos activos
-|   |- config/settings.py              Configuracion, validacion de entorno, extra="ignore"
+|   |- delivery/__init__.py            Orquesta deliver_daily + resumen incondicional — changes 5, 8
+|   |- main.py                         Pipeline completo: 5 pasos activos + guard fin de semana — changes 1-5, 8
+|   |- config/settings.py              Configuracion, extra="ignore", max_daily_opportunities unico cap — changes 2, 7, 8
 |- tests/
-|   |- test_reddit/                    87 tests (changes 1 y 3)
+|   |- test_reddit/                    87 tests (changes 1 y 3) + TestReviewWindowDays (change 8)
 |   |- test_persistence/               20 tests — change 2
 |   |- test_evaluation/                56 tests — change 4
-|   |- test_delivery/                  96 tests — change 5
+|   |- test_delivery/                  96 tests (change 5) + TestDeliveryCapFromMaxDailyOpportunities, TestZeroOpportunitySummary (change 8)
+|   |- test_main.py                    TestWeekendGuard — change 8
+|   |- test_ci_workflow.py             22 tests del workflow de CI — change 10
+|   |- conftest.py                     Defaults dummy para coleccion en CI sin .env — change 10
 |   |- test_integration/               11 tests (smoke Reddit) + 3 smoke Telegram — changes 6 y 7
-|- .env.example                        Contrato publico de configuracion con todas las variables
+|- .env.example                        Contrato publico de configuracion + DB_PATH descomentado
+|- docker-compose.yml                  Modelo efimero + environment: DB_PATH=/data/auto_reddit.db — change 9
+|- .github/
+|   |- workflows/
+|   |   |- ci.yml                      GitHub Actions: push/PR a main → uv sync + pytest — change 10
 |- docs/                               Fuente de verdad funcional y tecnica
 |- openspec/
 |   |- specs/                          Specs canonicas (fuente de verdad permanente)
@@ -281,8 +301,10 @@ auto-reddit/
 |   |   |- candidate-memory/spec.md
 |   |   |- thread-context-extraction/spec.md
 |   |   |- ai-opportunity-evaluation/spec.md
-|   |   |- telegram-daily-delivery/spec.md
+|   |   |- telegram-daily-delivery/spec.md   (actualizado con resumen incondicional)
 |   |   |- operational-integration-tests/spec.md  (actualizado con smoke Telegram)
+|   |   |- daily-runtime-governance/spec.md  (nueva — change 8)
+|   |   |- repository-ci/spec.md             (nueva — change 10)
 |   |- changes/archive/                Todos los changes archivados
 |   |   |- 2026-03-27-reddit-candidate-collection/
 |   |   |- 2026-03-27-candidate-memory-and-uniqueness/
@@ -291,6 +313,9 @@ auto-reddit/
 |   |   |- 2026-03-28-telegram-daily-delivery/
 |   |   |- 2026-03-28-operational-integration-tests/
 |   |   |- 2026-03-28-telegram-smoke-tests/
+|   |   |- 2026-03-29-runtime-documented-truth-alignment/
+|   |   |- 2026-03-29-environment-persistence-execution-hardening/
+|   |   |- 2026-03-29-minimum-ci-baseline/
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
 |- TFM/                                Documentacion academica
@@ -366,6 +391,15 @@ No pienses el repo por carpetas. Piensalo por capas:
 - `credenciales dedicadas para smoke`: el smoke de Telegram usa `TELEGRAM_SMOKE_BOT_TOKEN` / `TELEGRAM_SMOKE_CHAT_ID` y no hace fallback a las de produccion; mezclar ambos enviaria mensajes reales al canal del equipo; el riesgo es asimetrico
 - `extra="ignore" en pydantic-settings`: configuracion que permite variables adicionales en `.env` sin que el modelo `Settings` falle; necesario cuando `.env` contiene variables de smoke que `Settings` no declara
 - `.env.example`: fichero rastreado en git que documenta todas las variables de entorno del proyecto con comentarios; es el contrato publico de configuracion; `.env` con credenciales reales sigue ignorado en `.gitignore`
+- `knob decorativo`: setting que existe en `Settings` y en `.env.example` pero cuyo valor no llega a gobernar el runtime porque el codigo usa una constante hard-codeada en lugar de leerlo; `review_window_days` era un ejemplo hasta el change 8
+- `runtime governance`: alineacion entre los settings declarados y el comportamiento observable del sistema; un setting que gobierna de verdad el runtime cambia el comportamiento cuando se cambia su valor
+- `weekend guard`: logica que protege la ejecucion del pipeline de dias no laborables; en este sistema vive en `main.py:run()` y hace `return` antes de cualquier side effect si `datetime.date.today().weekday() >= 5`
+- `split truth`: situacion en que dos settings distintos (p.ej. `max_daily_deliveries` y `max_daily_opportunities`) controlan el mismo concepto con el mismo valor default; es una trampa de mantenimiento porque una futura actualizacion del uno no actualiza automaticamente el otro
+- `contrato de despliegue`: conjunto de valores de configuracion necesarios para que el sistema funcione correctamente en produccion; en este proyecto incluye obligatoriamente `DB_PATH=/data/auto_reddit.db` al desplegar con Docker
+- `gap silencioso de configuracion`: error de configuracion que no produce error ni advertencia pero altera el comportamiento; `DB_PATH` apuntando a la capa del contenedor en lugar del volumen es un ejemplo canonico
+- `CI baseline`: primer paso de CI automatizado; en este proyecto es el workflow de GitHub Actions que ejecuta `uv run pytest tests/ -x --tb=short` en cada push y PR a `main`
+- `uv sync --extra dev vs --dev`: `--extra dev` instala las dependencias bajo `[project.optional-dependencies].dev` en `pyproject.toml`; `--dev` instala las de `[dependency-groups]`; en este proyecto las deps de test estan bajo optional-dependencies, por lo que el flag correcto es `--extra dev`
+- `conftest.py como bootstrap de CI`: fichero de pytest que configura el entorno antes de la coleccion; en este proyecto establece defaults dummy para las cuatro variables obligatorias de `Settings` para que la coleccion no falle en CI donde no existe `.env`
 
 ### Conceptos de proceso
 
@@ -578,13 +612,25 @@ Esta es la parte que convierte el repo en algo mas que codigo fuente.
 
 `openspec/` es la capa de artefactos de planificacion.
 
-Segun `openspec/README.md`, el proyecto mantiene una secuencia de changes:
+Segun `openspec/README.md`, el proyecto implemento diez changes en dos fases:
+
+**Fase 1 — pipeline principal (changes 1-5):**
 
 1. `reddit-candidate-collection`
 2. `candidate-memory-and-uniqueness`
 3. `thread-context-extraction`
 4. `ai-opportunity-evaluation`
 5. `telegram-daily-delivery`
+
+**Fase 2 — integracion, smoke y hardening (changes 6-10):**
+
+6. `operational-integration-tests`
+7. `telegram-smoke-tests`
+8. `runtime-documented-truth-alignment`
+9. `environment-persistence-execution-hardening`
+10. `minimum-ci-baseline`
+
+Los tres ultimos changes son especialmente relevantes desde el punto de vista de arquitectura profesional: no anaden funcionalidad nueva, sino que cierran la distancia entre lo que el sistema *dice* que hace y lo que *realmente* hace. Esa distancia es una deuda tecnica silenciosa muy comun en proyectos reales.
 
 OpenSpec sirve para evitar el error clasico de los juniors: ponerse a programar una idea grande sin haberla troceado.
 
@@ -601,7 +647,7 @@ SDD significa Spec-Driven Development. Aqui la idea no es "primero codifico y lu
 7. verify
 8. archive
 
-En este repo se ve muy bien en el change `reddit-candidate-collection`, que ya tiene discovery, proposal, spec, design y tasks.
+En este repo se ve muy bien en todos los changes archivados, que tienen el ciclo completo de discovery a archive. El change `runtime-documented-truth-alignment` es especialmente ilustrativo para entender que SDD no es solo para funcionalidad nueva: tambien sirve para cerrar derives entre lo documentado y lo ejecutable.
 
 ### 9.3 Skills globales relevantes en este ecosistema
 
@@ -1395,16 +1441,17 @@ Rol: trazabilidad academica.
 
 Como el codigo del producto aun no esta implementado, aqui conviene distinguir entre flujo previsto y flujo actualmente ejecutable.
 
-### 11.1 Flujo funcional previsto del producto
+### 11.1 Flujo funcional del producto — IMPLEMENTADO Y ARCHIVADO
 
-1. `main.py` comprueba si es dia laborable
-2. `reddit/client.py` recoge todos los posts de `r/Odoo` de los ultimos 7 dias
+1. `main.py` comprueba si es dia laborable (guard de fin de semana activo desde change 8)
+2. `reddit/client.py` recoge posts de `r/Odoo` dentro de la ventana configurada por `review_window_days`
 3. `persistence/store.py` excluye posts ya marcados `sent` o `rejected`
-4. se recortan los 8 elegibles mas recientes
-5. `reddit/client.py` recupera comentarios solo para esos posts seleccionados
+4. se recortan los elegibles al cap definido por `daily_review_limit`
+5. `reddit/comments.py` recupera comentarios solo para esos posts seleccionados
 6. `evaluation/evaluator.py` decide si hay oportunidad y genera resumen + respuestas sugeridas
-7. `delivery/telegram.py` envia resumen diario y mensajes por oportunidad
+7. `delivery/__init__.py` selecciona, renderiza y envia por Telegram con retry-first y cap de `max_daily_opportunities`
 8. `persistence/store.py` registra estado para unicidad e idempotencia
+9. mensaje de resumen siempre emitido al final, incluso con 0 oportunidades
 
 ### 11.2 Flujo del change 1 — IMPLEMENTADO Y ARCHIVADO
 
@@ -1460,17 +1507,18 @@ Esto es valioso en un TFM porque enseña que la ingenieria seria empieza mucho a
 
 Con `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` y `REDDIT_API_KEY` configuradas, el sistema ejecuta el pipeline completo:
 
-1. Inicializa `CandidateStore` y la tabla SQLite
-2. Recolecta candidatos de r/Odoo via fallback chain de posts
-3. Excluye decididos, recorta a 8, extrae contexto de comentarios via fallback chain de comentarios
-4. Evalua con DeepSeek: decision justificada por post, persiste aceptados como `pending_delivery` y rechazados como `rejected`
-5. Selecciona registros `pending_delivery` con retry-first y cap 8, excluye malformed y expirados
-6. Renderiza mensajes HTML, envia cada oportunidad a Telegram, marca `sent` solo tras confirmacion
-7. Envia mensaje de resumen diario (no bloqueante)
-8. Purga registros expirados de SQLite
-9. Logea el `DeliveryReport` con todos los contadores del ciclo
+1. Comprueba si hoy es dia laborable; si es sabado o domingo, termina sin side effects
+2. Inicializa `CandidateStore` y la tabla SQLite (ruta de `DB_PATH` o default de `settings.db_path`)
+3. Recolecta candidatos de r/Odoo via fallback chain de posts; ventana gobernada por `settings.review_window_days`
+4. Excluye decididos, recorta a 8, extrae contexto de comentarios via fallback chain de comentarios
+5. Evalua con DeepSeek: decision justificada por post, persiste aceptados como `pending_delivery` y rechazados como `rejected`
+6. Selecciona registros `pending_delivery` con retry-first y cap gobernado por `settings.max_daily_opportunities`, excluye malformed y expirados
+7. Renderiza mensajes HTML, envia cada oportunidad a Telegram, marca `sent` solo tras confirmacion
+8. Envia mensaje de resumen diario incluso si no hay oportunidades (no bloqueante)
+9. Purga registros expirados de SQLite
+10. Logea el `DeliveryReport` con todos los contadores del ciclo
 
-El sistema es operativo y tiene cobertura de integracion. No es un prototipo ni un scaffolding: es un pipeline diario funcional con 270 tests que verifican tanto el comportamiento individual de cada modulo como el comportamiento del sistema como orquestador.
+El sistema es operativo y tiene cuatro capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, smoke tests live contra APIs reales, y CI automatico en GitHub Actions. No es un prototipo ni un scaffolding: es un pipeline diario funcional con 339 tests y validacion continua activa.
 
 ---
 
@@ -1496,35 +1544,43 @@ El sistema es operativo y tiene cobertura de integracion. No es un prototipo ni 
 
 **Mitigacion:** dejar el detalle capturado y documentado; no tratar ReddAPI como principal para comentarios.
 
-### 12.4 Gap entre documentacion vigente y codigo real
+### 12.4 Gap entre documentacion vigente y codigo real — RESUELTO (change 8)
 
 **Riesgo:** un desarrollador puede leer solo `src/` y pensar que falta todo, o leer solo `TFM/diario.md` y llevarse decisiones historicas superadas.
 
-**Mitigacion:** respetar la jerarquia de verdad documental: `docs/product/product.md` + `docs/integrations/reddit/api-strategy.md` + `docs/architecture.md`.
+**Mitigacion:** respetar la jerarquia de verdad documental: `docs/product/product.md` + `docs/integrations/reddit/api-strategy.md` + `docs/architecture.md`. Las cuatro derives identificadas (weekend guard, review_window_days, cap duplicado, resumen incondicional) fueron cerradas en el change 8.
 
-### 12.5 Defaults desalineados
+### 12.5 Defaults desalineados — RESUELTO (change 8)
 
-**Riesgo:** `settings.py` sigue en 10/10 cuando la referencia vigente es 8/8.
+**Riesgo:** `settings.py` con `max_daily_deliveries` duplicado y constante `_7_DAYS_SECONDS` ignorando el setting.
 
-**Mitigacion:** el propio OpenSpec ya lo convierte en tarea explicita.
+**Mitigacion:** change 8 elimino `max_daily_deliveries`, conecto `review_window_days` al runtime y valido con tests.
 
-### 12.6 Estado de persistencia todavia ambiguo en algun resto del repo
+### 12.6 Estado de persistencia ambiguo — RESUELTO (change 2)
 
-**Riesgo:** `store.py` habla de 3 estados, y `TFM/diario.md` conserva fases antiguas con `approved`.
+El modelo de 3 estados (`sent`, `rejected`, `pending_delivery`) es la unica verdad. `TFM/diario.md` conserva entradas historicas con `approved` como evidencia del proceso de refinamiento, no como estado vigente.
 
-**Mitigacion:** tomar como vigente el modelo documentado actual de `sent` y `rejected`, sin backlog explicito.
+### 12.7 Sin tests reales — RESUELTO (changes 1-7, 10)
 
-### 12.7 Sin tests reales todavia
-
-**Riesgo:** cuando empiece la implementacion, la regresion sera facil si no se aterrizan tests pronto.
-
-**Mitigacion:** el design y tasks del change 1 ya contemplan fixtures raw y unit tests por normalizador, filtro temporal, paginacion y fallback.
+339 tests: unitarios por modulo, integracion operacional entre fases, smoke live contra Reddit y Telegram, y 22 tests del workflow de CI.
 
 ### 12.8 Riesgo de sobreconfiar en la IA
 
 **Riesgo:** convertir la IA en actor autonomo o propagandistico.
 
-**Mitigacion:** `docs/product/ai-style.md` y la regla base del producto limitan claramente su papel.
+**Mitigacion:** `docs/product/ai-style.md` y la regla base del producto limitan claramente su papel. El sistema nunca publica autonomamente en Reddit.
+
+### 12.9 Contrato de despliegue Docker silenciosamente roto — RESUELTO (change 9)
+
+**Riesgo:** `DB_PATH` sin configurar hacia el volumen: SQLite escribe en la capa del contenedor y la persistencia desaparece en cada ejecucion.
+
+**Mitigacion:** `docker-compose.yml` ahora tiene `environment: DB_PATH=/data/auto_reddit.db` como safety net; `.env.example` tiene el valor correcto para despliegue Docker con comentario explicativo.
+
+### 12.10 Sin CI automatico — RESUELTO (change 10)
+
+**Riesgo:** un push puede romper la suite de tests sin que nadie lo detecte hasta ejecucion manual.
+
+**Mitigacion:** `.github/workflows/ci.yml` ejecuta `uv run pytest tests/ -x --tb=short` en cada push y PR a `main`. Los smoke tests se saltan por diseño sin necesidad de secretos.
 
 ---
 
@@ -1577,48 +1633,71 @@ Cuando leas un repo como este, distingue siempre:
 
 Muchisimos errores vienen de mezclar esas cuatro capas.
 
+### 13.11 Un setting que no gobierna el runtime no es un setting; es documentacion
+
+Si tienes `review_window_days = 7` en tu configuracion pero en el codigo escribes `cutoff = now - 7 * 86400` como constante, el setting no hace nada. Puedes cambiar su valor todo lo que quieras; el sistema seguira usando 7 dias. Este error es comun y silencioso. La ensenanza del change 8: siempre verifica que los parametros configurables llegan de verdad al punto del codigo donde importan.
+
+### 13.12 Dos settings con el mismo default son una deuda de mantenimiento
+
+`max_daily_deliveries` y `max_daily_opportunities` tenian el mismo valor por defecto. Mientras no haya que cambiarlo, nadie lo nota. El dia que alguien actualice uno y no el otro, el sistema hace algo distinto a lo documentado sin ningun error. La solucion es tener UN solo setting por concepto. La deuda es tolerable cuando es joven; se hace cara con el tiempo.
+
+### 13.13 La distancia entre lo que la documentacion dice y lo que el codigo hace es una forma de deuda tecnica
+
+Documentacion que dice "solo ejecuta en dias laborables" y un `main.py` que arranca cualquier dia es una contradiccion. No hay un test rojo ni un error de compilacion: solo comportamiento incorrecto en fin de semana que nadie ha visto porque nadie ha ejecutado en fin de semana. Los changes de hardening y alineacion sirven para cerrar este tipo de gaps antes de que lleguen a produccion.
+
+### 13.14 CI no es burocracia; es red de seguridad
+
+Sin CI, alguien puede hacer push de codigo que rompe 300 tests y no enterarse hasta que alguien lo ejecuta manualmente. Con CI, el fallo es visible en segundos. El change 10 de este proyecto implementa exactamente eso: un workflow de GitHub Actions que ejecuta `uv run pytest tests/ -x --tb=short` en cada push y PR. El coste fue un fichero YAML y tres ciclos de correccion. La ganancia es que ningun merge futuro puede romper silenciosamente la suite.
+
+### 13.15 `uv sync --dev` y `uv sync --extra dev` no son lo mismo
+
+Si tu CI instala dependencias y luego no encuentra pytest, lo primero que debes revisar es el flag de instalacion. En este proyecto las deps de test estan bajo `[project.optional-dependencies].dev` en `pyproject.toml`, no en `[dependency-groups]`. El flag correcto para instalarlas es `--extra dev`, no `--dev`. Este error es facil de cometer y muy sigiloso: el CI no falla en la instalacion, sino en la coleccion de tests con un `ModuleNotFoundError: No module named 'pytest'` o simplemente con 0 tests encontrados.
+
+### 13.16 La configuracion de Docker puede matar la persistencia sin error visible
+
+Si `DB_PATH` no apunta al volumen montado, SQLite escribe en la capa del contenedor. El contenedor arranca, ejecuta, se detiene. La proxima ejecucion arranca con una base de datos vacia. `docker-compose up` no falla. El sistema "funciona". Pero los datos no persisten. Este tipo de bug no aparece en tests locales porque los tests mockean `db_path` con `tmp_path`. Solo aparece en produccion, cuando alguien se pregunta por que no hay registros de ayer. La leccion: el contrato de despliegue (que valores deben estar configurados en produccion) es parte del producto, no un detalle operativo.
+
 ---
 
 ## 14. Zonas pendientes o incognitas
 
-### 14.1 Implementacion funcional del pipeline — PARCIALMENTE RESUELTA
+### 14.1 Implementacion funcional del pipeline — RESUELTA
 
-El change 1 esta completado y archivado. El pipeline de recoleccion de candidatos funciona.
-
-Pendiente: changes 2 al 5 (filtrado por memoria, comentarios, evaluacion IA y entrega Telegram).
+El pipeline completo (changes 1-5) esta implementado, verificado y archivado. Los diez changes estan cerrados.
 
 ### 14.2 Parametros exactos de paginacion — RESUELTA
 
-La incognita sobre la ubicacion del cursor en cada provider quedo cerrada al verificar los raws reales:
-
-- `reddit3`: `response.meta.cursor`
-- `reddit34`: `response.data.cursor`
-- `reddapi`: `response.cursor`
-
-El codigo implementado en `client.py` usa esta informacion verificada.
+La incognita sobre la ubicacion del cursor en cada provider quedo cerrada al verificar los raws reales.
 
 ### 14.3 Modelo final de persistencia materializado — RESUELTA
 
-`CandidateStore` implementado en `persistence/store.py` con estados `sent`, `rejected` y `pending_delivery`. Archivado en change 2.
+`CandidateStore` con estados `sent`, `rejected` y `pending_delivery`. Archivado en change 2.
 
-### 14.4 Contratos reales de evaluacion IA
+### 14.4 Contratos reales de evaluacion IA — RESUELTA
 
-Hay ejemplos conceptuales en `shared/contracts.py` y en la skill de DeepSeek, pero no un contrato productivo cerrado ya implementado.
+Seis contratos Pydantic completos en `shared/contracts.py`: `OpportunityType`, `RejectionType`, `AIRawResponse`, `AcceptedOpportunity`, `RejectedPost`, `EvaluationResult`. Archivados en change 4.
 
-### 14.5 Formato final de mensajes Telegram en codigo
+### 14.5 Formato final de mensajes Telegram en codigo — RESUELTA
 
-El documento de producto lo define, pero el modulo de delivery aun no lo materializa.
+`delivery/renderer.py` con `render_opportunity` y `render_summary`. Archivado en change 5.
 
-### 14.6 Observabilidad real del sistema en ejecucion
+### 14.6 Observabilidad real del sistema en ejecucion — PENDIENTE
 
-La arquitectura habla de stdout con contadores y errores, pero todavia no hay logging real en el pipeline del producto.
+El sistema loguea contadores del `DeliveryReport` pero no tiene observabilidad avanzada (alertas, metricas, dashboards). Queda como trabajo potencial futuro.
 
-### 14.7 Contradicciones historicas que conviene limpiar en el futuro
+### 14.7 Contradicciones historicas — PARCIALMENTE RESUELTA
 
-- defaults 10/10 en `src/auto_reddit/config/settings.py` (la operativa vigente es 8, aunque `daily_review_limit` ya es correcto en la logica de `main.py`)
-- entradas antiguas de `TFM/diario.md` con `approved`, 10/10 o formulaciones ya superadas
+Las derives entre runtime y documentacion identificadas en el change 8 estan cerradas. Los knobs `review_window_days` y `max_daily_opportunities` gobiernan el runtime de verdad. El duplicado `max_daily_deliveries` fue eliminado.
 
-La docstring de `store.py` ya no es una contradiccion: la implementacion real usa el modelo de 3 estados correcto.
+Sigue existiendo como historico: entradas antiguas de `TFM/diario.md` con formulaciones previas a los cambios. No son contradicciones activas; son evidencia del proceso de refinamiento.
+
+### 14.8 Seccion de Execution Contract en `docs/architecture.md` — PENDIENTE
+
+La propuesta del change 9 incluia una seccion §10 con la clasificacion de variables de entorno (mandatory / optional / smoke-only), el contrato del volumen Docker y la sintaxis exacta de cron. Esta seccion no fue añadida en el ciclo de ese change. Queda identificada como deuda documental.
+
+### 14.9 CI con tests smoke live — PENDIENTE
+
+El workflow actual ejecuta solo la suite base (smoke tests se saltan por diseño). Si en el futuro se quiere CI con smoke live contra Reddit y Telegram, requeriria secretos configurados en GitHub Actions y una estrategia para no enviar mensajes de prueba al canal de produccion.
 
 ### 14.8 Tests de integracion entre ejecuciones — ABIERTA
 
@@ -1632,24 +1711,28 @@ Estas pruebas requieren estado persistente entre runs y un enfoque de integracio
 
 ## 15. Cierre: que es hoy auto-reddit de verdad
 
-Cinco changes completados. Doscientos cincuenta y nueve tests pasando. El pipeline es funcional de extremo a extremo.
+Diez changes completados. Trescientos treinta y nueve tests pasando. El pipeline es funcional de extremo a extremo, el contrato de despliegue esta cerrado y hay CI activo en cada push y PR.
 
 Lo que existe hoy:
 
 - recoleccion de candidatos con fallback chain entre tres providers de posts
+- guard de fin de semana en `main.py`: el pipeline no se ejecuta en sabado ni domingo
+- `review_window_days` gobernando de verdad la ventana de coleccion (ya no decorativo)
 - memoria operativa SQLite con unicidad, modelo de estados y TTL
 - extraccion de contexto de hilo con calidad graduada segun proveedor de comentarios
 - evaluacion IA con DeepSeek: prompt de dos fases, decision justificada, respuesta sugerida en dos idiomas, tipos cerrados de oportunidad y rechazo
-- entrega determinista a Telegram: retry-first, cap, HTML formateado, `sent` solo tras confirmacion, resumen diario, purga de expirados
+- entrega determinista a Telegram: retry-first, `max_daily_opportunities` como unico cap, HTML formateado, `sent` solo tras confirmacion, resumen diario incondicional (incluso con 0 oportunidades), purga de expirados
 - `main.py` como mapa completo del pipeline en cinco lineas logicas
+- contrato de despliegue cerrado: `DB_PATH=/data/auto_reddit.db` en `docker-compose.yml` y `.env.example`
+- CI activo: GitHub Actions ejecuta la suite completa en cada push y PR a `main` sin secretos ni credenciales live
 
-Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas, detecta oportunidades en r/Odoo, evalua cuales merecen respuesta y las entrega al equipo humano por Telegram con resumen del dia.
+Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas y lo despliegas con `docker-compose up`, detecta oportunidades en r/Odoo solo en dias laborables, evalua cuales merecen respuesta, las entrega al equipo humano por Telegram con resumen del dia, y persiste el estado en el volumen Docker correcto entre ejecuciones.
 
 Si tuviera que resumirlo para un junior:
 
-> Siete changes archivados. Doscientos setenta y tres tests. Pipeline funcional, integracion operacional y smoke tests live contra Reddit y Telegram reales. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan y los smoke que confirman que las APIs externas responden. El resultado es un sistema que cualquiera puede leer, entender, extender y verificar.
+> Diez changes archivados. Trescientos treinta y nueve tests. Pipeline funcional, integracion operacional, smoke tests live contra Reddit y Telegram reales, settings que gobiernan de verdad el runtime, contrato de despliegue Docker cerrado y CI automatico. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan, luego el hardening que cierra la brecha entre lo que dice la documentacion y lo que ejecuta el sistema. El resultado es un sistema que cualquiera puede leer, entender, extender, verificar y desplegar.
 
-El proyecto no termina aqui. Termina el pipeline principal con su cobertura de integracion. Lo que sigue — observabilidad operativa, tests con APIs reales en CI, expansion a otras fuentes — tiene una base solida sobre la que construir.
+El proyecto no termina aqui. Termina con un baseline operativo completo y verificable. Lo que sigue — observabilidad operativa avanzada, expansion a otras fuentes, seccion de Execution Contract en `docs/architecture.md` — tiene una base solida sobre la que construir.
 
 ---
 
@@ -1681,6 +1764,108 @@ Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo 
 **Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
 
 **Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+
+---
+
+### Change 10 — `minimum-ci-baseline` — ARCHIVADO 2026-03-29
+
+**Alcance:** minimo CI viable para el repo: validacion automatica de la suite de tests en cada push y pull request a `main` mediante GitHub Actions, sin secretos ni credenciales live.
+
+**Lo que implemento:**
+
+- `.github/workflows/ci.yml`: workflow single-job con `astral-sh/setup-uv@v7`, `uv sync --extra dev` y `uv run pytest tests/ -x --tb=short`; se activa en `push` a `main` y `pull_request` targeting `main`; lee `.python-version` automaticamente sin pin explicito en el workflow
+- `tests/test_ci_workflow.py`: 22 tests que verifican el YAML del workflow — triggers, comando exacto de pytest, ausencia de secretos, gate de smoke tests
+- `tests/conftest.py`: defaults dummy de las cuatro variables de entorno obligatorias para que la coleccion de pytest no falle en CI donde no hay `.env`
+- `tests/test_integration/test_operational.py`: correccion del guard del smoke de Reddit para usar solo `REDDIT_SMOKE_API_KEY` y no el fallback a `REDDIT_API_KEY` (que el conftest ya proporciona con valor dummy)
+
+**Ciclos correctivos:**
+
+- ciclo 1: `--frozen` eliminado del comando de pytest
+- ciclo 2: `uv sync --dev` → `uv sync --extra dev` (las deps dev estan en `[project.optional-dependencies]`, no en `[dependency-groups]`)
+- ciclo 3: creacion de `conftest.py` + correccion del guard del smoke para evitar que el dummy de conftest active el smoke con credenciales invalidas
+
+**Decisiones tecnicas clave:**
+
+- `astral-sh/setup-uv` en lugar de `actions/setup-python` + pip: una sola accion para install, Python y cache
+- `.python-version` como unica fuente de verdad de la version de Python; sin pin en el workflow
+- sin secretos: los smoke tests tienen gate de env var propio; en CI se saltan sin configuracion especial
+- `conftest.py` con `os.environ.setdefault`: los tests del pipeline que instancian `Settings()` en tiempo de coleccion no fallan en CI sin `.env`
+
+**Spec canonica:** `openspec/specs/repository-ci/spec.md`
+
+**Archivo:** `openspec/changes/archive/2026-03-29-minimum-ci-baseline/`
+
+**Verificacion:** PASS — 21/21 tasks completas, 339 tests pasando, 4 skipped (smoke tests sin credenciales, por diseño), 22 tests de workflow pasando
+
+---
+
+### Change 9 — `environment-persistence-execution-hardening` — ARCHIVADO 2026-03-29
+
+**Alcance:** cerrar el gap entre el contrato de despliegue documentado (contenedor efimero + cron externo + SQLite en volumen Docker) y el comportamiento real: cuando `DB_PATH` no esta explicitamente configurado, SQLite escribe en la capa del contenedor y la persistencia se pierde en cada ejecucion.
+
+**Lo que implemento:**
+
+- `docker-compose.yml`: bloque `environment: DB_PATH=/data/auto_reddit.db` para que `docker-compose up` sea correcto incluso sin `.env` pre-configurado
+- `.env.example`: `DB_PATH=/data/auto_reddit.db` descomentado y anotado con diferencia entre valor de despliegue Docker y override para desarrollo local
+
+**Cambios NO realizados (fuera del scope declarado):**
+
+- `settings.py`: el default `"auto_reddit.db"` se mantiene para compatibilidad con tests y desarrollo local
+- `docs/architecture.md §10 (Execution Contract)`: identificada como deuda documental pendiente; la seccion completa con clasificacion de variables y sintaxis de cron no se añadio en este change
+
+**Decisiones tecnicas clave:**
+
+- la correccion se aplico en la capa de configuracion, no en el codigo del pipeline ni en `settings.py`
+- el gap es silencioso: `docker-compose up` no falla ni advierte, simplemente escribe en la capa efimera
+- `docker-compose.yml` actua como safety net para despliegue sin `.env` previo; `.env.example` actua como documentacion ejecutable para desarrolladores
+
+**Archivo:** `openspec/changes/archive/2026-03-29-environment-persistence-execution-hardening/`
+
+**Verificacion:** tests existentes pasan sin modificacion (298 en el momento del change); no se añadieron tests nuevos porque el fix es de configuracion pura, no de logica
+
+---
+
+### Change 8 — `runtime-documented-truth-alignment` — ARCHIVADO 2026-03-29
+
+**Alcance:** cerrar cuatro derives verificables entre la verdad documental y el comportamiento ejecutable diario del pipeline.
+
+**Las cuatro derives:**
+
+1. El runtime no tenia guard de fin de semana; la documentacion decia "solo lunes a viernes".
+2. `review_window_days` era un setting decorativo; la ventana real era la constante hard-codeada `_7_DAYS_SECONDS` en `client.py`.
+3. El cap de entrega usaba `settings.max_daily_deliveries`; la documentacion solo mencionaba `max_daily_opportunities`. Dos settings con el mismo default creaban una verdad dividida.
+4. El resumen diario de Telegram se emitia solo si habia al menos una oportunidad; la spec exigia emision incondicional en dias laborables.
+
+**Lo que implemento:**
+
+- `src/auto_reddit/main.py`: guard de fin de semana al inicio de `run()` — `return` antes de cualquier side effect si `weekday() >= 5`
+- `src/auto_reddit/reddit/client.py`: sustitucion de `_7_DAYS_SECONDS` por `settings.review_window_days * 86400`; constante eliminada; docstrings actualizados
+- `src/auto_reddit/config/settings.py`: eliminado `max_daily_deliveries`; `max_daily_opportunities` como unico cap
+- `src/auto_reddit/delivery/__init__.py`: cap desde `max_daily_opportunities`; `render_summary()` movido fuera del guard de `total_selected > 0`
+- `src/auto_reddit/delivery/renderer.py`: `render_summary(count=0)` produce HTML valido
+- `docs/product/product.md`, `docs/architecture.md`, `docs/integrations/reddit/api-strategy.md`: alineados con la verdad unica por parametro
+- `tests/test_main.py`: `TestWeekendGuard` — sabado/domingo saltan el pipeline, miercoles lo ejecuta
+- `tests/test_reddit/test_client.py::TestReviewWindowDays`: ventana de 3 dias excluye candidatos de dia 4, incluye dia 2
+- `tests/test_delivery/test_deliver_daily.py`: cap configurable y resumen con 0 oportunidades
+
+**Ciclo correctivo post-verify:**
+
+Tres derives residuales detectadas y corregidas: hardcoded "8 oportunidades al dia" en `product.md §7.5`, comentario con `max_daily_deliveries` en `main.py`, y wording "ventana de 7 dias" en doc que no apuntaba al setting.
+
+**Decisiones tecnicas clave:**
+
+- el guard de fin de semana se puso en `main.py`, no en el cron; la spec dice que la logica vive en el runtime, no en la infraestructura
+- el setting `review_window_days` ya existia; solo habia que usarlo de verdad
+- `max_daily_deliveries` se elimino para que no haya forma de que dos settings divergan en silencio
+- el resumen incondicional garantiza que el equipo sabe cada dia laborable si hubo oportunidades o no
+
+**Spec canonica:** `openspec/specs/daily-runtime-governance/spec.md` (nueva); `openspec/specs/telegram-daily-delivery/spec.md` actualizada
+
+**Archivo:** `openspec/changes/archive/2026-03-29-runtime-documented-truth-alignment/`
+
+**Verificacion:** PASS — 22/22 tasks completas, 298 tests pasando, 8/8 escenarios de spec cubiertos; sin advertencias criticas ni de baja severidad
+
+---
 
 ### Change 7 — `telegram-smoke-tests` — ARCHIVADO 2026-03-28
 

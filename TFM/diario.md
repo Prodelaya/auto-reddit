@@ -71,6 +71,7 @@ del primer slice:
   tecnico, no hacer trabajo gratis en desarrollo.
 
 El resultado se consolido en dos documentos separados:
+
 - [`product.md`](/docs/product/product.md) — fuente de verdad del producto.
 - [`ai-style.md`](/docs/product/ai-style.md) — comportamiento y estilo de la
   IA, separado del producto para no mezclar capas.
@@ -141,6 +142,7 @@ y funcionalidades principales.
 ### Resultado de la sesion
 
 El proyecto paso de tener solo una idea general a tener:
+
 - producto definido y documentado
 - arquitectura cerrada
 - scaffolding funcional
@@ -347,7 +349,7 @@ cuota y de integracion con RapidAPI.
   firma por defecto y se corrigio usando `User-Agent: RapidAPI Playground`.
 - Con los raws reanalizados, se revalido la estrategia operativa: posts por
   `reddit3 -> reddit34 -> reddapi`; comentarios por `reddit34 -> reddit3 ->
-  reddapi`, dejando `reddapi` como fallback degradado para comentarios.
+reddapi`, dejando `reddapi` como fallback degradado para comentarios.
 - Tambien se redacto el design de `reddit-candidate-collection` en
   `openspec/changes/reddit-candidate-collection/design.md`, revisando tanto los
   artefactos del change como la documentacion viva y la evidencia raw.
@@ -575,11 +577,11 @@ con esta realidad durante la fase de apply.
 
 ### Calidad de contexto por proveedor
 
-| Proveedor | Calidad | Razon |
-|---|---|---|
-| reddit34 | `full` | Arbol de replies, timestamps ISO 8601, sort=new garantizado |
-| reddit3  | `partial` | Lista recursiva completa, sin `depth`/`parent_id` |
-| reddapi  | `degraded` | Solo top comments, plano, sin `comment_id` ni timestamps |
+| Proveedor | Calidad    | Razon                                                       |
+| --------- | ---------- | ----------------------------------------------------------- |
+| reddit34  | `full`     | Arbol de replies, timestamps ISO 8601, sort=new garantizado |
+| reddit3   | `partial`  | Lista recursiva completa, sin `depth`/`parent_id`           |
+| reddapi   | `degraded` | Solo top comments, plano, sin `comment_id` ni timestamps    |
 
 ### Detalle tecnico: datetime de reddit34
 
@@ -1064,3 +1066,195 @@ Suite completa: 273 pasando, 0 skipped.
 - spec de `operational-integration-tests` actualizada para incluir el
   requisito de smoke de Telegram y la regla de credenciales dedicadas
 - 273 tests pasando en total (50 + 20 + 37 + 56 + 96 + 11 + 3)
+
+---
+
+## Entrada 16
+
+**Fecha:** 29/03/2026
+
+### Change 8: alineacion entre runtime y documentacion
+
+Se ejecuto el ciclo SDD completo para `runtime-documented-truth-alignment`: proposal,
+spec, design, tasks, apply (con ciclo correctivo), verify y archive.
+
+### Por que este change existe
+
+Al cerrar los siete changes del pipeline, un analisis de las derives entre codigo y
+documentacion revelo cuatro puntos concretos donde el runtime no coincidia con lo que
+la documentacion declaraba:
+
+1. No habia guard de ejecucion de fin de semana en `main.py`; los docs decian que el
+   sistema solo se ejecuta de lunes a viernes, pero el codigo arrancaba cualquier dia.
+2. `review_window_days` existia como setting pero era un knob decorativo: la ventana
+   real estaba hard-codeada como constante `_7_DAYS_SECONDS` en `client.py`.
+3. La entrega diaria usaba `settings.max_daily_deliveries` como cap, pero la
+   documentacion solo mencionaba `max_daily_opportunities`. Habia dos settings con el
+   mismo valor default que creaban una verdad dividida.
+4. El resumen diario de Telegram solo se emitia si habia al menos una oportunidad;
+   la spec exigia que se emitiese siempre en dias laborables, incluso con 0 resultados.
+
+### Lo que se implemento
+
+- `src/auto_reddit/main.py`: guard de ejecucion al inicio de `run()` que devuelve antes
+  de cualquier side effect si el dia de la semana es sabado (5) o domingo (6).
+- `src/auto_reddit/reddit/client.py`: sustitucion de `_7_DAYS_SECONDS` por
+  `settings.review_window_days * 86400`. El setting ahora gobierna el runtime.
+  Tambien se retiro la constante obsoleta y se actualizaron los docstrings y comentarios.
+- `src/auto_reddit/config/settings.py`: se elimino el campo `max_daily_deliveries`.
+  `max_daily_opportunities` queda como unico cap del pipeline.
+- `src/auto_reddit/delivery/__init__.py`: el cap se toma de `max_daily_opportunities`.
+  El call a `render_summary()` se saco del bloque `if total_selected > 0` para que se
+  ejecute en todo run laborable, incluso con 0 oportunidades.
+- `src/auto_reddit/delivery/renderer.py`: se añadio soporte para `count=0` en
+  `render_summary`, produciendo HTML valido con "0 oportunidades hoy".
+- Documentacion alineada: `docs/product/product.md`, `docs/architecture.md` y
+  `docs/integrations/reddit/api-strategy.md` actualizados para reflejar una sola
+  fuente de verdad por parametro.
+
+### Ciclo correctivo post-verify
+
+El primer verify detecto tres derives residuales: un hardcoded "8 oportunidades al dia"
+en `product.md §7.5`, un comentario con `max_daily_deliveries` en `main.py` y la
+constante `_7_DAYS_SECONDS` en comentarios internos de `client.py`. Un segundo
+verify confirmo que habia wording de "ventana de 7 dias" que tampoco apuntaba al
+setting. Se resolvieron dos pases adicionales de wording cleanup. El verify final
+dio PASS limpio.
+
+### Nuevos tests añadidos
+
+- `tests/test_main.py::TestWeekendGuard`: parametrizado para sabado, domingo (deben
+  saltar el pipeline) y miercoles (debe ejecutar). Verifica que ningun modulo
+  upstream es llamado en fin de semana.
+- `tests/test_reddit/test_client.py::TestReviewWindowDays`: ventanas configuradas de
+  3 y 5 dias; candidatos dentro/fuera de la ventana configurada.
+- `tests/test_delivery/test_deliver_daily.py::TestDeliveryCapFromMaxDailyOpportunities`
+  y `TestZeroOpportunitySummary`: cap configurable y resumen en runs con 0 resultados.
+
+### Resultado
+
+22/22 tasks completadas. 298 tests pasando. Las cuatro derives quedan cerradas con una
+sola verdad comprobable. El sistema ya no tenia la posibilidad de ejecutar en fin de
+semana ni de ignorar la ventana configurada.
+
+### Archive
+
+- artefactos en `openspec/changes/archive/2026-03-29-runtime-documented-truth-alignment/`
+- spec `daily-runtime-governance` promovida a `openspec/specs/daily-runtime-governance/spec.md`
+- spec `telegram-daily-delivery` actualizada con el requisito de resumen en runs sin oportunidades
+- 298 tests pasando en total (anteriores + nuevos de este change)
+
+---
+
+## Entrada 17
+
+**Fecha:** 29/03/2026
+
+### Change 9: hardening del contrato de ejecucion en entorno Docker
+
+Se ejecuto el proceso de propuesta y se implementaron los cambios de configuracion para
+`environment-persistence-execution-hardening`.
+
+### El problema
+
+El modelo operativo documentado es claro: contenedor efimero + cron externo + SQLite en
+volumen Docker nombrado. Sin embargo, habia un gap silencioso entre lo documentado y lo
+ejecutable: cuando el contenedor arrancaba sin `DB_PATH` explicitamente configurado,
+`pydantic-settings` usaba el default de `settings.py` (`"auto_reddit.db"`), que es una
+ruta relativa. El resultado: SQLite escribia en `/app/auto_reddit.db`, dentro de la capa
+del contenedor, NO en el volumen `/data`. Cada ejecucion efimera empezaba con una base
+de datos vacia. La persistencia estaba documentada pero no funcionaba.
+
+El problema era de contrato de configuracion, no de codigo del pipeline.
+
+### Lo que se implemento
+
+- `docker-compose.yml`: se añadio un bloque `environment:` con `DB_PATH=/data/auto_reddit.db`.
+  Con esto, `docker-compose up` es correcto incluso antes de que el desarrollador configure
+  un `.env` propio.
+- `.env.example`: se descomento y explicitó `DB_PATH=/data/auto_reddit.db` con comentario que
+  diferencia el valor correcto para despliegue Docker (`/data/auto_reddit.db`) del override
+  sugerido para desarrollo local.
+
+El default en `settings.py` se mantuvo como `"auto_reddit.db"` para compatibilidad con
+desarrollo local y los tests existentes, que mockean `db_path` via `tmp_path`.
+
+### Estado
+
+El change fue implementado a nivel de configuracion. Los tests existentes pasan sin
+modificacion (298 tests). El contrato de despliegue quedo cerrado a nivel ejecutable.
+La seccion de Execution Contract en `docs/architecture.md` queda como deuda documental
+identificada para una pasada futura.
+
+---
+
+## Entrada 18
+
+**Fecha:** 29/03/2026
+
+### Change 10: baseline de CI con GitHub Actions
+
+Se ejecuto el ciclo SDD completo para `minimum-ci-baseline`: proposal, spec, design,
+tasks (con multiples ciclos correctivos), verify y archive.
+
+### Por que este change existe
+
+Con el pipeline completo, siete changes archivados y cobertura de tests unitarios e
+integracion, el repo no tenia ninguna validacion automatica en cada push o pull request.
+Un desarrollador podia romper los 298 tests existentes con un commit a main y no saberlo
+hasta ejecutar manualmente la suite. Este change cierra esa brecha con el minimo CI
+viable.
+
+### Lo que se implemento
+
+- `.github/workflows/ci.yml`: un unico workflow de GitHub Actions con un job `test` en
+  `ubuntu-latest`. Se activa en `push` a `main` y en `pull_request` targeting `main`.
+  Instala uv via `astral-sh/setup-uv@v7` (lee `.python-version` automaticamente, sin pin
+  explicito en el workflow), instala dependencias con `uv sync --extra dev` y ejecuta
+  `uv run pytest tests/ -x --tb=short`.
+- `tests/test_ci_workflow.py`: 22 tests automatizados que verifican que el YAML del
+  workflow cumple la spec: triggers correctos, comando exacto de pytest, ausencia de
+  secretos o credenciales, y que los smoke tests tienen gate de env var.
+- `tests/conftest.py`: define defaults de las cuatro variables de entorno obligatorias
+  (`DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `REDDIT_API_KEY`) con
+  valores dummy para que la coleccion de pytest no falle en CI donde no hay `.env`.
+
+### Ciclos correctivos durante el apply
+
+Este change requirio tres ciclos de correccion antes de alcanzar PASS:
+
+1. **Primer ciclo**: el workflow inicial usaba `uv run --frozen pytest`, que devia del
+   comando documentado. Se corrigio a `uv run pytest tests/ -x --tb=short`.
+2. **Segundo ciclo**: se detecto que `uv sync --dev` no instala las dependencias dev de
+   este repo; `pyproject.toml` las declara bajo `[project.optional-dependencies].dev`, no
+   bajo `[dependency-groups]`. El flag correcto es `uv sync --extra dev`.
+3. **Tercer ciclo**: el workflow fallaba en CI real por un `ValidationError` de
+   `pydantic-settings` durante la coleccion de pytest: en CI no hay `.env` ni variables
+   de entorno reales, y `Settings()` se instancia al importar. La solucion fue crear
+   `tests/conftest.py` con defaults dummy. Tambien se corrigio el guard del smoke de
+   Reddit en `test_operational.py` para no usar `REDDIT_API_KEY` como fallback (el valor
+   dummy del conftest activaria el smoke con credenciales invalidas).
+
+### Leccion clave de este change
+
+El orden de declaracion de dependencias en `pyproject.toml` importa. `uv sync --dev`
+y `uv sync --extra dev` no son sinonimos; apuntan a secciones distintas de la especificacion
+de dependencias de Python. Si un comando de CI no instala tus dependencias de test y no
+falla ruidosamente, la suite entera quedara en blanco en lugar de fallar. Este fue el
+fallo mas sigiloso del change.
+
+El segundo aprendizaje util: `Settings()` de pydantic-settings se instancia al importar
+el modulo. Cualquier test runner que importe modulos del paquete durante la coleccion
+necesita que las variables de entorno esten disponibles ANTES de la coleccion, no solo
+antes de la ejecucion de tests.
+
+### Resultado
+
+21/21 tasks completadas. 339 tests pasando, 4 skipped (smoke tests sin credenciales, por
+diseño). 22 tests de workflow pasando. Sin secretos ni credenciales en el workflow.
+
+### Archive
+
+- artefactos en `openspec/changes/archive/2026-03-29-minimum-ci-baseline/`
+- spec `repository-ci` promovida a `openspec/specs/repository-ci/spec.md`
+- 339 tests pasando en total
