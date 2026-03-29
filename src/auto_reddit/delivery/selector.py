@@ -7,10 +7,13 @@ oportunidades nuevas. Sin efectos secundarios; puro sobre la entrada.
 from __future__ import annotations
 
 import datetime
+import logging
 
 from pydantic import ValidationError
 
 from auto_reddit.shared.contracts import AcceptedOpportunity, PostDecision, PostRecord
+
+logger = logging.getLogger(__name__)
 
 # Sentinela de expiración: más allá de este timestamp (epoch) = expirado.
 # Se calcula a partir de decided_at usando la regla de TTL semanal.
@@ -84,7 +87,8 @@ def select_deliveries(
             continue
         try:
             AcceptedOpportunity.model_validate_json(r.opportunity_data)
-        except ValidationError, ValueError:
+        except (ValidationError, ValueError) as exc:
+            logger.debug("Invalid opportunity_data for %s: %s", r.post_id, exc)
             continue
         deliverable.append(r)
 
@@ -118,7 +122,8 @@ def count_expired(records: list[PostRecord], now: int) -> int:
             continue
         try:
             AcceptedOpportunity.model_validate_json(r.opportunity_data)
-        except ValidationError, ValueError:
+        except (ValidationError, ValueError) as exc:
+            logger.debug("Invalid opportunity_data for %s: %s", r.post_id, exc)
             continue
         deliverable.append(r)
     return sum(1 for r in deliverable if _expiry_ts(r.decided_at) < now)
