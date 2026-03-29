@@ -1657,6 +1657,23 @@ Si tu CI instala dependencias y luego no encuentra pytest, lo primero que debes 
 
 Si `DB_PATH` no apunta al volumen montado, SQLite escribe en la capa del contenedor. El contenedor arranca, ejecuta, se detiene. La proxima ejecucion arranca con una base de datos vacia. `docker-compose up` no falla. El sistema "funciona". Pero los datos no persisten. Este tipo de bug no aparece en tests locales porque los tests mockean `db_path` con `tmp_path`. Solo aparece en produccion, cuando alguien se pregunta por que no hay registros de ayer. La leccion: el contrato de despliegue (que valores deben estar configurados en produccion) es parte del producto, no un detalle operativo.
 
+### 13.17 Verifica antes de arreglar: el método hipotesis-verificacion-clasificacion
+
+Cuando alguien te presenta una lista de posibles bugs o riesgos en un sistema, la reacción instintiva es empezar a aplicar fixes. Esa reacción tiene un coste invisible: puedes romper codigo que funcionaba correctamente, o invertir tiempo en arreglar algo que no estaba roto.
+
+El enfoque correcto es el que se siguió en la sesion de revisión del 30/03/2026:
+
+1. **Formular la hipotesis concretamente**: qué se espera que esté mal y por qué. No "puede haber un problema en `save_pending_delivery`" sino "el upsert sobreescribe `decided_at` en cada reintento, lo que hace que el TTL se calcule desde el último reintento en lugar de desde la decisión original de la IA".
+2. **Verificar contra el codigo real**: no asumir. Leer el codigo, los tests y la spec. Si la spec dice que el comportamiento es intencional, la spec gana. Si la spec no lo cubre pero el comportamiento es semánticamente incorrecto, eso también es un problema.
+3. **Clasificar el resultado** antes de tocar nada:
+   - *Problema confirmado*: el código hace algo diferente a lo que debería. Fix necesario.
+   - *Matizado / normalización*: el código funciona, pero hay espacio para mejorar legibilidad o normalizar el estilo sin cambiar comportamiento.
+   - *Comportamiento correcto por diseño*: la spec lo cubre explícitamente. No tocar sin cambiar la spec primero.
+
+Un ejemplo concreto de la sesión: la hipótesis inicial trató la sintaxis del bloque de excepciones en `selector.py` como posible bug funcional en Python 3.14. La verificación mostró que no era un bug funcional en este entorno — el código se comportaba correctamente. Aun así, el bloque se normalizó a `except (ValidationError, ValueError) as exc:` con `logger.debug()` por razones de claridad, observabilidad y portabilidad mental, con la clasificación correcta: normalización, no corrección de comportamiento roto.
+
+Esta disciplina protege contra los dos errores simétricos más caros de la ingeniería de software: arreglar lo que no está roto e ignorar lo que sí lo está.
+
 ---
 
 ## 14. Zonas pendientes o incognitas
@@ -1739,6 +1756,38 @@ El proyecto no termina aqui. Termina con un baseline operativo completo y verifi
 ## 16. Historial de changes
 
 Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo (apply + verify + archive). Es el registro vivo del avance real del proyecto.
+
+### Sesion de revision de robustez — 30/03/2026
+
+**Tipo:** revision metodologica y fixes de robustez. No es un change SDD con ciclo completo; es una sesión de revisión guiada por hipótesis.
+
+**Enfoque:**
+
+Se aplicó un protocolo de tres pasos: formular hipótesis concreta → verificar contra código y spec → clasificar como confirmado / matizado / ya cubierto. Este orden importa: sin verificación previa, hay riesgo de romper código que funcionaba correctamente al intentar arreglar algo que no estaba roto.
+
+**Cambios reales aplicados:**
+
+| Area | Fix / Mejora | Naturaleza |
+| --- | --- | --- |
+| `delivery/selector.py` | Normalización a `except (ValidationError, ValueError) as exc:` con `logger.debug()` | Normalización de estilo — no era bug funcional de Python 3.14 |
+| `persistence/store.py` | Opción C en `save_pending_delivery`: upsert preserva `decided_at` original en reintentos; test de regresión añadido | Bug confirmado — el upsert sobreescribía la fecha original |
+| `delivery/__init__.py` | `now_utc` como referencia temporal única para TTL, retry/new y fecha del resumen; `run_date` como alias de compatibilidad | Bug confirmado — dispersión de fuentes temporales en el ciclo |
+| `main.py` | Filtro `is_complete` explícito antes de evaluación IA con logging y tests | Mejora de trazabilidad — la spec permitía el paso, pero sin visibilidad |
+| `Dockerfile` | `org.opencontainers.image.source` corregida; instalación cambiada a `uv sync --frozen --no-dev` | Mantenimiento de build y reproducibilidad |
+| `.gitignore` | Refinado para garantizar que `uv.lock` está rastreado y artefactos de desarrollo excluidos | Mantenimiento |
+| `.dockerignore` | Creado excluyendo `.venv`, `tests/`, `openspec/`, `TFM/`, `docs/`, `scripts/`, `.gitnexus/` y artefactos de desarrollo | Mantenimiento de imagen |
+| `tests/test_import_smoke.py` | Smoke test de importación del paquete añadido a la suite de CI | QA — detecta imports circulares y errores de inicialización de `Settings()` |
+
+**Puntos debatidos que no resultaron bugs tal como se plantearon:**
+
+- La sintaxis de excepciones en Python 3.14+: no era un bug funcional de la versión; se normalizó el estilo.
+- La crítica general a la estrategia de tests: quedó matizada. Se añadieron mejoras concretas (filtro `is_complete` con tests, test de regresión de `decided_at`), no una revisión de estrategia.
+
+**Resultado:** Los tests existentes siguen pasando antes y después de los cambios. El sistema queda con mejoras de robustez semántica (`decided_at` preservado, fuente temporal única), trazabilidad (filtro `is_complete` logueado), reproducibilidad de build y cobertura de importación.
+
+**Leccion clave:** separar hipótesis de hechos antes de tocar código. La verificación previa permite distinguir bugs reales, puntos de normalización y comportamiento correcto por diseño. Sin ese paso, hay riesgo de introducir regressions en código que funcionaba o de pasar por alto deuda semántica real.
+
+---
 
 ### Change 1 — `reddit-candidate-collection` — ARCHIVADO 2026-03-27
 

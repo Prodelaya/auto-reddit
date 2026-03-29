@@ -1258,3 +1258,145 @@ diseño). 22 tests de workflow pasando. Sin secretos ni credenciales en el workf
 - artefactos en `openspec/changes/archive/2026-03-29-minimum-ci-baseline/`
 - spec `repository-ci` promovida a `openspec/specs/repository-ci/spec.md`
 - 339 tests pasando en total
+
+---
+
+## Entrada 19
+
+**Fecha:** 30/03/2026
+
+### Sesion de revision de problemas: hipotesis frente a hechos
+
+Con el pipeline completo y los diez changes archivados, se dedicó una sesion a revisar un
+conjunto de posibles problemas identificados en el codigo. La sesion no fue un debugging
+reactivo sino un ejercicio metodologico deliberado: partir de hipotesis explícitas, verificar
+cada una contra el codigo real y separar lo que es un problema confirmado de lo que resulta
+ser comportamiento correcto o ya cubierto.
+
+### El método: hipotesis antes que afirmaciones
+
+El punto de partida fue una lista de posibles errores o áreas de riesgo. En lugar de
+aplicar fixes directamente o rechazarlos sin verificar, se siguio un protocolo de tres pasos
+para cada item:
+
+1. formular la hipotesis concreta: qué se espera que esté mal y por qué
+2. verificar contra el codigo real, los tests existentes y la especificacion
+3. clasificar el resultado como: problema confirmado (fix necesario), matizado (comportamiento
+   correcto con razon técnica), o ya cubierto por la suite existente
+
+Este enfoque protege contra dos errores simétricos igual de costosos: arreglar algo que no
+estaba roto (introduce regressions) y dar por bueno algo que sí está roto (deja deuda
+silenciosa).
+
+### Revisión de cada hipotesis
+
+**Selector: manejo de excepciones en parse de opportunity_data**
+
+Hipotesis: el bloque `except` en `selector.py` al parsear `opportunity_data` era demasiado
+estrecho y podía no capturar todas las excepciones relevantes en Python 3.14.
+
+Verificacion y resultado: no era un bug funcional de Python 3.14 como se planteó inicialmente.
+Sin embargo, sí tenia valor normalizar el manejo de excepciones. Fix aplicado: el bloque se
+reescribió a `except (ValidationError, ValueError) as exc:` con `logger.debug(...)` para
+loguear la excepción concreta. El cambio es de normalización, no de corrección de
+comportamiento observable.
+
+**Campo `decided_at` en `save_pending_delivery`**
+
+Hipotesis: los upserts de `pending_delivery` podrian sobreescribir `decided_at` con la hora
+del reintento, perdiendo la fecha original de la primera decision de la IA.
+
+Verificacion: el upsert original actualizaba `decided_at` en cada llamada, lo que rompía
+la semántica del campo: `decided_at` debe reflejar el momento en que la IA aceptó el post,
+no el momento de cada reintento de entrega.
+
+Resultado: **problema confirmado**. Se aplicó la opción C: el upsert actualiza
+`opportunity_data` si se proporciona, pero preserva `decided_at` original usando
+`ON CONFLICT DO UPDATE SET opportunity_data = excluded.opportunity_data` sin tocar
+`decided_at`. Se añadió test de regresión que verifica que sucesivas llamadas no alteran
+`decided_at`.
+
+**Fuente de tiempo en `deliver_daily`: dispersión de referencias temporales**
+
+Hipotesis: `deliver_daily` podría usar distintas referencias de tiempo a lo largo del ciclo
+(TTL, clasificación retry/new, fecha del resumen), lo que podría causar incoherencias si el
+ciclo cruza la medianoche o corre en zona horaria distinta de UTC.
+
+Verificacion: el código usaba `datetime.now()` en varios puntos sin una fuente temporal única.
+
+Resultado: **problema confirmado**. Fix aplicado: se unificó la fuente temporal creando
+`now_utc = datetime.now(timezone.utc)` una sola vez al inicio de `deliver_daily` y pasándolo
+como referencia a TTL, clasificación retry/new y fecha del resumen. `run_date` quedó como
+alias de compatibilidad derivado de `now_utc`. Así el ciclo entero trabaja con el mismo
+instante temporal, independientemente de la duración de la ejecución y de la zona horaria
+del sistema.
+
+**Filtro `is_complete` en el pipeline: ausencia explícita**
+
+Hipotesis: el pipeline no aplica ningun filtro explícito sobre `is_complete` antes de pasar
+candidatos a las fases downstream. Candidatos marcados como incompletos llegan a la
+evaluacion IA sin aviso.
+
+Verificacion: la spec del change 1 establece que los candidatos incompletos se conservan para
+que el paso siguiente decida. Sin embargo, no habia filtro ni logging en `main.py` que dejara
+trazabilidad de cuántos incompletos pasaban al pipeline.
+
+Resultado: **se añadió filtro explícito con logging**. Fix aplicado: en `main.py` se añadió
+filtro `is_complete` antes de la evaluacion IA, con logging del número de candidatos
+completos e incompletos filtrados, y tests que verifican el comportamiento. La decision
+arquitectónica de dónde vive el filtro (en `main.py`, no en el cliente Reddit) se mantiene
+alineada con la spec del change 1.
+
+**Build/mantenimiento: etiqueta de imagen, Dockerfile y lockfile**
+
+Se corrigieron tres aspectos de mantenimiento del build Docker:
+
+- `org.opencontainers.image.source` en el `Dockerfile` apuntaba a una URL incorrecta o
+  incompleta. Corregida.
+- El `Dockerfile` usaba un comando de instalación de dependencias que no respetaba el
+  lockfile. Se pasó a `uv sync --frozen --no-dev` para garantizar reproducibilidad y excluir
+  dependencias de desarrollo de la imagen de producción.
+- Se creó `.dockerignore` excluyendo `.venv`, `tests/`, `openspec/`, `TFM/`, `scripts/`,
+  `docs/`, `.gitnexus/`, `.pytest_cache/` y artefactos de desarrollo. La imagen queda más
+  limpia y el build más rápido.
+- Se revisó y refinó `.gitignore` para asegurar que `uv.lock` está rastreado y los
+  artefactos de desarrollo no se incluyen.
+
+**Smoke test de importacion como test unitario formalizado**
+
+Se añadió `tests/test_import_smoke.py` como smoke test explícito de importación del paquete.
+Este test detecta imports circulares, módulos ausentes o errores de inicialización de
+`Settings()` que no aparecerían en los tests unitarios normales porque estos mockean los
+módulos. Su existencia como fichero de test hace el smoke parte de la suite de CI, no
+solo de la verificación manual.
+
+### Puntos debatidos que no resultaron bugs tal como se plantearon
+
+- La sintaxis `except A, B:` y el comportamiento de excepciones en Python 3.14+: no era un
+  bug funcional de la versión de Python, sino un punto de normalización de estilo de manejo
+  de errores.
+- La crítica a la estrategia general de tests del proyecto: el debate quedó matizado. La
+  estrategia de tests unitarios + integración + smoke es coherente con el diseño modular; lo
+  que se añadió en esta sesión fueron puntos concretos de mejora (filtro `is_complete` con
+  tests, test de regresión de `decided_at`), no una revisión de estrategia.
+
+### Fixes y mejoras aplicados en esta sesion
+
+| Area | Fix / Mejora |
+| --- | --- |
+| `delivery/selector.py` | Normalización de manejo de excepciones a `except (ValidationError, ValueError) as exc:` con `logger.debug()` |
+| `persistence/store.py` | Opción C: upsert de `save_pending_delivery` preserva `decided_at` original; test de regresión añadido |
+| `delivery/__init__.py` | Unificación de fuente temporal con `now_utc`; `run_date` como alias de compatibilidad |
+| `main.py` | Filtro `is_complete` explícito antes de evaluación IA con logging y tests |
+| `Dockerfile` | Corregida `org.opencontainers.image.source`; instalación cambiada a `uv sync --frozen --no-dev` |
+| `.gitignore` | Refinado para rastrear `uv.lock` y excluir artefactos de desarrollo |
+| `.dockerignore` | Creado excluyendo `.venv`, `tests/`, `openspec/`, `TFM/`, `scripts/`, `docs/`, `.gitnexus/` y artefactos de desarrollo |
+| `tests/test_import_smoke.py` | Smoke test de importación del paquete añadido a la suite de CI |
+
+### Resultado de la sesion
+
+Los tests existentes siguen pasando antes y después de los cambios. Los fixes son mínimos,
+dirigidos y sin riesgo de introducir regresiones en código que funcionaba correctamente.
+El sistema queda con mejoras de robustez semántica (preservación de `decided_at`, fuente
+temporal única), trazabilidad (filtro `is_complete` logueado), reproducibilidad de build
+(Dockerfile, lockfile, `.dockerignore`) y cobertura de importación (smoke test).
