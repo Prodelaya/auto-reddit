@@ -153,6 +153,39 @@ class TestUpsert:
         assert len(matching) == 1
         assert matching[0].opportunity_data == '{"v": 2}'
 
+    def test_second_save_pending_preserves_original_decided_at(self, store):
+        """Opción C: un segundo save_pending_delivery NO sobreescribe decided_at.
+
+        La marca temporal de la primera decisión IA debe permanecer intacta
+        incluso si el flujo de entrega reintenta el upsert en el siguiente ciclo.
+        """
+        import time as _time
+
+        store.save_pending_delivery("post_retry", '{"v": 1}')
+        first_records = store.get_pending_deliveries()
+        original_decided_at = next(
+            r.decided_at for r in first_records if r.post_id == "post_retry"
+        )
+
+        # Forzamos un timestamp diferente esperando al menos 1 segundo.
+        # En tests rápidos usamos monkeypatch sobre time.time para no depender de sleep.
+        import auto_reddit.persistence.store as store_module
+
+        original_time = store_module.time.time
+        try:
+            store_module.time.time = lambda: original_decided_at + 60  # +60 segundos
+            store.save_pending_delivery("post_retry", '{"v": 2}')
+        finally:
+            store_module.time.time = original_time
+
+        second_records = store.get_pending_deliveries()
+        matching = [r for r in second_records if r.post_id == "post_retry"]
+        assert len(matching) == 1
+        # opportunity_data debe haber cambiado (comportamiento de reintento)
+        assert matching[0].opportunity_data == '{"v": 2}'
+        # decided_at NO debe haber cambiado (opción C)
+        assert matching[0].decided_at == original_decided_at
+
     def test_rejected_then_pending_upserts_correctly(self, store):
         store.save_rejected("post_x")
         store.save_pending_delivery("post_x", '{"new": true}')

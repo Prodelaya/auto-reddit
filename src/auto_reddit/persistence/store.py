@@ -67,8 +67,9 @@ class CandidateStore:
     def save_pending_delivery(self, post_id: str, opportunity_data: str) -> None:
         """Persiste el post como ``pending_delivery`` con el resultado de evaluación IA.
 
-        Upsert: si ya existía un registro (p. ej. un reintento), lo actualiza.
-        ``opportunity_data`` permite reintentar Telegram sin re-evaluar la IA.
+        Upsert: si ya existía un registro (p. ej. un reintento), actualiza ``status``
+        y ``opportunity_data`` pero preserva el ``decided_at`` original — la marca
+        temporal de la primera decisión IA no debe variar en reintentos de entrega.
         """
         now = int(time.time())
         with sqlite3.connect(self._db_path) as conn:
@@ -78,8 +79,7 @@ class CandidateStore:
                 VALUES (?, ?, ?, ?)
                 ON CONFLICT(post_id) DO UPDATE SET
                     status = excluded.status,
-                    opportunity_data = excluded.opportunity_data,
-                    decided_at = excluded.decided_at
+                    opportunity_data = excluded.opportunity_data
                 """,
                 (post_id, PostDecision.pending_delivery.value, opportunity_data, now),
             )
