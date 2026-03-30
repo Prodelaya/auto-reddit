@@ -197,7 +197,7 @@ Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
 
 Esta es probablemente la parte mas importante para no enganarte.
 
-### Estado real del repo — actualizado 2026-03-29 (pipeline + integracion + smoke + hardening + CI completos)
+### Estado real del repo — actualizado 2026-03-30 (pipeline + integracion + smoke + hardening + CI + alineacion semantica completos)
 
 Los diez changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo, con cobertura de integracion operacional, smoke tests live verificados contra Reddit y Telegram reales, hardening del contrato de despliegue y CI automatico en GitHub Actions.
 
@@ -213,7 +213,7 @@ La base ejecutable incluye:
 - evaluador IA con system prompt de dos fases, retry y validacion Pydantic estricta
 - modulo `delivery/` con selector determinista, renderer HTML y cliente Telegram
 - `main.py` con los cinco pasos del pipeline activos
-- 339 tests: 50 + 20 + 37 + 56 + 96 + 11 + 3 + 25 (runtime governance) + 22 (CI workflow) + 4 (conftest + correcciones)
+- 395 tests: 50 + 20 + 37 + 56 + 96 + 11 + 3 + 25 (runtime governance) + 22 (CI workflow) + 4 (conftest + correcciones) + 6 (settings semantic alignment)
 - `.env.example` con `DB_PATH=/data/auto_reddit.db` explicitamente configurado
 - `docker-compose.yml` con `environment: DB_PATH=/data/auto_reddit.db` como safety net
 - `.github/workflows/ci.yml` ejecutando la suite completa en cada push y PR a `main`
@@ -229,6 +229,7 @@ La base ejecutable incluye:
 - los diez changes archivados con specs canonicas y trazabilidad completa
 - cobertura de tests unitarios + integracion operacional + smoke live
 - runtime governance: los settings `review_window_days` y `max_daily_opportunities` gobiernan el runtime de verdad
+- contrato de settings documentado con distinción explícita pre-IA / post-IA: `daily_review_limit` (cap antes de evaluación) vs `max_daily_opportunities` (cap después de evaluación)
 - guard de fin de semana operativo en `main.py`
 - contrato de despliegue cerrado: `DB_PATH` correcto en `docker-compose.yml` y `.env.example`
 - CI activo en GitHub Actions: validacion automatica en cada push y PR a `main`
@@ -251,13 +252,13 @@ Nada del pipeline ni del hardening operativo. Lo que queda como trabajo potencia
 | IA / evaluacion | Alta | Evaluador completo con prompt de dos fases, retry y 56 tests. |
 | Delivery Telegram | Alta | Selector, renderer, cliente, 96 tests y smoke live verificado. |
 | Runtime governance | Alta | Guard de fin de semana, `review_window_days` y `max_daily_opportunities` activos. |
-| Testing | Alta | 339 tests: unitarios + integracion + smoke live + governance + CI workflow. |
+| Testing | Alta | 395 tests: unitarios + integracion + smoke live + governance + CI workflow + documentales. |
 | Despliegue Docker | Alta | Contrato de DB_PATH cerrado en docker-compose y `.env.example`. |
 | CI | Alta | GitHub Actions activo: suite completa en cada push y PR a `main`. |
 
 ### Lectura correcta de la madurez
 
-El sistema es funcionalmente completo y tiene cuatro capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, smoke tests live contra las APIs reales, y CI automatico en GitHub Actions. Los settings operativos ahora gobiernan el runtime de verdad. Lo que no tiene aun es observabilidad avanzada en produccion.
+El sistema es funcionalmente completo y tiene cinco capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, smoke tests live contra las APIs reales, CI automatico en GitHub Actions, y tests documentales que verifican la coherencia del contrato de settings entre artefactos. Los settings operativos gobiernan el runtime de verdad y su contrato semántico está documentado con distinción explícita entre cap pre-evaluación IA y cap post-evaluación IA. Lo que no tiene aun es observabilidad avanzada en produccion.
 
 ---
 
@@ -288,6 +289,7 @@ auto-reddit/
 |   |- test_main.py                    TestWeekendGuard — change 8
 |   |- test_ci_workflow.py             22 tests del workflow de CI — change 10
 |   |- conftest.py                     Defaults dummy para coleccion en CI sin .env — change 10
+|   |- test_settings_govern_runtime.py  6 tests documentales del contrato de settings — change 11
 |   |- test_integration/               11 tests (smoke Reddit) + 3 smoke Telegram — changes 6 y 7
 |- .env.example                        Contrato publico de configuracion + DB_PATH descomentado
 |- docker-compose.yml                  Modelo efimero + environment: DB_PATH=/data/auto_reddit.db — change 9
@@ -303,7 +305,7 @@ auto-reddit/
 |   |   |- ai-opportunity-evaluation/spec.md
 |   |   |- telegram-daily-delivery/spec.md   (actualizado con resumen incondicional)
 |   |   |- operational-integration-tests/spec.md  (actualizado con smoke Telegram)
-|   |   |- daily-runtime-governance/spec.md  (nueva — change 8)
+|   |   |- daily-runtime-governance/spec.md  (nueva — change 8; actualizada — change 11)
 |   |   |- repository-ci/spec.md             (nueva — change 10)
 |   |- changes/archive/                Todos los changes archivados
 |   |   |- 2026-03-27-reddit-candidate-collection/
@@ -316,6 +318,7 @@ auto-reddit/
 |   |   |- 2026-03-29-runtime-documented-truth-alignment/
 |   |   |- 2026-03-29-environment-persistence-execution-hardening/
 |   |   |- 2026-03-29-minimum-ci-baseline/
+|   |   |- 2026-03-30-settings-govern-runtime/
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
 |- TFM/                                Documentacion academica
@@ -630,7 +633,11 @@ Segun `openspec/README.md`, el proyecto implemento diez changes en dos fases:
 9. `environment-persistence-execution-hardening`
 10. `minimum-ci-baseline`
 
-Los tres ultimos changes son especialmente relevantes desde el punto de vista de arquitectura profesional: no anaden funcionalidad nueva, sino que cierran la distancia entre lo que el sistema *dice* que hace y lo que *realmente* hace. Esa distancia es una deuda tecnica silenciosa muy comun en proyectos reales.
+**Fase 3 — alineacion semantica (change 11):**
+
+11. `settings-govern-runtime`
+
+Los cuatro ultimos changes son especialmente relevantes desde el punto de vista de arquitectura profesional: no anaden funcionalidad nueva, sino que cierran la distancia entre lo que el sistema *dice* que hace y lo que *realmente* hace. El change 11 va un paso mas alla: no era suficiente que los settings gobernaran el runtime; habia que documentar explicitamente la semantica de cada uno para que ningun operador pudiera confundir `daily_review_limit` (cap de entrada a la evaluacion IA) con `max_daily_opportunities` (cap de salida hacia Telegram). Esa distincion es la diferencia entre configuracion que informa y configuracion que puede inducir a error. Esa distancia es una deuda tecnica silenciosa muy comun en proyectos reales.
 
 OpenSpec sirve para evitar el error clasico de los juniors: ponerse a programar una idea grande sin haberla troceado.
 
@@ -1657,6 +1664,14 @@ Si tu CI instala dependencias y luego no encuentra pytest, lo primero que debes 
 
 Si `DB_PATH` no apunta al volumen montado, SQLite escribe en la capa del contenedor. El contenedor arranca, ejecuta, se detiene. La proxima ejecucion arranca con una base de datos vacia. `docker-compose up` no falla. El sistema "funciona". Pero los datos no persisten. Este tipo de bug no aparece en tests locales porque los tests mockean `db_path` con `tmp_path`. Solo aparece en produccion, cuando alguien se pregunta por que no hay registros de ayer. La leccion: el contrato de despliegue (que valores deben estar configurados en produccion) es parte del producto, no un detalle operativo.
 
+### 13.18 Un discovery obsoleto no es un fracaso del proceso; es una señal de que el sistema funciona
+
+Cuando el brief de discovery de `settings-govern-runtime` llegó al apply, sus premisas centrales ya no eran verdad: `review_window_days` y `max_daily_opportunities` ya gobernaban el runtime gracias a `runtime-documented-truth-alignment`, que se había cerrado antes. El descubrimiento no se ocultó: se documentó explícitamente en el propio fichero de discovery con un aviso de revisión y una tabla de estado verificado en código.
+
+Esto tiene una lectura positiva: el proceso funcionó. Si el discovery hubiera llegado al apply sin verificación previa del código, se habrían implementado cambios de runtime innecesarios sobre algo que ya estaba correcto. La verificación del apply detectó el desfase antes de tocar producción.
+
+La lección para un junior: en proyectos iterativos, un change puede arrancar con premisas válidas que quedan obsoletas por cambios posteriores. Eso no invalida el change; lo reencuadra. La disciplina correcta es verificar antes de implementar, no asumir que el discovery sigue siendo verdad porque lo era cuando se escribió.
+
 ### 13.17 Verifica antes de arreglar: el método hipotesis-verificacion-clasificacion
 
 Cuando alguien te presenta una lista de posibles bugs o riesgos en un sistema, la reacción instintiva es empezar a aplicar fixes. Esa reacción tiene un coste invisible: puedes romper codigo que funcionaba correctamente, o invertir tiempo en arreglar algo que no estaba roto.
@@ -1728,7 +1743,7 @@ Estas pruebas requieren estado persistente entre runs y un enfoque de integracio
 
 ## 15. Cierre: que es hoy auto-reddit de verdad
 
-Diez changes completados. Trescientos treinta y nueve tests pasando. El pipeline es funcional de extremo a extremo, el contrato de despliegue esta cerrado y hay CI activo en cada push y PR.
+Once changes completados. Trescientos noventa y cinco tests pasando. El pipeline es funcional de extremo a extremo, el contrato de despliegue esta cerrado, hay CI activo en cada push y PR, y el contrato de settings esta documentado con semantica explicita.
 
 Lo que existe hoy:
 
@@ -1747,7 +1762,7 @@ Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas y lo
 
 Si tuviera que resumirlo para un junior:
 
-> Diez changes archivados. Trescientos treinta y nueve tests. Pipeline funcional, integracion operacional, smoke tests live contra Reddit y Telegram reales, settings que gobiernan de verdad el runtime, contrato de despliegue Docker cerrado y CI automatico. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan, luego el hardening que cierra la brecha entre lo que dice la documentacion y lo que ejecuta el sistema. El resultado es un sistema que cualquiera puede leer, entender, extender, verificar y desplegar.
+> Once changes archivados. Trescientos noventa y cinco tests. Pipeline funcional, integracion operacional, smoke tests live contra Reddit y Telegram reales, settings que gobiernan de verdad el runtime con semantica explicita, contrato de despliegue Docker cerrado y CI automatico. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan, luego el hardening que cierra la brecha entre lo que dice la documentacion y lo que ejecuta el sistema, y finalmente la capa que asegura que el contrato documental de configuracion no puede inducir a error. El resultado es un sistema que cualquiera puede leer, entender, extender, verificar y desplegar.
 
 El proyecto no termina aqui. Termina con un baseline operativo completo y verificable. Lo que sigue — observabilidad operativa avanzada, expansion a otras fuentes, seccion de Execution Contract en `docs/architecture.md` — tiene una base solida sobre la que construir.
 
@@ -1786,6 +1801,46 @@ Se aplicó un protocolo de tres pasos: formular hipótesis concreta → verifica
 **Resultado:** Los tests existentes siguen pasando antes y después de los cambios. El sistema queda con mejoras de robustez semántica (`decided_at` preservado, fuente temporal única), trazabilidad (filtro `is_complete` logueado), reproducibilidad de build y cobertura de importación.
 
 **Leccion clave:** separar hipótesis de hechos antes de tocar código. La verificación previa permite distinguir bugs reales, puntos de normalización y comportamiento correcto por diseño. Sin ese paso, hay riesgo de introducir regressions en código que funcionaba o de pasar por alto deuda semántica real.
+
+---
+
+### Change 11 — `settings-govern-runtime` — ARCHIVADO 2026-03-30
+
+**Alcance:** documentar el contrato semántico de settings con distinción explícita entre cap pre-evaluación IA y cap post-evaluación IA, y eliminar cualquier ambigüedad documental que pudiera llevar a un operador a confundir `daily_review_limit` con `max_daily_opportunities`.
+
+**Contexto — discovery corregido:**
+
+El brief de discovery original asumía que `review_window_days` y `max_daily_opportunities` eran knobs decorativos que no gobernaban el runtime. Esa premisa había quedado obsoleta por `runtime-documented-truth-alignment`. La verificación de código durante el apply confirmó que todos los settings ya gobernaban el runtime. El discovery se actualizó con tabla de estado verificado y aviso de revisión, y el problema real que quedaba era únicamente de alineación semántica documental.
+
+**Lo que se implementó:**
+
+- `docs/architecture.md`: §6 ampliado con inventario completo — 4 secretos + 5 parámetros operativos — con descripción explícita de `daily_review_limit` (cap pre-IA) vs `max_daily_opportunities` (cap post-IA), y `deepseek_model` / `db_path` clasificados como parámetros operativos con su consumidor runtime
+- `docs/product/product.md`: `daily_review_limit` añadido como parámetro configurable con su momento de actuación en el pipeline
+- `.env.example`: bloque `DB_PATH` ampliado con micro-nota que diferencia el valor Docker (`/data/auto_reddit.db`) del default de `Settings` (`auto_reddit.db`)
+- `docs/integrations/reddit/api-strategy.md`: terminología alineada con el vocabulario canónico pre/post-IA en la sección de cuotas y en el listado de parámetros operativos (quick follow-up documental)
+- `openspec/discovery/settings-govern-runtime.md`: premisas obsoletas marcadas como superadas; tabla de estado verificado en código añadida
+- `tests/test_settings_govern_runtime.py`: 646 líneas, 6 clases de test documentales que hacen aserciones estructurales sobre artefactos del repositorio para verificar las propiedades especificadas
+
+**Los 6 escenarios de spec:**
+
+- `TestRuntimeBackedSettingsInventoryIsDocumentedConsistently`: el inventario documenta todos los settings con consumidor runtime real
+- `TestOperationalParametersAreNotOmittedFromContract`: `deepseek_model` y `db_path` están clasificados explícitamente
+- `TestPreEvaluationCapIsExplainedCorrectly`: `daily_review_limit` documenta que actúa antes de la evaluación IA
+- `TestPostEvaluationCapRemainsDistinctEvenWithSameDefault`: `max_daily_opportunities` documenta que actúa después de la evaluación IA
+- `TestCrossDocumentReviewNoLongerProducesContradictoryGuidance`: los tres artefactos target son coherentes entre sí
+- `TestExampleDbPathDoesNotMisstateRuntimeDefault`: `.env.example` no confunde el valor Docker con el default de `Settings`
+
+**Decisiones editoriales clave:**
+
+- el change es puramente documental; no hay cambios de runtime ni de código de producción
+- los tests son documentales: leen archivos del repositorio y hacen aserciones de texto estructurado; no requieren servicios externos ni mocks
+- el discovery se corrije en el mismo ciclo en lugar de abrirse como change separado, porque la corrección es parte de la trazabilidad honesta del proceso
+
+**Spec canonica:** `openspec/specs/daily-runtime-governance/spec.md` (actualizada)
+
+**Archivo:** `openspec/changes/archive/2026-03-30-settings-govern-runtime/`
+
+**Verificacion:** PASS — 12/12 tasks completas, 6/6 escenarios de spec cubiertos con evidencia automatizada; suite global 395 tests pasando, 4 skipped; sin advertencias
 
 ---
 

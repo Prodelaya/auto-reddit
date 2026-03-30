@@ -1400,3 +1400,94 @@ dirigidos y sin riesgo de introducir regresiones en código que funcionaba corre
 El sistema queda con mejoras de robustez semántica (preservación de `decided_at`, fuente
 temporal única), trazabilidad (filtro `is_complete` logueado), reproducibilidad de build
 (Dockerfile, lockfile, `.dockerignore`) y cobertura de importación (smoke test).
+
+---
+
+## Entrada 20
+
+**Fecha:** 30/03/2026
+
+### SDD completo del change 11: alineación semántica del contrato de settings
+
+Se ejecutó el ciclo SDD completo para `settings-govern-runtime`: discovery (con corrección
+de premisas obsoletas), proposal, spec, tasks, apply, verify y archive.
+
+### Contexto: el discovery había quedado obsoleto
+
+El brief de discovery `openspec/discovery/settings-govern-runtime.md` había sido redactado
+cuando `review_window_days` y `max_daily_opportunities` aún eran knobs decorativos que no
+gobernaban el runtime. El change `runtime-documented-truth-alignment` los había corregido
+antes de que se lanzara `settings-govern-runtime`. Al llegar al apply, la verificación del
+código mostró que las premisas del discovery ya no eran ciertas:
+
+- `review_window_days` ya gobernaba runtime en `client.py` (`settings.review_window_days * 86400`)
+- `max_daily_opportunities` ya gobernaba runtime en `delivery/__init__.py` (`cap=settings.max_daily_opportunities`)
+
+El discovery se marcó con aviso de revisión y se actualizó para reflejar el estado real. Esto
+es un ejemplo de cómo el proceso SDD protege contra ejecutar trabajo basado en premisas
+superadas: la fase de verify del discovery hubiera activado el flag antes de llegar al apply,
+pero incluso aterrizando en el apply, la verificación de código evita un fix innecesario.
+
+### El problema real (post-corrección del discovery)
+
+Con todos los settings gobernando de verdad el runtime, el problema restante era de alineación
+documental y semántica:
+
+1. `daily_review_limit` y `max_daily_opportunities` tienen el mismo valor por defecto (8/8)
+   pero controlan momentos distintos del pipeline: `daily_review_limit` recorta candidatos
+   **antes** de la evaluación IA; `max_daily_opportunities` recorta oportunidades **después**
+   de la evaluación IA (cap de entrega a Telegram). Ningún documento explicaba esta distinción
+   de forma explícita.
+2. `deepseek_model` y `db_path` no aparecían clasificados explícitamente como parámetros
+   operativos en `docs/architecture.md`, aunque ya estaban en `Settings`.
+3. `docs/product/product.md` omitía `daily_review_limit` como parámetro que también controla
+   el comportamiento observable del producto.
+4. `.env.example` documentaba `DB_PATH=/data/auto_reddit.db` sin nota del default real de
+   `Settings` (`"auto_reddit.db"`), lo que podía confundir en desarrollo local.
+
+### Lo que se implementó
+
+Este change es puramente documental y de verificación. No hay cambios de runtime:
+
+- `docs/architecture.md`: §6 actualizado con inventario completo de settings —
+  4 secretos requeridos + 5 parámetros operativos — con descripciones que dejan explícita
+  la distinción pre-IA / post-IA y los consumidores runtime de `deepseek_model` y `db_path`.
+- `docs/product/product.md`: `daily_review_limit` añadido como parámetro configurable
+  del producto con descripción del momento en que actúa (antes de la evaluación IA).
+- `.env.example`: bloque `DB_PATH` ampliado con micro-nota que diferencia el valor Docker
+  correcto (`/data/auto_reddit.db`) del default runtime en `Settings` (`auto_reddit.db`).
+- `docs/integrations/reddit/api-strategy.md`: terminología alineada con el vocabulario
+  canónico `daily_review_limit` (pre-IA) / `max_daily_opportunities` (post-IA) en la sección
+  de cuotas y en el listado de parámetros operativos configurables.
+- `openspec/discovery/settings-govern-runtime.md`: discovery marcado con aviso de revisión y
+  tabla de estado real verificado en código, sustituyendo las premisas obsoletas.
+- `tests/test_settings_govern_runtime.py`: 646 líneas, 6 clases de test con evidencia
+  automatizada de los 6 escenarios de spec. Los tests son documentales: hacen aserciones
+  estructurales sobre artefactos del repositorio (sin servicios externos ni mocks) para
+  verificar que los documentos target mantienen las propiedades especificadas.
+
+### Estructura de los tests
+
+Los 6 tests cubren los 3 requisitos del change con 2 escenarios cada uno:
+
+| Clase | Escenario |
+| --- | --- |
+| `TestRuntimeBackedSettingsInventoryIsDocumentedConsistently` | El inventario documenta settings con consumidor runtime real, sin knobs decorativos |
+| `TestOperationalParametersAreNotOmittedFromContract` | `deepseek_model` y `db_path` no están omitidos del contrato |
+| `TestPreEvaluationCapIsExplainedCorrectly` | `daily_review_limit` documenta que actúa antes de la evaluación IA |
+| `TestPostEvaluationCapRemainsDistinctEvenWithSameDefault` | `max_daily_opportunities` documenta que actúa después de la evaluación IA |
+| `TestCrossDocumentReviewNoLongerProducesContradictoryGuidance` | Architecture, product y env example son coherentes entre sí |
+| `TestExampleDbPathDoesNotMisstateRuntimeDefault` | `.env.example` no confunde el valor Docker con el default de `Settings` |
+
+### Verificación
+
+PASS — 12/12 tasks completas, 6/6 escenarios de spec cubiertos con evidencia automatizada.
+Suite global: 395 tests pasando, 4 skipped (smoke tests sin credenciales, por diseño). Sin
+advertencias críticas ni de baja severidad. El follow-up documental en `api-strategy.md` que
+quedaba pendiente fue resuelto antes del verify final.
+
+### Archive
+
+- artefactos en `openspec/changes/archive/2026-03-30-settings-govern-runtime/`
+- spec promovida a `openspec/specs/daily-runtime-governance/spec.md` (actualizada)
+- 395 tests pasando en total (anteriores + 6 nuevos tests documentales del change 11)
