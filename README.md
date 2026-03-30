@@ -80,13 +80,67 @@ Variables opcionales (con defaults):
 uv run pytest tests/ -x --tb=short
 ```
 
-### Despliegue Docker
+### Despliegue en VPS
+
+El modelo operativo es un **contenedor efimero**: arranca, ejecuta el pipeline completo y muere. No hay proceso persistente. Para que se ejecute diariamente, necesitas un cron externo en el VPS.
+
+#### Paso 1 — Preparar el entorno
 
 ```bash
-docker-compose up
+git clone https://github.com/Prodelaya/auto-reddit.git
+cd auto-reddit
+cp .env.example .env
+# Editar .env y rellenar las 4 variables obligatorias:
+# DEEPSEEK_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, REDDIT_API_KEY
 ```
 
-El contenedor arranca, ejecuta el proceso diario completo y termina. El cron externo del VPS controla la planificacion.
+#### Paso 2 — Construir la imagen
+
+```bash
+docker compose build
+```
+
+#### Paso 3 — Verificar que funciona
+
+```bash
+docker compose run --rm auto-reddit
+```
+
+El contenedor arranca, ejecuta el pipeline y termina. En fin de semana el pipeline se omite automaticamente (guard en `main.py`, no en el cron).
+
+#### Paso 4 — Configurar el cron
+
+La ejecucion diaria la controla un cron externo del VPS, no el contenedor. Ejemplo para ejecutar a las 08:00 UTC todos los dias:
+
+```bash
+crontab -e
+```
+
+Anadir:
+
+```
+0 8 * * * cd /path/to/auto-reddit && docker compose run --rm auto-reddit >> /var/log/auto-reddit.log 2>&1
+```
+
+El guard de fin de semana esta en el codigo (`main.py`), no en el cron, asi que la entrada puede correr los 7 dias sin problema: el script decide por si solo si ejecutar o no.
+
+#### Ver logs
+
+```bash
+# Logs de la ultima ejecucion
+cat /var/log/auto-reddit.log
+
+# O ver los logs del ultimo contenedor
+docker compose logs auto-reddit
+```
+
+#### Persistencia
+
+La base de datos SQLite vive en un volumen Docker (`sqlite_data:/data`). Los datos persisten entre ejecuciones del contenedor sin intervencion manual. Verificar con:
+
+```bash
+docker volume ls
+```
 
 ---
 
