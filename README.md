@@ -4,51 +4,89 @@
 
 # auto-reddit
 
-## Descripción general del proyecto
+## Descripcion general del proyecto
 
-auto-reddit es un sistema de detección diaria de oportunidades de participación en Reddit para equipos de marketing y contenido que trabajan con Odoo.
+auto-reddit es un sistema de deteccion diaria de oportunidades de participacion en Reddit para equipos de marketing y contenido que trabajan con Odoo.
 
-El producto resuelve un problema operativo concreto: seguir manualmente Reddit para detectar posts donde una empresa con experiencia en Odoo puede aportar valor es costoso en tiempo y difícil de sistematizar. auto-reddit automatiza esa vigilancia y entrega cada día un conjunto de oportunidades filtradas y evaluadas, directamente en Telegram, con el contexto suficiente para que un humano decida si intervenir.
+El producto resuelve un problema operativo concreto: seguir manualmente Reddit para detectar posts donde una empresa con experiencia en Odoo puede aportar valor es costoso en tiempo y dificil de sistematizar. auto-reddit automatiza esa vigilancia y entrega cada dia un conjunto de oportunidades filtradas y evaluadas, directamente en Telegram, con el contexto suficiente para que un humano decida si intervenir.
 
-El principio rector del producto es claro: **la IA propone, el humano decide y publica**. El sistema nunca publica en Reddit de forma autónoma. Su única función es reducir el trabajo de detección y preparación, dejando el criterio y la acción final siempre en manos del equipo.
+El principio rector del producto es claro: **la IA propone, el humano decide y publica**. El sistema nunca publica en Reddit de forma autonoma. Su unica funcion es reducir el trabajo de deteccion y preparacion, dejando el criterio y la accion final siempre en manos del equipo.
 
 El usuario principal es el equipo de marketing y contenido. La fuente de datos del primer slice es `r/Odoo`.
 
-La referencia operativa vigente para la integración con Reddit es `docs/integrations/reddit/api-strategy.md`.
+La referencia operativa vigente para la integracion con Reddit es `docs/integrations/reddit/api-strategy.md`.
 
-Mapa completo de documentación para maintainers: [`docs/README.md`](docs/README.md).
+Mapa completo de documentacion para maintainers: [`docs/README.md`](docs/README.md).
 
 ---
 
-## Stack tecnológico
+## Stack tecnologico
 
-| Componente | Tecnología |
+| Componente | Tecnologia |
 |---|---|
 | Lenguaje | Python 3.14 |
 | Gestor de dependencias | uv |
-| Despliegue | Docker en VPS (contenedor efímero + cron externo) |
+| Despliegue | Docker en VPS (contenedor efimero + cron externo) |
 | Persistencia | SQLite (fichero en volumen Docker) |
 | Contratos internos | Pydantic |
-| Configuración y secretos | pydantic-settings + `.env` |
-| Evaluación IA | DeepSeek vía SDK de OpenAI |
+| Configuracion y secretos | pydantic-settings + `.env` |
+| Evaluacion IA | DeepSeek via SDK de OpenAI |
 | Notificaciones | Telegram Bot API |
 | Fuente de datos | RapidAPI (reddit3, reddit34, reddapi, reddit-com) |
+| CI | GitHub Actions |
 
-El modelo operativo es un contenedor efímero: arranca, ejecuta el proceso diario completo y muere. No hay proceso persistente corriendo en segundo plano. El cron externo en el VPS se encarga de la planificación.
+El modelo operativo es un contenedor efimero: arranca, ejecuta el proceso diario completo y muere. No hay proceso persistente corriendo en segundo plano. El cron externo en el VPS se encarga de la planificacion.
 
 ---
 
-## Instalación y ejecución
+## Instalacion y ejecucion
 
-El repositorio ya contiene el scaffolding inicial del proyecto y la documentación operativa principal.
-
-Los comandos base de trabajo son:
+### Dependencias
 
 ```bash
-uv sync
+uv sync --extra dev
+```
+
+### Configuracion
+
+Copiar el fichero de ejemplo y rellenar las 4 variables obligatorias:
+
+```bash
 cp .env.example .env
+```
+
+Variables obligatorias en `.env`:
+
+| Variable | Descripcion |
+|---|---|
+| `DEEPSEEK_API_KEY` | API key de DeepSeek para evaluacion IA |
+| `TELEGRAM_BOT_TOKEN` | Token del bot de Telegram para notificaciones |
+| `TELEGRAM_CHAT_ID` | ID del chat donde se envian las notificaciones |
+| `REDDIT_API_KEY` | API key de RapidAPI para acceso a Reddit |
+
+Variables opcionales (con defaults):
+
+| Variable | Default | Descripcion |
+|---|---|---|
+| `REVIEW_WINDOW_DAYS` | `7` | Ventana de busqueda en dias |
+| `DAILY_REVIEW_LIMIT` | `8` | Maximo de candidatos a revisar por ejecucion |
+| `MAX_DAILY_OPPORTUNITIES` | `8` | Maximo de oportunidades a entregar por dia |
+| `DB_PATH` | `auto_reddit.db` | Ruta al fichero SQLite |
+| `DEEPSEEK_MODEL` | `deepseek-chat` | Modelo de DeepSeek a usar |
+
+### Ejecucion de tests
+
+```bash
 uv run pytest tests/ -x --tb=short
 ```
+
+### Despliegue Docker
+
+```bash
+docker-compose up
+```
+
+El contenedor arranca, ejecuta el proceso diario completo y termina. El cron externo del VPS controla la planificacion.
 
 ---
 
@@ -61,36 +99,81 @@ auto-reddit/
 ├── src/
 │   └── auto_reddit/
 │       ├── __init__.py
-│       ├── main.py               # orquestador del proceso diario
-│       ├── reddit/               # extracción de candidatos y contexto
-│       │   └── client.py
-│       ├── evaluation/           # evaluación IA con DeepSeek
-│       │   └── evaluator.py
-│       ├── delivery/             # entrega por Telegram
-│       │   └── telegram.py
-│       ├── persistence/          # memoria operativa SQLite
-│       │   └── store.py
-│       ├── shared/               # contratos Pydantic compartidos
-│       │   └── contracts.py
-│       └── config/               # settings con pydantic-settings
-│           └── settings.py
+│       ├── main.py                    # orquestador del proceso diario
+│       ├── reddit/                    # extraccion de candidatos y contexto
+│       │   ├── __init__.py
+│       │   ├── _constants.py          # categorias, idiomas, constantes del modulo
+│       │   ├── client.py              # cliente HTTP para Reddit API
+│       │   └── comments.py            # recuperacion de comentarios de hilo
+│       ├── evaluation/                # evaluacion IA con DeepSeek
+│       │   ├── __init__.py
+│       │   └── evaluator.py           # logica de evaluacion y resumen
+│       ├── delivery/                  # entrega por Telegram
+│       │   ├── __init__.py
+│       │   ├── renderer.py            # renderizado de mensajes para Telegram
+│       │   ├── selector.py            # seleccion y priorizacion de candidatos
+│       │   └── telegram.py            # envio via Telegram Bot API
+│       ├── persistence/               # memoria operativa SQLite
+│       │   ├── __init__.py
+│       │   └── store.py               # CRUD de posts y estado de entrega
+│       ├── shared/                    # contratos Pydantic compartidos
+│       │   ├── __init__.py
+│       │   └── contracts.py           # modelos Post, Candidate, Opportunity
+│       └── config/                    # settings con pydantic-settings
+│           ├── __init__.py
+│           └── settings.py            # carga y validacion de variables de entorno
 ├── tests/
+│   ├── __init__.py
+│   ├── conftest.py                    # fixtures compartidos
+│   ├── test_main.py                   # test del orquestador principal
+│   ├── test_import_smoke.py           # smoke test de imports
+│   ├── test_ci_workflow.py            # validacion de workflow CI
+│   ├── test_infra_hardening.py        # hardening de infraestructura
+│   ├── test_settings_govern_runtime.py # settings gobiernan el runtime
 │   ├── test_reddit/
+│   │   ├── __init__.py
+│   │   ├── conftest.py                # fixtures especificos de Reddit
+│   │   ├── test_client.py
+│   │   └── test_comments.py
 │   ├── test_evaluation/
+│   │   ├── __init__.py
+│   │   ├── test_contracts.py
+│   │   └── test_evaluator.py
 │   ├── test_delivery/
-│   └── test_persistence/
+│   │   ├── __init__.py
+│   │   ├── test_deliver_daily.py
+│   │   ├── test_renderer.py
+│   │   ├── test_selector.py
+│   │   └── test_telegram.py
+│   ├── test_persistence/
+│   │   ├── __init__.py
+│   │   └── test_store.py
+│   └── test_integration/
+│       ├── __init__.py
+│       └── test_operational.py        # tests de integracion operacional
+├── scripts/
+│   ├── README.md
+│   └── reddit_api_raw_snapshot.py     # snapshot crudo de Reddit API para debugging
+├── skills/
+│   ├── deepseek-integration/          # skill: integracion con DeepSeek
+│   ├── docker-deployment/             # skill: despliegue Docker
+│   └── python-conventions/            # skill: convenciones de codigo Python
+├── .github/
+│   └── workflows/
+│       └── ci.yml                     # pipeline CI: pytest en cada push y PR
 ├── docs/
-│   ├── architecture.md           # decisiones arquitectónicas
+│   ├── architecture.md               # decisiones arquitectonicas
+│   ├── operations.md                  # guia operativa
 │   ├── integrations/
 │   │   └── reddit/
-│   │       ├── comparison.md     # comparativa de APIs evaluadas
-│   │       └── api-strategy.md   # estrategia vigente de selección y fallback
+│   │       ├── comparison.md          # comparativa de APIs evaluadas
+│   │       └── api-strategy.md        # estrategia vigente de seleccion y fallback
 │   ├── product/
-│   │   ├── product.md            # fuente de verdad del producto
-│   │   └── ai-style.md           # comportamiento y estilo de la IA
-│   └── discovery/                # documentación histórica de ideación
-├── openspec/                     # planning SDD por changes
-├── TFM/                          # documentación académica del proyecto
+│   │   ├── product.md                 # fuente de verdad del producto
+│   │   └── ai-style.md                # comportamiento y estilo de la IA
+│   └── discovery/                     # documentacion historica de ideacion
+├── openspec/                          # planning SDD por changes
+├── TFM/                               # documentacion academica del proyecto
 ├── pyproject.toml
 ├── Dockerfile
 ├── docker-compose.yml
@@ -102,9 +185,22 @@ auto-reddit/
 
 ## Funcionalidades principales
 
-- **Detección diaria de oportunidades en `r/Odoo`**: cada día el sistema recoge todos los posts de `r/Odoo` dentro de los últimos 7 días, los normaliza para el pipeline interno y, aguas abajo, revisa como máximo 8 candidatos elegibles priorizados por recencia.
-- **Filtrado por categorías de oportunidad**: los posts se clasifican en una taxonomía cerrada: funcionalidad y configuración de Odoo, desarrollo, dudas sobre si merece la pena Odoo, y comparativas con otras opciones.
-- **Evaluación por IA**: DeepSeek evalúa cada candidato para decidir si representa una oportunidad válida, resume el contexto en español para el equipo interno e incluye una respuesta sugerida en español y otra en inglés para revisión humana.
-- **Entrega diaria por Telegram**: el equipo recibe un mensaje de resumen con la fecha, el número de posts revisados y el número de oportunidades detectadas, seguido de un mensaje por cada oportunidad con título, enlace, idioma del post, tipo, resumen y respuesta sugerida.
-- **Contexto del hilo bajo demanda**: los comentarios se recuperan solo para los posts seleccionados aguas arriba para el flujo posterior; no forman parte de la recolección inicial de candidatos.
-- **Control de duplicados e idempotencia mínima**: cada post se registra y se envía una sola vez. No existe backlog explícito ni estado `approved`; `rejected` es descarte final de negocio, `not selected today` no es un estado persistente, y si Telegram falla tras una aceptación de IA se reintenta el envío sin reevaluar.
+- **Deteccion diaria de oportunidades en `r/Odoo`**: cada dia el sistema recoge todos los posts de `r/Odoo` dentro de una ventana configurable (`review_window_days`), los normaliza para el pipeline interno y revisa como maximo `daily_review_limit` candidatos elegibles priorizados por recencia. El numero maximo de oportunidades entregadas por dia esta gobernado por `max_daily_opportunities`.
+- **Filtrado por categorias de oportunidad**: los posts se clasifican en una taxonomia cerrada: funcionalidad y configuracion de Odoo, desarrollo, dudas sobre si merece la pena Odoo, y comparativas con otras opciones.
+- **Evaluacion por IA**: DeepSeek evalua cada candidato para decidir si representa una oportunidad valida, resume el contexto en espanol para el equipo interno e incluye una respuesta sugerida en espanol y otra en ingles para revision humana.
+- **Entrega diaria por Telegram**: el equipo recibe un mensaje de resumen con la fecha, el numero de posts revisados y el numero de oportunidades detectadas, seguido de un mensaje por cada oportunidad con titulo, enlace, idioma del post, tipo, resumen y respuesta sugerida.
+- **Contexto del hilo bajo demanda**: los comentarios se recuperan solo para los posts seleccionados por el selector para el flujo posterior; no forman parte de la recoleccion inicial de candidatos. Esto esta implementado en `delivery/selector.py` y `reddit/comments.py`.
+- **Control de duplicados e idempotencia**: cada post se registra y se envia una sola vez. No existe backlog explicito ni estado `approved`; `rejected` es descarte final de negocio, `not selected today` no es un estado persistente, y si Telegram falla tras una aceptacion de IA se reintenta el envio sin reevaluar.
+
+---
+
+## Tests y CI
+
+El proyecto tiene **396 tests pasando y 4 skipped** (smoke tests live sin credenciales).
+
+- **Tests unitarios**: cada modulo tiene su suite correspondiente en `tests/test_<modulo>/`.
+- **Tests de integracion operacional**: `tests/test_integration/test_operational.py` cubre el flujo end-to-end del proceso diario.
+- **Smoke tests**: `tests/test_import_smoke.py` valida imports, `test_ci_workflow.py` y `test_infra_hardening.py` validan configuracion de CI e infraestructura.
+- **Settings govern runtime**: `tests/test_settings_govern_runtime.py` verifica que los settings reales (`review_window_days`, `daily_review_limit`, `max_daily_opportunities`) gobiernan el comportamiento del runtime.
+
+CI con GitHub Actions ejecuta `uv run pytest tests/ -x --tb=short` en cada push y PR a `main`.
