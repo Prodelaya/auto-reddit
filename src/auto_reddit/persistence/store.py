@@ -85,18 +85,23 @@ class CandidateStore:
             )
             conn.commit()
 
-    def mark_sent(self, post_id: str) -> None:
+    def mark_sent(self, post_id: str) -> bool:
         """Marca el post como ``sent`` tras confirmación exitosa de Telegram.
 
         Sólo se debe llamar cuando Telegram confirma la entrega. No cambia
         ``opportunity_data`` ni crea un registro nuevo si no existía.
+
+        Returns:
+            ``True`` si se actualizó exactamente 1 fila (post existía).
+            ``False`` si el post_id no existía en la base de datos.
         """
         with sqlite3.connect(self._db_path) as conn:
-            conn.execute(
+            cursor = conn.execute(
                 "UPDATE post_decisions SET status = ? WHERE post_id = ?",
                 (PostDecision.sent.value, post_id),
             )
             conn.commit()
+        return cursor.rowcount == 1
 
     def purge_expired(self, post_ids: list[str]) -> int:
         """Elimina registros ``pending_delivery`` con TTL expirado.

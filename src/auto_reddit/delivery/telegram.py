@@ -5,10 +5,27 @@ from __future__ import annotations
 import logging
 
 import httpx
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 logger = logging.getLogger(__name__)
 
 _TELEGRAM_API_BASE = "https://api.telegram.org"
+
+
+@retry(
+    retry=retry_if_exception_type(httpx.HTTPError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    reraise=True,
+)
+def _post_message(url: str, payload: dict) -> httpx.Response:
+    """POST a message to Telegram with retry on transient HTTP errors."""
+    return httpx.post(url, json=payload, timeout=15)
 
 
 def send_message(token: str, chat_id: str, text: str) -> bool:
@@ -32,9 +49,9 @@ def send_message(token: str, chat_id: str, text: str) -> bool:
     }
 
     try:
-        response = httpx.post(url, json=payload, timeout=15)
+        response = _post_message(url, payload)
     except httpx.HTTPError as exc:
-        logger.warning("Telegram HTTP error: %s", exc)
+        logger.warning("Telegram HTTP error after retries: %s", exc)
         return False
 
     if response.status_code != 200:

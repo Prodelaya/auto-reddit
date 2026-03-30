@@ -145,9 +145,15 @@ def deliver_daily(
         )
 
         if success:
-            store.mark_sent(record.post_id)
-            sent_ok += 1
-            logger.info("Entregado: %s", record.post_id)
+            if store.mark_sent(record.post_id):
+                sent_ok += 1
+                logger.info("Entregado: %s", record.post_id)
+            else:
+                sent_failed += 1
+                logger.warning(
+                    "mark_sent falló para %s — post_id no encontrado en DB",
+                    record.post_id,
+                )
         else:
             sent_failed += 1
             logger.warning(

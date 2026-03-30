@@ -10,22 +10,15 @@ from datetime import datetime, timezone
 import httpx
 
 from auto_reddit.config.settings import Settings
+from auto_reddit.reddit._constants import (
+    _RAPIDAPI_HOST_REDDAPI,
+    _RAPIDAPI_HOST_REDDIT3,
+    _RAPIDAPI_HOST_REDDIT34,
+    _to_absolute_url,
+)
 from auto_reddit.shared.contracts import RedditCandidate
 
 logger = logging.getLogger(__name__)
-
-_REDDIT_BASE = "https://www.reddit.com"
-
-# ---------------------------------------------------------------------------
-# Per-provider normalizers
-# ---------------------------------------------------------------------------
-
-
-def _to_absolute_url(url: str) -> str:
-    """Canonizes a URL to absolute form. If relative, prepends Reddit base."""
-    if url and not url.startswith("http"):
-        return f"{_REDDIT_BASE}{url}"
-    return url
 
 
 def _normalize_reddit3(raw_json: dict) -> list[RedditCandidate]:
@@ -150,7 +143,7 @@ _RETRY_BACKOFF = [2, 4]  # seconds between attempt 1→2, 2→3
 def _fetch_with_retry(
     client: httpx.Client, url: str, headers: dict, params: dict
 ) -> dict:
-    """GET with up to _MAX_RETRIES retries and exponential backoff. Raises on all-fail."""
+    """GET with up to _MAX_RETRIES retries and linear backoff with fixed delays. Raises on all-fail."""
     last_exc: Exception | None = None
     for attempt in range(_MAX_RETRIES + 1):
         try:
@@ -227,10 +220,6 @@ def _paginate(
 # ---------------------------------------------------------------------------
 # Provider strategies
 # ---------------------------------------------------------------------------
-
-_RAPIDAPI_HOST_REDDIT3 = "reddit3.p.rapidapi.com"
-_RAPIDAPI_HOST_REDDIT34 = "reddit34.p.rapidapi.com"
-_RAPIDAPI_HOST_REDDAPI = "reddapi.p.rapidapi.com"
 
 
 def _collect_via_reddit3(api_key: str, cutoff_utc: int) -> list[RedditCandidate]:
