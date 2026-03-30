@@ -1605,3 +1605,160 @@ de proceso o decision pasada.
 
 El repositorio queda completamente cerrado. Los trece changes de la iniciativa estan archivados.
 La suite sigue en 395 tests pasando, 4 skipped.
+
+---
+
+## Entrada 23
+
+**Fecha:** 30/03/2026
+
+### Judgment day del repositorio completo
+
+Con los trece changes cerrados y la iniciativa completa, se aplico el protocolo de revision
+adversarial paralela (judgment day) sobre el repositorio entero.
+
+### Metodo
+
+Se lanzaron dos jueces simultaneos con focos distintos, sin conocerse entre si:
+
+- **Judge A**: codigo fuente, contratos, arquitectura, manejo de errores
+- **Judge B**: tests, infraestructura, CI, documentacion y configuracion
+
+Ambos revisaron el mismo repositorio desde angulos complementarios. La sintesis la hizo
+el orquestador, no los jueces.
+
+### Resultados del round 1
+
+Se encontraron 20 issues totales (14 del Judge A, 6 del Judge B).
+
+Los 6 issues del Judge B eran mayoritariamente cosas ya cerradas por el change
+`docs-information-architecture-cleanup` (AGENTS.md, .env.example, CLAUDE.md vs AGENTS.md).
+No eran bugs reales.
+
+De los 14 del Judge A, solo 4 se consideraron reales y dignos de fix:
+
+### Los 4 issues reales
+
+**1. `mark_sent` ignora `rowcount` — perdida silenciosa**
+
+`mark_sent` en `persistence/store.py` ejecutaba un UPDATE pero nunca verificaba
+`cursor.rowcount`. Si el post_id no existia en la base de datos, el UPDATE afectaba 0 filas
+silenciosamente. La facade de delivery contaba el envio como exitoso (`sent_ok += 1`) cuando
+el registro nunca se marco como `sent`. En la siguiente ejecucion, el registro volvia a entrar
+en delivery como reintento.
+
+Fix: `mark_sent` ahora retorna `bool` basado en `cursor.rowcount == 1`. El caller en
+`delivery/__init__.py` verifica el resultado, loggea warning si retorna False y cuenta como
+`sent_failed` en lugar de `sent_ok`.
+
+**2. Sin retry HTTP en `send_message` — contradice retry-first**
+
+`send_message` en `delivery/telegram.py` no tenia logica de reintento. Un error HTTP
+transitorio (timeout, 429, 5xx) causaba fallo inmediato. El proyecto usa tenacity en el
+evaluador y `_fetch_with_retry` para las APIs de Reddit, pero no para Telegram.
+
+Fix: se anadio wrapper `_post_message` con decorador `@retry` de tenacity (backoff
+exponencial, 3 intentos, `httpx.HTTPError`).
+
+**3. Constantes y helpers duplicados en `client.py` y `comments.py`**
+
+`_REDDIT_BASE`, tres constantes `_RAPIDAPI_HOST_*` y la funcion `_to_absolute_url`
+estaban definidas identicas en `reddit/client.py` y `reddit/comments.py`. Un cambio en
+una API requeriria ediciones en dos ficheros sin red de seguridad del compilador.
+
+Fix: se extrajeron a `reddit/_constants.py`. Ambos modulos importan desde ahi.
+
+**4. Docstring de `_fetch_with_retry` miente sobre el tipo de backoff**
+
+El docstring decia "exponential backoff" pero `_RETRY_BACKOFF = [2, 4]` es backoff lineal
+(fijos 2s y 4s). Exponencial seria 2s, 4s, 8s.
+
+Fix: docstring corregida a "linear backoff with fixed delays".
+
+### Resultados del round 2 (re-judgment)
+
+Ambos jueces verificaron los 4 fixes y devolvieron `VERDICT: CLEAN — All fixes verified, no
+new issues found.` Sin regressiones introducidas.
+
+Suite: **396 tests pasando, 4 skipped** (el test count subio en 1 probablemente por un test
+nuevo anadido durante los fixes).
+
+Commits:
+- `422c184`: `fix: address judgment day findings (round 1)` (6 files, 62 inserciones, 43
+  eliminaciones, fichero nuevo `reddit/_constants.py`)
+
+### Leccion clave del judgment day
+
+La revision adversarial paralela encontro problemas reales que una revision secuencial normal
+probablemente hubiera pasado por alto. El mas peligroso era `mark_sent` sin `rowcount`: un bug
+silencioso que no produce error visible pero causa duplicacion de envios y corrupcion del estado
+operativo.
+
+Los 6 issues del Judge B muestran algo util: despues de un cambio documental, muchas
+"incorrecciones" documentales desaparecen por si solas. No merece la pena hacer fixes
+documentales parciales; es mejor cerrar el cambio documental completo y luego re-juzgar.
+
+---
+
+## Entrada 24
+
+**Fecha:** 30/03/2026
+
+### Actualizacion del README raiz
+
+El `README.md` raiz fue reescrito para reflejar el estado real del proyecto. El README anterior
+tenia varios problemas:
+
+- decia "scaffolding inicial" cuando el proyecto esta completo y funcional
+- la seccion de instalacion era demasiado ligera para un proyecto con 4 variables obligatorias
+  y Docker deployment
+- las funcionalidades se describian con un tono de "promesa" en lugar de "producto terminado"
+- el arbol de estructura no incluia ficheros reales como `_constants.py`, `renderer.py`,
+  `selector.py`, `conftest.py`, `.github/workflows/ci.yml` ni `skills/`
+
+El nuevo README:
+- describe el proyecto como producto terminado con lenguaje de estado actual
+- incluye las 4 variables obligatorias y sus 5 opcionales con defaults
+- detalla la estructura real del repo (incluidos scripts, skills y CI)
+- menciona los 396 tests y la CI activa en GitHub Actions
+
+Commits:
+- `5333b90`: `docs: rewrite root README to reflect actual project state`
+
+---
+
+## Entrada 25
+
+**Fecha:** 30/03/2026
+
+### Guia de despliegue VPS en README
+
+Se amplio la seccion de despliegue del README raiz con una guia paso a paso para levantar
+el sistema en un VPS real. El README anterior solo decia `docker-compose up` sin contexto
+sobre el modelo operativo real.
+
+### Lo que quedo claro
+
+El modelo operativo es un **contenedor efimero**: arranca, ejecuta el pipeline completo y
+muere. No hay proceso persistente. Para la ejecucion diaria, se necesita un cron externo
+en el VPS con una entrada tipo:
+
+```
+0 8 * * * cd /path/to/auto-reddit && docker compose run --rm auto-reddit >> /var/log/auto-reddit.log 2>&1
+```
+
+Un detalle importante: el guard de fin de semana vive en `main.py` (weekday >= 5), no en
+el cron. Esto significa que la entrada crontab puede correr los 7 dias sin problema; el
+script decide por si solo si ejecutar o no.
+
+### La guia cubre
+
+1. Preparacion del entorno (clonar, crear .env, rellenar 4 variables)
+2. Construccion de la imagen (`docker compose build`)
+3. Verificacion (`docker compose run --rm auto-reddit`)
+4. Configuracion del cron (crontab con ejemplo real)
+5. Consulta de logs
+6. Persistencia (volumen Docker `sqlite_data:/data`)
+
+Commits:
+- `73556a7`: `docs: add step-by-step VPS deployment guide`
