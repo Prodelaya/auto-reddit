@@ -57,7 +57,7 @@ class RedditCandidate(BaseModel):
     def is_complete(self) -> bool:
         """True only when ALL minimum-contract fields are present and non-empty.
 
-        Minimum contract (change 1): post_id, title, url, permalink, subreddit,
+        Minimum contract: post_id, title, url, permalink, subreddit,
         created_utc (non-zero), source_api, selftext (not None), author (not None).
         Fields deliberately optional (num_comments) do NOT affect completeness.
         """
@@ -95,7 +95,7 @@ class RedditComment(BaseModel):
 class ThreadContext(BaseModel):
     """Contexto bruto normalizado de un hilo para un post seleccionado.
 
-    Salida del paso de extracción de contexto (Change 3). No contiene decisiones de negocio.
+    Salida del paso de extracción de contexto. No contiene decisiones de negocio.
     """
 
     candidate: RedditCandidate
@@ -106,7 +106,7 @@ class ThreadContext(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Change 4: AI Opportunity Evaluation contracts
+# AI Evaluation contracts
 # ---------------------------------------------------------------------------
 
 
@@ -204,7 +204,7 @@ EvaluationResult = Annotated[
 
 
 # ---------------------------------------------------------------------------
-# Change 5: Telegram Daily Delivery contracts
+# Telegram Delivery contracts
 # ---------------------------------------------------------------------------
 
 

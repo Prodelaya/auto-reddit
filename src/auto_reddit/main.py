@@ -32,16 +32,16 @@ def run() -> None:
 
     logger.info("Iniciando pipeline auto-reddit")
 
-    # Change 2: inicializar store de memoria operativa
+    # Inicializar store de memoria operativa
     store = CandidateStore(settings.db_path)
     store.init_db()
 
-    # Change 1: recoger candidatos de r/Odoo (ventana configurada por review_window_days, sin recorte)
+    # Recoger candidatos de r/Odoo (ventana configurada por review_window_days)
     candidates = collect_candidates(settings)
     total_collected = len(candidates)
     logger.info("Candidatos recogidos: %d", total_collected)
 
-    # Change 2: excluir posts con decisión final (sent / rejected)
+    # Excluir posts con decisión final (sent / rejected)
     decided_ids = store.get_decided_post_ids()
     eligible = [c for c in candidates if c.post_id not in decided_ids]
     excluded_count = total_collected - len(eligible)
@@ -59,7 +59,7 @@ def run() -> None:
             f" — {len(empty_ids)} con post_id vacío" if empty_ids else "",
         )
 
-    # Change 2: ordenar por recencia descendente y aplicar recorte downstream
+    # Ordenar por recencia descendente y aplicar recorte downstream
     complete.sort(key=lambda c: c.created_utc, reverse=True)
     review_set = complete[: settings.daily_review_limit]
 
@@ -71,7 +71,7 @@ def run() -> None:
         len(review_set),
     )
 
-    # Change 3: enriquecer con contexto bruto del hilo
+    # Enriquecer con contexto bruto del hilo
     thread_contexts = fetch_thread_contexts(review_set, settings)
     logger.info(
         "Contextos de hilo extraídos: %d/%d posts enriquecidos",
@@ -79,7 +79,7 @@ def run() -> None:
         len(review_set),
     )
 
-    # Change 4: evaluación IA
+    # Evaluación IA
     evaluation_results = evaluate_batch(thread_contexts, settings)
     accepted_count = 0
     rejected_count = 0
@@ -98,8 +98,7 @@ def run() -> None:
         skipped_count,
     )
 
-    # Change 5: entrega Telegram (retry-first, cap max_daily_opportunities)
-    # reviewed_post_count = len(review_set) para el resumen de producto (product.md §10)
+    # Entrega Telegram (retry-first, cap max_daily_opportunities)
     report = deliver_daily(store, settings, reviewed_post_count=len(review_set))
     logger.info(
         "Entrega Telegram: seleccionadas=%d (reintentos=%d, nuevas=%d), "

@@ -3,7 +3,7 @@
 Paso 3 del pipeline: enriquece los posts ya seleccionados aguas arriba con contexto
 bruto normalizado del hilo. NO decide si un post es oportunidad ni aplica lógica de delivery.
 
-Cadena de fallback por post (api-strategy.md §5):
+Cadena de fallback por post (api-strategy.md):
     reddit34 → reddit3 → reddapi → None (post descartado)
 
 ContextQuality asignada por proveedor:
@@ -359,7 +359,7 @@ def fetch_thread_contexts(
     Un post con 0 comentarios se entrega si el proveedor respondió correctamente.
 
     Args:
-        candidates: Lista de posts seleccionados por el paso upstream (Change 2).
+        candidates: Lista de posts seleccionados por el paso upstream.
         settings: Configuración con ``reddit_api_key``.
 
     Returns:
