@@ -60,9 +60,11 @@ src/auto_reddit/
 - **Validacion al arrancar**: si falta una variable, el proceso no empieza.
 - **Variables necesarias**: `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `REDDIT_API_KEY` (se mantiene este nombre por compatibilidad, pero representa la API key de RapidAPI compartida para las APIs de Reddit consumidas por el proyecto).
 - **Parametros de producto configurables**:
-  - `max_daily_opportunities`: 8 _(cap único de entrega diaria; referencia operativa vigente para design; revisable si cambia la capacidad real)_
+  - `max_daily_opportunities`: 8 _(cap post-evaluación IA: máximo de oportunidades entregadas tras evaluación y selección (`delivery/__init__.py:81`))_
   - `review_window_days`: 7 _(fuente de verdad que gobierna la ventana temporal en coleccion)_
-  - `daily_review_limit`: 8 _(referencia operativa vigente para design; revisable si cambia la capacidad real)_
+  - `daily_review_limit`: 8 _(cap pre-evaluación IA: máximo de posts que entran a revisión diaria (`main.py:64`))_
+  - `deepseek_model`: `deepseek-chat` _(modelo DeepSeek utilizado en la evaluación (`evaluator.py:331`))_
+  - `db_path`: `auto_reddit.db` _(ruta del fichero SQLite de memoria operativa (`store.py:20`))_
 
 ## 7. Logging y trazabilidad
 

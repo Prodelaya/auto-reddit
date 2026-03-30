@@ -30,7 +30,7 @@ Cada día, el sistema recoge TODOS los posts SOLO de `r/Odoo` cuya creación est
 
 La entrega diaria debe priorizar utilidad operativa y criterio de intervención, no volumen.
 
-> **Nota:** los límites de revisión diaria (8 posts) y envío diario (8 oportunidades) siguen siendo parámetros operativos revisables, pero la referencia vigente para design pasa a 8/día por capacidad de cuota. Con ejecución de lunes a viernes (~22 días/mes), el happy path queda en ~198 req/mes y deja margen frente a las ~220 req/mes útiles actuales.
+> **Nota:** los límites de revisión diaria (pre-evaluación IA) (8 posts) y envío diario (post-evaluación IA) (8 oportunidades) siguen siendo parámetros operativos revisables, pero la referencia vigente para design pasa a 8/día por capacidad de cuota. Con ejecución de lunes a viernes (~22 días/mes), el happy path queda en ~198 req/mes y deja margen frente a las ~220 req/mes útiles actuales.
 
 ## 6. Flujo del producto
 
@@ -60,13 +60,13 @@ Solo se consideran posts cuya creación esté dentro de la ventana configurada p
 
 La recolección inicial conserva todos los posts dentro de la ventana configurada por `review_window_days`.
 
-El recorte diario ocurre después de aplicar memoria operativa mínima: cada día se revisan con IA los 8 posts elegibles más recientes ordenados por fecha de creación, no por última actividad.
+El recorte diario ocurre después de aplicar memoria operativa mínima: cada día se revisan con IA los 8 posts elegibles más recientes ordenados por fecha de creación, no por última actividad (cap pre-evaluación IA, `daily_review_limit`).
 
 No existe un backlog editorial explícito ni un estado `approved`. Si un post no se selecciona hoy pero sigue dentro de la ventana configurada por `review_window_days` y no está marcado como `sent` ni como `rejected`, mañana vuelve a competir normalmente desde la ventana.
 
 ### 7.5 Límite de envío diario
 
-- Se envían como máximo `max_daily_opportunities` oportunidades al día. El parámetro `max_daily_opportunities` en `config/settings.py` es la única fuente de verdad para este límite (valor operativo por defecto: 8).
+- Se envían como máximo `max_daily_opportunities` oportunidades al día (cap post-evaluación IA). El parámetro `max_daily_opportunities` en `config/settings.py` es la única fuente de verdad para este límite (valor operativo por defecto: 8).
 - Si de los revisados solo hay 3 válidos, se envían solo 3.
 
 ### 7.6 Regla de unicidad
