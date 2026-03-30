@@ -200,9 +200,9 @@ Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
 
 Esta es probablemente la parte mas importante para no enganarte.
 
-### Estado real del repo — actualizado 2026-03-30 (pipeline + integracion + smoke + hardening + CI + alineacion semantica completos)
+### Estado real del repo — actualizado 2026-03-30 (pipeline + integracion + smoke + hardening + CI + alineacion semantica + limpieza de artefactos historicos completos)
 
-Los diez changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo, con cobertura de integracion operacional, smoke tests live verificados contra Reddit y Telegram reales, hardening del contrato de despliegue y CI automatico en GitHub Actions.
+Los trece changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo, con cobertura de integracion operacional, smoke tests live verificados contra Reddit y Telegram reales, hardening del contrato de despliegue, CI automatico en GitHub Actions, limpieza de marcadores historicos de construccion en codigo activo y reorganizacion de la arquitectura de informacion documental.
 
 La base ejecutable incluye:
 
@@ -222,14 +222,14 @@ La base ejecutable incluye:
 - `.github/workflows/ci.yml` ejecutando la suite completa en cada push y PR a `main`
 - `tests/conftest.py` con defaults dummy para CI sin `.env`
 - `tests/test_ci_workflow.py` con 22 tests automatizados del workflow
-- diez specs canonicas en `openspec/specs/`
+- once specs canonicas en `openspec/specs/`
 
 ### Que esta maduro
 
 - producto definido en `docs/product/product.md`
 - reglas editoriales de IA en `docs/product/ai-style.md` con modelo recomendado
-- arquitectura modular documentada y validada en diez changes completos
-- los diez changes archivados con specs canonicas y trazabilidad completa
+- arquitectura modular documentada y validada en trece changes completos
+- los trece changes archivados con specs canonicas y trazabilidad completa
 - cobertura de tests unitarios + integracion operacional + smoke live
 - runtime governance: los settings `review_window_days` y `max_daily_opportunities` gobiernan el runtime de verdad
 - contrato de settings documentado con distinción explícita pre-IA / post-IA: `daily_review_limit` (cap antes de evaluación) vs `max_daily_opportunities` (cap después de evaluación)
@@ -261,7 +261,7 @@ Nada del pipeline ni del hardening operativo. Lo que queda como trabajo potencia
 
 ### Lectura correcta de la madurez
 
-El sistema es funcionalmente completo y tiene cinco capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, smoke tests live contra las APIs reales, CI automatico en GitHub Actions, y tests documentales que verifican la coherencia del contrato de settings entre artefactos. Los settings operativos gobiernan el runtime de verdad y su contrato semántico está documentado con distinción explícita entre cap pre-evaluación IA y cap post-evaluación IA. Lo que no tiene aun es observabilidad avanzada en produccion.
+El sistema es funcionalmente completo y tiene cinco capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, smoke tests live contra las APIs reales, CI automatico en GitHub Actions, y tests documentales que verifican la coherencia del contrato de settings entre artefactos. Los settings operativos gobiernan el runtime de verdad y su contrato semantico esta documentado con distincion explicita entre cap pre-evaluacion IA y cap post-evaluacion IA. El codigo activo esta libre de marcadores historicos de construccion y la arquitectura documental tiene separacion explicita entre documentos vigentes, historicos y de proceso. Lo que no tiene aun es observabilidad avanzada en produccion.
 
 ---
 
@@ -322,6 +322,8 @@ auto-reddit/
 |   |   |- 2026-03-29-environment-persistence-execution-hardening/
 |   |   |- 2026-03-29-minimum-ci-baseline/
 |   |   |- 2026-03-30-settings-govern-runtime/
+|   |   |- 2026-03-30-connect-or-remove-half-landed-logic/
+|   |   |- 2026-03-30-docs-information-architecture-cleanup/
 |- skills/                             Skills locales del repo
 |- scripts/                            Tooling de investigacion, no flujo de producto
 |- TFM/                                Documentacion academica
@@ -618,7 +620,7 @@ Esta es la parte que convierte el repo en algo mas que codigo fuente.
 
 `openspec/` es la capa de artefactos de planificacion.
 
-Segun `openspec/README.md`, el proyecto implemento diez changes en dos fases:
+Segun `openspec/README.md`, el proyecto implemento trece changes en cuatro fases:
 
 **Fase 1 — pipeline principal (changes 1-5):**
 
@@ -640,7 +642,14 @@ Segun `openspec/README.md`, el proyecto implemento diez changes en dos fases:
 
 11. `settings-govern-runtime`
 
-Los cuatro ultimos changes son especialmente relevantes desde el punto de vista de arquitectura profesional: no anaden funcionalidad nueva, sino que cierran la distancia entre lo que el sistema *dice* que hace y lo que *realmente* hace. El change 11 va un paso mas alla: no era suficiente que los settings gobernaran el runtime; habia que documentar explicitamente la semantica de cada uno para que ningun operador pudiera confundir `daily_review_limit` (cap de entrada a la evaluacion IA) con `max_daily_opportunities` (cap de salida hacia Telegram). Esa distincion es la diferencia entre configuracion que informa y configuracion que puede inducir a error. Esa distancia es una deuda tecnica silenciosa muy comun en proyectos reales.
+**Fase 4 — limpieza de artefactos historicos (changes 12-13):**
+
+12. `connect-or-remove-half-landed-logic`
+13. `docs-information-architecture-cleanup`
+
+Los cuatro ultimos changes de la fase 2 y el change 11 son especialmente relevantes desde el punto de vista de arquitectura profesional: no anaden funcionalidad nueva, sino que cierran la distancia entre lo que el sistema *dice* que hace y lo que *realmente* hace. El change 11 va un paso mas alla: no era suficiente que los settings gobernaran el runtime; habia que documentar explicitamente la semantica de cada uno para que ningun operador pudiera confundir `daily_review_limit` (cap de entrada a la evaluacion IA) con `max_daily_opportunities` (cap de salida hacia Telegram). Esa distincion es la diferencia entre configuracion que informa y configuracion que puede inducir a error.
+
+Los changes 12 y 13 cierran la brecha entre el lexico del proceso de construccion y el lexico del sistema vivo. El change 12 elimina del codigo activo los marcadores `# Change N` que servian de guia durante la construccion incremental pero que, una vez cerrada la iniciativa, solo aportaban ruido de lectura. El change 13 reorganiza la arquitectura de informacion documental para que cualquier lector pueda distinguir sin ambiguedad que documentos describen el sistema hoy y cuales narran como se construyo. Juntos hacen que el repo sea legible no solo para quien participio en su construccion, sino para cualquiera que llegue nuevo. Esa distancia entre el lexico de construccion y el lexico operativo es una deuda silenciosa muy comun en proyectos que se desarrollan de forma incremental.
 
 OpenSpec sirve para evitar el error clasico de los juniors: ponerse a programar una idea grande sin haberla troceado.
 
@@ -1698,7 +1707,7 @@ Esta disciplina protege contra los dos errores simétricos más caros de la inge
 
 ### 14.1 Implementacion funcional del pipeline — RESUELTA
 
-El pipeline completo (changes 1-5) esta implementado, verificado y archivado. Los diez changes estan cerrados.
+El pipeline completo (changes 1-5) esta implementado, verificado y archivado. Los trece changes estan cerrados.
 
 ### 14.2 Parametros exactos de paginacion — RESUELTA
 
@@ -1720,11 +1729,11 @@ Seis contratos Pydantic completos en `shared/contracts.py`: `OpportunityType`, `
 
 El sistema loguea contadores del `DeliveryReport` pero no tiene observabilidad avanzada (alertas, metricas, dashboards). Queda como trabajo potencial futuro.
 
-### 14.7 Contradicciones historicas — PARCIALMENTE RESUELTA
+### 14.7 Contradicciones historicas — RESUELTA
 
 Las derives entre runtime y documentacion identificadas en el change 8 estan cerradas. Los knobs `review_window_days` y `max_daily_opportunities` gobiernan el runtime de verdad. El duplicado `max_daily_deliveries` fue eliminado.
 
-Sigue existiendo como historico: entradas antiguas de `TFM/diario.md` con formulaciones previas a los cambios. No son contradicciones activas; son evidencia del proceso de refinamiento.
+La confusion entre documentos vigentes y documentos historicos quedo cerrada en el change 13: `docs/README.md` actua ahora como mapa canonico de cuatro carriles que separa con claridad lo vigente de lo historico. `TFM/diario.md` y los documentos de discovery conservan su valor como registro del proceso, pero su proposito queda explicitamente senalizado desde la primera linea de cada documento ambiguo.
 
 ### 14.8 Seccion de Execution Contract en `docs/architecture.md` — PENDIENTE
 
@@ -1746,7 +1755,7 @@ Estas pruebas requieren estado persistente entre runs y un enfoque de integracio
 
 ## 15. Cierre: que es hoy auto-reddit de verdad
 
-Once changes completados. Trescientos noventa y cinco tests pasando. El pipeline es funcional de extremo a extremo, el contrato de despliegue esta cerrado, hay CI activo en cada push y PR, y el contrato de settings esta documentado con semantica explicita.
+Trece changes completados. Trescientos noventa y cinco tests pasando. El pipeline es funcional de extremo a extremo, el contrato de despliegue esta cerrado, hay CI activo en cada push y PR, el contrato de settings esta documentado con semantica explicita, el codigo activo esta libre de marcadores historicos de construccion y la arquitectura documental separa con claridad los documentos vigentes de los historicos.
 
 Lo que existe hoy:
 
@@ -1765,15 +1774,68 @@ Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas y lo
 
 Si tuviera que resumirlo para un junior:
 
-> Once changes archivados. Trescientos noventa y cinco tests. Pipeline funcional, integracion operacional, smoke tests live contra Reddit y Telegram reales, settings que gobiernan de verdad el runtime con semantica explicita, contrato de despliegue Docker cerrado y CI automatico. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan, luego el hardening que cierra la brecha entre lo que dice la documentacion y lo que ejecuta el sistema, y finalmente la capa que asegura que el contrato documental de configuracion no puede inducir a error. El resultado es un sistema que cualquiera puede leer, entender, extender, verificar y desplegar.
+> Trece changes archivados. Trescientos noventa y cinco tests. Pipeline funcional, integracion operacional, smoke tests live contra Reddit y Telegram reales, settings que gobiernan de verdad el runtime con semantica explicita, contrato de despliegue Docker cerrado, CI automatico, codigo activo sin marcadores historicos de construccion y arquitectura documental con separacion clara entre verdad vigente y registro historico. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan, luego el hardening que cierra la brecha entre lo que dice la documentacion y lo que ejecuta el sistema, luego la capa que asegura que el contrato documental de configuracion no puede inducir a error, y finalmente la limpieza del lexico de construccion para que el repo sea legible para cualquiera que llegue nuevo. El resultado es un sistema que cualquiera puede leer, entender, extender, verificar y desplegar.
 
-El proyecto no termina aqui. Termina con un baseline operativo completo y verificable. Lo que sigue — observabilidad operativa avanzada, expansion a otras fuentes, seccion de Execution Contract en `docs/architecture.md` — tiene una base solida sobre la que construir.
+El proyecto esta completamente cerrado. Trece changes archivados, una base operativa completa y verificable, y una arquitectura de informacion documental que separa lo que el sistema es hoy de como llego a serlo. Lo que sigue — observabilidad operativa avanzada, expansion a otras fuentes, seccion de Execution Contract en `docs/architecture.md` — tiene una base solida sobre la que construir.
 
 ---
 
 ## 16. Historial de changes
 
 Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo (apply + verify + archive). Es el registro vivo del avance real del proyecto.
+
+### Change 13 — `docs-information-architecture-cleanup` — ARCHIVADO 2026-03-30
+
+**Alcance:** reorganizar la arquitectura de informacion documental del repo para separar con claridad los documentos vigentes, los historicos y los de proceso, y evitar que un lector nuevo confunda el registro de construccion con la verdad operativa actual.
+
+**El problema:**
+
+El repo habia acumulado capas documentales con distinta caducidad sin senalizacion consistente. `docs/README.md` existia pero no actuaba como mapa navegable. `docs/discovery/idea-inicial.md` y `docs/discovery/ideas.md` tenian avisos de supersesion pero rol ambiguo. `TFM/guia-didactica-auto-reddit.md` no dejaba claro desde la primera linea que es material didactico historico. `README.md` raiz no enlazaba al mapa documental. Cuando documentos de proceso y documentos operativos coexisten sin separacion explicita, cualquier lector que llega sin contexto previo tiene que inferir cual manda, y esa inferencia es costosa y propensa a error.
+
+**Lo que se implemento:**
+
+- `docs/README.md`: reescrito como mapa canonico de cuatro carriles — Current Truth (documentos vigentes del sistema), Planning & Archive (artefactos SDD y changes archivados), Didactic & Historical (material pedagogico y registros del proceso de construccion), Agent Context (reglas operativas para agentes)
+- `README.md` raiz: enlace a `docs/README.md` para que el punto de entrada natural del repo lleve al mapa documental
+- `TFM/guia-didactica-auto-reddit.md`: header de proposito en la primera linea que lo identifica como material didactico e historico, con referencia a `docs/README.md` como fuente de verdad operativa
+- `docs/discovery/idea-inicial.md`: header que lo identifica como documento historico del proceso de ideacion
+- `docs/discovery/ideas.md`: header analogo
+
+**Dependencia:**
+
+Este change era el ultimo de la iniciativa. Requeria que los doce changes previos estuvieran cerrados para poder trazar el mapa definitivo del repo sin que quedara obsoleto al dia siguiente.
+
+**Archivos afectados:** `docs/README.md`, `README.md`, `TFM/guia-didactica-auto-reddit.md`, `docs/discovery/idea-inicial.md`, `docs/discovery/ideas.md`
+
+**Archivo:** `openspec/changes/archive/2026-03-30-docs-information-architecture-cleanup/`
+
+**Resultado:** arquitectura de informacion documental limpia y navegable; repositorio completamente cerrado; suite en 395 tests pasando, 4 skipped; cero cambios funcionales
+
+---
+
+### Change 12 — `connect-or-remove-half-landed-logic` — ARCHIVADO 2026-03-30
+
+**Alcance:** eliminar los marcadores historicos de construccion del estilo `# Change N` que habian quedado en el codigo activo del pipeline una vez cerrados todos los changes funcionales.
+
+**El problema:**
+
+Durante el desarrollo incremental, cada archivo Python del pipeline fue recibiendo comentarios `# Change 1`, `# Change 2`, `# Change 3 (pendiente)` para orientarse en que estaba hecho y que quedaba por hacer. Una vez cerrados los trece changes, esos marcadores dejaron de aportar contexto operativo: informan sobre como se construyo el sistema, no sobre como funciona. Un lector nuevo no necesita saber que `evaluate_batch` se conecto en el change 4; necesita saber que `evaluate_batch` evalua un batch de candidatos. Mantener ese ruido en el codigo activo es una forma de deuda conceptual silenciosa.
+
+**Regla de decision aplicada:**
+
+- comentario que solo aporta historia de construccion (en que momento se anadio esta linea) → eliminar
+- comentario que aporta contexto operativo (por que existe esta logica, que hace este bloque) → reescribir en tiempo presente, eliminando la referencia al numero de change
+
+**Lo que se modifico:**
+
+- `src/auto_reddit/main.py`: comentarios `# Change 1` a `# Change 5` usados como etiquetas de autor durante la construccion del pipeline
+- `src/auto_reddit/shared/contracts.py`: anotaciones inline que indicaban en que change se introdujo cada contrato
+- `src/auto_reddit/reddit/comments.py`: marcador de change en la cabecera del modulo
+
+**Resultado:** cero cambios de comportamiento, cero cambios en la interfaz publica de ningun modulo; suite en 395 tests pasando, 4 skipped; la trazabilidad del proceso sigue disponible en los artefactos OpenSpec archivados, en `TFM/diario.md` y en el historial de git
+
+**Archivo:** `openspec/changes/archive/2026-03-30-connect-or-remove-half-landed-logic/`
+
+---
 
 ### Sesion de revision de robustez — 30/03/2026
 

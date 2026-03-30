@@ -1491,3 +1491,117 @@ quedaba pendiente fue resuelto antes del verify final.
 - artefactos en `openspec/changes/archive/2026-03-30-settings-govern-runtime/`
 - spec promovida a `openspec/specs/daily-runtime-governance/spec.md` (actualizada)
 - 395 tests pasando en total (anteriores + 6 nuevos tests documentales del change 11)
+
+---
+
+## Entrada 21
+
+**Fecha:** 30/03/2026
+
+### Change 12: limpieza de marcadores historicos de construccion en codigo activo
+
+Se ejecuto el change `connect-or-remove-half-landed-logic`: una pasada de limpieza textual sobre
+los archivos Python activos del pipeline para eliminar comentarios del estilo `# Change N` que
+habian quedado en el codigo como reliquias del proceso de construccion incremental.
+
+### Por que existia el problema
+
+Durante el desarrollo por changes, cada modulo fue recibiendo comentarios del tipo `# Change 1`,
+`# Change 2`, `# Change 3 (pendiente)` para marcar que parte del codigo pertenecia a cada slice
+de trabajo. Esa nomenclatura fue util durante la construccion: ayudaba a orientarse en que estaba
+hecho y que quedaba por hacer.
+
+El problema es que, una vez cerrados los trece changes, esos marcadores dejaron de aportar contexto
+operativo. Pasaron a ser arqueologia del proceso: informacion sobre como se construyo el sistema,
+no sobre como funciona ni como debe operarse. Un lector nuevo no necesita saber que `evaluate_batch`
+se conecto en el change 4; necesita saber que `evaluate_batch` evalua un batch de candidatos.
+
+### Que se hizo
+
+Se aplico una regla de decision explicita sobre cada comentario encontrado:
+
+- si el comentario solo aporta historia de construccion (en que momento se anadio esta linea)
+  → eliminar
+- si el comentario aporta contexto operativo util (por que existe esta logica, que hace este bloque)
+  → reescribir en tiempo presente, eliminando la referencia al numero de change
+
+Los tres archivos afectados fueron:
+
+- `src/auto_reddit/main.py`: comentarios `# Change 1` a `# Change 5` que actuaban como etiquetas
+  de autor durante la construccion incremental del pipeline
+- `src/auto_reddit/shared/contracts.py`: anotaciones inline sobre que change introdujo cada contrato
+- `src/auto_reddit/reddit/comments.py`: marcador de change en la cabecera del modulo
+
+### Resultado
+
+Cero cambios de comportamiento. Cero cambios en la interfaz publica de ningun modulo. La suite
+sigue en 395 tests pasando, 4 skipped. El codigo queda con el mismo significado funcional pero
+sin cargar con el historial de construccion como ruido de lectura.
+
+La trazabilidad del proceso de construccion sigue disponible donde le corresponde: en los
+artefactos de OpenSpec archivados, en `TFM/diario.md` y en el historial de git.
+
+---
+
+## Entrada 22
+
+**Fecha:** 30/03/2026
+
+### Change 13: reorganizacion de la arquitectura de informacion documental
+
+Se ejecuto el change `docs-information-architecture-cleanup`: una reorganizacion de la capa
+documental del repo para separar con claridad los documentos vigentes de los historicos y evitar
+que un lector nuevo confunda el registro del proceso de construccion con la verdad operativa actual.
+
+### El problema
+
+El repo habia acumulado capas documentales con distinta caducidad sin senalizarlas de forma
+consistente:
+
+- `docs/README.md` existia pero no actuaba como mapa del espacio documental
+- `docs/discovery/idea-inicial.md` y `docs/discovery/ideas.md` tenian avisos de supersesion
+  pero no indicaban con claridad su proposito actual
+- `TFM/guia-didactica-auto-reddit.md` no dejaba claro desde la primera linea que es material
+  didactico historico, no la fuente de verdad operativa
+- `README.md` raiz no enlazaba explicitamente al mapa documental
+
+Cuando un documento de proceso y un documento operativo coexisten sin separacion explicita,
+cualquier lector que llega al repo sin contexto previo tiene que inferir cual manda. Esa inferencia
+es costosa y propensa a error.
+
+### Que se hizo
+
+- `docs/README.md` fue reescrito como mapa canonico de cuatro carriles:
+  1. **Current Truth** — documentos vigentes que dicen como es el sistema hoy
+  2. **Planning & Archive** — artefactos SDD y changes archivados
+  3. **Didactic & Historical** — material pedagogico y registros del proceso de construccion
+  4. **Agent Context** — reglas operativas para agentes
+
+- `README.md` raiz recibio un enlace a `docs/README.md` para que el punto de entrada natural
+  del repo lleve al mapa documental en lugar de replicarlo
+
+- Tres documentos con rol ambiguo recibieron headers de proposito en su primera linea:
+  - `TFM/guia-didactica-auto-reddit.md`: header que lo identifica como material didactico e
+    historico, con referencia a `docs/README.md` como fuente de verdad operativa
+  - `docs/discovery/idea-inicial.md`: header que lo identifica como documento historico del
+    proceso de ideacion
+  - `docs/discovery/ideas.md`: header analogo al de `idea-inicial.md`
+
+### Dependencia con los changes anteriores
+
+Este change requeria que todos los changes funcionales y de hardening estuvieran cerrados.
+No tiene sentido reorganizar la arquitectura documental de un proyecto en construccion activa:
+cualquier change nuevo hubiera requerido actualizar el mapa otra vez.
+
+Al ser el ultimo change de la iniciativa, pudo hacerse con el mapa definitivo del repo, no con
+una fotografia provisional.
+
+### Resultado
+
+La arquitectura de informacion documental queda limpia y navegable. Un lector que llega al repo
+por primera vez puede distinguir desde la primera entrada al espacio documental que leer si
+quiere entender el sistema hoy, que leer si quiere entender como se construyo, y que es material
+de proceso o decision pasada.
+
+El repositorio queda completamente cerrado. Los trece changes de la iniciativa estan archivados.
+La suite sigue en 395 tests pasando, 4 skipped.
