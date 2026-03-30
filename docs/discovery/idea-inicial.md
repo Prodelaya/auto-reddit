@@ -1,3 +1,5 @@
+> **Instantánea histórica de ideación.** Este documento conserva el discovery inicial del proyecto. Varias decisiones aquí están superadas. La fuente de verdad vigente es [`docs/README.md`](../README.md).
+
 # Documento de Producto Definitivo
 
 > Aviso historico: este documento conserva el discovery inicial. Varias decisiones aqui ya estan superadas. La fuente de verdad vigente es `docs/product/product.md` y, para la integracion de Reddit, `docs/integrations/reddit/api-strategy.md`.

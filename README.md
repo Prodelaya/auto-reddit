@@ -16,6 +16,8 @@ El usuario principal es el equipo de marketing y contenido. La fuente de datos d
 
 La referencia operativa vigente para la integración con Reddit es `docs/integrations/reddit/api-strategy.md`.
 
+Mapa completo de documentación para maintainers: [`docs/README.md`](docs/README.md).
+
 ---
 
 ## Stack tecnológico

@@ -1,3 +1,5 @@
+> **Notas sueltas no promovidas.** Ideas en bruto que no han pasado a producto ni a planning. No son verdad vigente del proyecto. Ver [`docs/README.md`](../README.md) para la fuente de verdad actual.
+
 # 1
 
 > Nota historica: esta idea esta superada. El modelo vigente NO usa actividad por comentarios como criterio de ventana, NO mantiene backlog explicito y trabaja con posts de `r/Odoo` filtrados por fecha de creacion dentro de 7 dias. Ver `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`.

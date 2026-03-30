@@ -1,3 +1,6 @@
+> **Material didáctico e histórico.** Este documento narra cómo se construyó el sistema paso a paso y sirve como guía de aprendizaje. No es la fuente de verdad vigente del proyecto.
+> La verdad operativa actual vive en [`docs/README.md`](../docs/README.md).
+
 # Guia didactica de auto-reddit
 
 Esta es una guia viva. Se construye junto al proyecto y crece con cada implementacion que se va completando.
