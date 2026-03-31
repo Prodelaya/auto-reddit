@@ -1,1091 +1,563 @@
-> **Material didáctico e histórico.** Este documento narra cómo se construyó el sistema paso a paso y sirve como guía de aprendizaje. No es la fuente de verdad vigente del proyecto.
+> **Material didáctico e histórico.** Este documento narra cómo se construyó el sistema, explica su arquitectura en profundidad y sirve como guía de aprendizaje. No es la fuente de verdad operativa del proyecto.
 > La verdad operativa actual vive en [`docs/README.md`](../docs/README.md).
 
-# Guia didactica de auto-reddit
+# Guía didáctica de auto-reddit
 
-Esta es una guia viva. Se construye junto al proyecto y crece con cada implementacion que se va completando.
+Esta guía usa `auto-reddit` como hilo conductor para enseñar ingeniería de software. No es un manual de onboarding ni una descripción del producto. Es una guía de aprendizaje construida sobre un proyecto real y terminado.
 
-Su objetivo no es solo explicar `auto-reddit`. Su objetivo es que un junior que empiece a leerla, aunque nunca haya visto el repo, entienda al terminar por que se toman decisiones de arquitectura, como se planifica trabajo con criterio de ingenieria, que son los contratos y por que importan, como funciona el desarrollo asistido por IA de verdad y, de paso, como esta construido concretamente este sistema.
+Al terminar de leerla deberías ser capaz de:
 
-No es un manual de onboarding. Es una guia de aprendizaje que usa un proyecto real como hilo conductor.
-
-## Indice
-
-- [Agradecimientos y herramientas usadas](#agradecimientos-y-herramientas-usadas)
-- [0. Nota de honestidad](#0-nota-de-honestidad-sobre-esta-guia)
-- [1. Proposito y como leerla](#1-proposito-de-la-guia-y-como-leerla)
-- [2. Overview del proyecto](#2-overview-del-proyecto)
-- [3. Que problema resuelve y que no hace](#3-problema-que-resuelve-y-limites)
-- [4. Estado actual: scaffolding y madurez real](#4-estado-actual-scaffolding-y-madurez)
-- [5. Project map](#5-project-map)
-- [6. Glosario](#6-glosario)
-- [7. Arquitectura explicada para juniors](#7-arquitectura-explicada-para-juniors)
-- [8. Decisiones arquitectonicas con trade-offs](#8-decisiones-arquitectonicas-por-bloques-con-trade-offs)
-- [9. OpenSpec, SDD, skills, AGENTS, GitNexus, Engram y MCP](#9-openspec-sdd-skills-agentsmd-gitnexus-y-engram-como-encajan)
-- [10. Recorrido por carpetas y archivos Python](#10-recorrido-por-carpetas-y-archivos-python-relevantes)
-- [11. Flujos del sistema](#11-flujos-principales-del-sistema)
-- [12. Problemas, riesgos y mitigaciones](#12-problemas-riesgos-y-mitigaciones-conocidos)
-- [13. Learning notes para juniors](#13-learning-notes-para-juniors)
-- [14. Zonas pendientes o abiertas](#14-zonas-pendientes-o-incognitas)
-- [15. Cierre](#15-cierre-que-es-hoy-auto-reddit-de-verdad)
-- [16. Historial de changes](#16-historial-de-changes)
-- [17. Como mantener viva esta guia](#17-como-mantener-viva-esta-guia)
-
-La estructura separa cuatro capas que conviene no mezclar nunca: **producto**, **arquitectura**, **proceso y herramientas de trabajo**, e **implementacion real del momento**. Cada bloque tiene rotacion distinta: producto y arquitectura cambian poco; implementacion, riesgos y pendientes cambian con cada change. Cuando el proyecto crezca, añade en los bloques correspondientes; no abras una guia paralela.
-
-## Agradecimientos y herramientas usadas
-
-Este proyecto existe gracias a que hay gente que construye herramientas abiertas buenas y las documenta bien. Conviene nombrarlo, y conviene separarlo del producto, porque una cosa es `auto-reddit` y otra es el ecosistema con el que se piensa, documenta e implementa.
-
-### El ecosistema de trabajo
-
-Este proyecto no se construye con un editor y ganas. Se construye con un ecosistema pensado para trabajar con agentes de IA de forma disciplinada y reproducible. Conviene entenderlo porque, aunque ninguna de estas herramientas forma parte de `auto-reddit` como producto, todas condicionan como se piensa, como se documenta y como se implementa.
-
-**OpenCode en modo agentico**
-Es la interfaz desde la que el autor interactua con el repo y con los agentes. No es el agente en si; es el entorno que los orquesta. Piensalo como el IDE inteligente que coordina exploracion de codigo, edicion y memoria entre sesiones.
-
-**gentle-ai — el ecosistema que lo sostiene todo**
-`gentle-ai` ([github.com/Gentleman-Programming/gentle-ai](https://github.com/Gentleman-Programming/gentle-ai)) es un ecosistema de configuracion agentica creado por Gentleman Programming. Ofrece memoria persistente entre sesiones (Engram), soporte para skills, integracion con MCP y un workflow de desarrollo guiado por especificacion (SDD). Sustituye e integra lo que antes era Agent Teams Lite (ATL), que aparece referenciado en documentacion historica del proyecto como antecedente del mismo ecosistema.
-
-En este proyecto, gentle-ai actua como infraestructura del proceso: es lo que permite que un agente recuerde lo que decidio en una sesion anterior, cargue instrucciones especificas para cada tipo de tarea y siga un workflow disciplinado en lugar de improvisar.
-
-**Engram — memoria persistente**
-Engram es la pieza de memoria de gentle-ai. Sin ella, cada sesion del agente empieza desde cero: sin contexto de decisiones pasadas, sin saber que se debuggo ayer ni por que se descarto cierta alternativa. Con Engram, el agente puede recuperar ese contexto y seguir donde lo dejo. En este proyecto se usa para guardar decisiones tecnicas, hallazgos de investigacion, bugfixes importantes y resumen de sesiones.
-
-**GitNexus — inteligencia estructural del codigo**
-GitNexus ([github.com/abhigyanpatwari/GitNexus](https://github.com/abhigyanpatwari/GitNexus)) construye un grafo de conocimiento del codigo: simbolos, relaciones entre ellos, flujos de ejecucion y comunidades funcionales. En `auto-reddit` esta verificado en `AGENTS.md` y `.gitnexus/meta.json`, donde el indice registra 592 simbolos, 644 relaciones y 3 execution flows.
-
-Para que sirve en la practica: antes de modificar una funcion, puedes ver que otras partes del sistema dependen de ella. Antes de hacer un refactor, puedes saber el impacto real. Es la diferencia entre editar codigo a ciegas y editarlo con mapa.
-
-**Skills globales y skills locales**
-Una skill es un paquete de instrucciones especializadas para un agente. Le dice como debe abordar un tipo de tarea concreto: como explorar codigo, como implementar segun las convenciones del proyecto, como integrar con DeepSeek, como desplegar con Docker.
-
-Las skills globales pertenecen al entorno del agente y son reutilizables en cualquier proyecto. Las skills locales viven en `skills/` dentro del repo y expresan las convenciones especificas de `auto-reddit`. Un agente que llega nuevo al proyecto carga las locales y sabe inmediatamente como debe trabajar aqui.
-
-Esta separacion tiene valor arquitectonico: el repo no le exige al mundo que comparta el mismo entorno, pero tampoco deja sus propias reglas en la cabeza del autor.
-
-**`product-discovery` y `skill-creator`**
-`product-discovery` es una skill global que ayuda a definir bien un brief de producto antes de empezar a planificar implementacion. Sirve para hacer las preguntas correctas antes de comprometerse con una arquitectura. El autor la uso para trabajar la definicion inicial del sistema.
-
-`skill-creator` es la skill que permite formalizar nuevas skills siguiendo una estructura y un contrato comunes. El autor declara que `product-discovery` fue creada con su ayuda; ese dato habla del nivel de madurez del ecosistema: las propias herramientas de trabajo se documentan con el mismo rigor que el producto.
-
-### Los modelos que el autor usa como herramientas
-
-El autor trabaja con varios modelos segun la fase: `GPT` para ciertos tipos de analisis y debate, `Claude Sonnet` y `Claude Opus` para implementacion y razonamiento tecnico complejo, `Gemini Pro` para otras tareas del flujo. La combinacion exacta varia por fase y tipo de tarea.
-
-Es util entenderlo como flujo de trabajo declarado por el autor, no como dependencia tecnica de `auto-reddit`. El producto no necesita saber que modelo lo construyo para funcionar. Pero el desarrollador que quiera reproducir este proceso si tiene que saber que la calidad del resultado depende tanto de las herramientas de apoyo como del criterio de quien las dirige.
-
-## 0. Nota de honestidad sobre esta guia
-
-Esta guia se construye leyendo el codigo, la documentacion operativa, los artefactos OpenSpec, las notas del TFM ya existentes y la memoria contextual acumulada del proyecto en Engram. No pretende ser perfecta ni completa desde el primer dia: es un documento vivo que mejora con cada iteracion del proyecto.
-
-Cuando algo en esta guia no ha podido verificarse directamente desde el repo o desde fuentes publicas, se indica de forma explicita. No encontraras afirmaciones presentadas como hechos cuando son hipotesis, ni tooling del autor confundido con funcionalidad del producto.
-
-El indice GitNexus del repo, verificable en `.gitnexus/meta.json`, registra a fecha de esta revision 592 simbolos, 644 relaciones y 3 execution flows. Ese dato da una idea concreta del tamano estructural del proyecto en este momento.
+- entender cómo se lee y navega un proyecto desconocido con criterio
+- distinguir producto, arquitectura, contratos, implementación y tooling
+- comprender cómo fluyen los datos por un sistema en capas
+- ver qué decisiones de diseño importan y por qué
+- leer tests y entender qué nos dicen del diseño
+- reconocer trade-offs reales en lugar de respuestas genéricas
+- entender cómo se trabaja con IA de forma disciplinada en un proyecto real
 
 ---
 
-## 1. Proposito de la guia y como leerla
+## Índice
 
-### Que pretende este documento
-
-Esta guia usa `auto-reddit` como excusa para ensenar. El proyecto es el hilo conductor, no el objetivo final.
-
-Al terminar de leerla deberas ser capaz de:
-
-- entender por que la arquitectura de software se diseña antes de codificar
-- distinguir entre un contrato, una interfaz, un servicio y un adaptador, con ejemplos reales
-- saber que es SDD, OpenSpec y por que importan mas de lo que parecen al principio
-- entender como se trabaja con agentes de IA de forma disciplinada, no caotica
-- leer un proyecto desconocido y saber que preguntas hacerte antes de tocar nada
-- reconocer la diferencia entre madurez documental y madurez de implementacion
-- entender que problema resuelve `auto-reddit`, como esta pensado y que le falta aun
-
-No necesitas experiencia previa en el proyecto. Si necesitas curiosidad y ganas de entender el porqué de las cosas.
-
-### Como leerla si eres junior
-
-La mejor forma de leerla es esta:
-
-1. Empieza por las secciones 2, 3 y 7 para entender el problema y la forma del sistema
-2. Ve a la seccion 8 para ver como se toman decisiones de arquitectura con trade-offs reales
-3. Estudia la seccion 9 para entender que son OpenSpec, SDD, skills, AGENTS, GitNexus y Engram, y como encajan
-4. Recorre la seccion 10 para ver cada carpeta y archivo con su rol y su razon de existir
-5. Termina con las secciones 12, 13 y 14: riesgos reales, lecciones directas y zonas abiertas
-
-No hace falta leerla de una sentada. Cada seccion funciona de forma relativamente independiente.
-
-### Idea fuerza
-
-La frase que mejor resume el proyecto esta en `README.md`: la IA propone y el humano decide. Ese principio NO es marketing. Es un limite arquitectonico y de producto.
-
-### Como esta organizada para crecer
-
-La guia intenta no mezclar cuatro niveles que en proyectos con agentes se pisan enseguida:
-
-1. producto (`docs/product/`)
-2. arquitectura (`docs/architecture.md`, `docs/integrations/`)
-3. proceso y herramientas de trabajo (`openspec/`, `AGENTS.md`, skills, GitNexus, Engram)
-4. implementacion real del momento (`src/`, `tests/`, `scripts/`)
-
-Si en futuras iteraciones aparece una nueva implementacion, un nuevo change SDD o una nueva herramienta, la regla es meter cada novedad en su nivel correspondiente y no contaminar los demas. Esa disciplina es la que permite que esta guia siga viva en lugar de convertirse en un diario caotico.
+1. [Propósito de esta guía y cómo leerla](#1-propósito-de-esta-guía-y-cómo-leerla)
+2. [Qué es este proyecto en una frase](#2-qué-es-este-proyecto-en-una-frase)
+3. [Qué problema resuelve y qué no hace](#3-qué-problema-resuelve-y-qué-no-hace)
+4. [Visión global del sistema](#4-visión-global-del-sistema)
+5. [Flujo completo end-to-end](#5-flujo-completo-end-to-end)
+6. [Arquitectura por capas](#6-arquitectura-por-capas)
+7. [Cómo está organizado el repositorio](#7-cómo-está-organizado-el-repositorio)
+8. [Ruta recomendada de lectura del código](#8-ruta-recomendada-de-lectura-del-código)
+9. [Explicación carpeta por carpeta](#9-explicación-carpeta-por-carpeta)
+10. [Módulos clave: explicación en profundidad](#10-módulos-clave-explicación-en-profundidad)
+11. [Contratos, tipos y validaciones](#11-contratos-tipos-y-validaciones)
+12. [Dependencias externas y por qué están ahí](#12-dependencias-externas-y-por-qué-están-ahí)
+13. [Manejo de errores, retries y robustez](#13-manejo-de-errores-retries-y-robustez)
+14. [Persistencia y estado](#14-persistencia-y-estado)
+15. [Integraciones externas](#15-integraciones-externas)
+16. [Tests: qué cubren y qué enseñan del diseño](#16-tests-qué-cubren-y-qué-enseñan-del-diseño)
+17. [Decisiones de diseño y trade-offs](#17-decisiones-de-diseño-y-trade-offs)
+18. [Qué enseña este proyecto sobre desarrollo con IA](#18-qué-enseña-este-proyecto-sobre-desarrollo-con-ia)
+19. [Errores de lectura comunes en juniors](#19-errores-de-lectura-comunes-en-juniors)
+20. [Evolución histórica del proyecto](#20-evolución-histórica-del-proyecto)
+21. [Glosario técnico](#21-glosario-técnico)
+22. [Changelog editorial de esta guía](#22-changelog-editorial-de-esta-guía)
 
 ---
 
-## 2. Overview del proyecto
+## 1. Propósito de esta guía y cómo leerla
 
-`auto-reddit` es un sistema pensado para detectar cada dia oportunidades de participacion en Reddit alrededor de Odoo y entregarlas por Telegram a un equipo humano de marketing y contenido.
+### Para qué sirve
 
-La vision operativa actual, verificable en `README.md`, `docs/product/product.md` y `docs/architecture.md`, es esta:
+Esta guía no describe el producto. Lo usa para enseñar.
 
-- fuente inicial: `r/Odoo`
-- ventana temporal: ultimos 7 dias por fecha de creacion
-- recorte downstream actual: hasta 8 candidatos revisados al dia laborable
-- limite de envio: hasta 8 oportunidades al dia laborable
-- entrega: Telegram
-- publicacion final: manual, nunca automatica
+El objetivo es que un desarrollador junior, sin conocer el repo de antemano, pueda:
 
-### En una frase para juniors
+- entender la arquitectura real del sistema
+- saber en qué orden leer el código y por qué
+- comprender qué decide cada módulo y qué no
+- aprender a leer decisiones de diseño en el código real
+- ver cómo se conectan las capas, los contratos y los tests
 
-No es un bot que publica. Es un sistema de vigilancia y preparacion de oportunidades.
+### Cómo leerla si eres junior
 
-### En una frase para arquitectos
+No hace falta leerla de una vez. La estructura está pensada para avanzar de afuera hacia adentro:
 
-Es un monolito modular Python orientado a pipeline diario efimero, con contratos Pydantic, estado minimo SQLite previsto, integracion multi-provider para Reddit y evaluacion IA diferida antes de entrega humana.
+1. Secciones 2, 3 y 4: entiende el problema y la forma general del sistema antes de ver código
+2. Secciones 5 y 6: entiende el flujo y las capas antes de ver archivos
+3. Secciones 7, 8 y 9: aprende a navegar el repo con criterio
+4. Sección 10: entra en profundidad en los módulos más importantes
+5. Secciones 11-16: entiende los mecanismos transversales (contratos, errores, tests, persistencia)
+6. Secciones 17 y 18: aprende del diseño y del proceso
+7. Secciones 19 y 21: errores comunes y glosario técnico de referencia
+
+### Una advertencia importante
+
+No confundas complejidad aparente con complejidad real. El repo tiene muchas carpetas y documentación extensa, pero el sistema en sí es un pipeline de cinco pasos. Cuando entiendas esos cinco pasos, todo lo demás encaja.
 
 ---
 
-## 3. Problema que resuelve y limites
+## 2. Qué es este proyecto en una frase
+
+`auto-reddit` es un sistema que cada día laborable recoge posts recientes de `r/Odoo`, filtra los ya procesados, pide a una IA que evalúe cuáles merecen respuesta y entrega los resultados al equipo humano por Telegram.
+
+Nunca publica en Reddit. La IA propone; el humano decide.
+
+### En una frase
+
+No es un bot que publica. Es un sistema de vigilancia y preparación de oportunidades.
+
+---
+
+## 3. Qué problema resuelve y qué no hace
 
 ### El problema real
 
-Seguir Reddit a mano para detectar conversaciones donde una empresa experta en Odoo podria aportar valor consume tiempo, depende mucho del criterio humano y cuesta repetirlo con disciplina cada dia.
+Monitorizar Reddit a mano para detectar conversaciones donde una empresa experta en Odoo podría aportar valor es repetitivo, consume tiempo, depende del criterio de quién lo haga ese día y es difícil de hacer con disciplina todos los días.
 
-El proyecto intenta reducir ese coste con un flujo como este:
+El proyecto resuelve exactamente eso: automatizar la detección y la preparación, dejando la decisión editorial y la publicación en manos humanas.
 
-1. detectar posts recientes relevantes
-2. filtrar candidatos elegibles
-3. enriquecer con contexto del hilo
-4. pedir a la IA una evaluacion y una respuesta sugerida
-5. entregar el resultado al equipo humano por Telegram
+### Lo que sí hace
 
-### Lo que SI hace el producto
+- Vigila `r/Odoo` dentro de una ventana configurable (por defecto 7 días)
+- Filtra posts ya procesados con anterioridad para no repetir trabajo
+- Evalúa con IA si un post merece respuesta y genera un borrador en dos idiomas
+- Entrega los resultados por Telegram con reintentos y priorización inteligente
+- Emite un resumen diario aunque no haya oportunidades ese día
+- Persiste el estado para garantizar unicidad entre ejecuciones
 
-- vigilar `r/Odoo`
-- priorizar por recencia
-- usar IA para ayudar a decidir si merece intervenir
-- redactar borradores para revision humana
-- evitar, a futuro, reenviar o reevaluar cosas ya decididas
+### Lo que no hace
 
-### Lo que NO hace
+- No publica en Reddit de forma autónoma
+- No sustituye el criterio editorial humano
+- No es un sistema de social listening multi-red ni multi-subreddit
+- No tiene backlog editorial ni interfaz de gestión
+- No opera en fin de semana (hay un guard explícito en el código)
 
-- no publica autonomamente en Reddit
-- no sustituye criterio editorial humano
-- no es un sistema general de social listening multi-red ni multi-subreddit
-- no tiene historico largo como feature principal
-- no tiene backlog editorial formal en la version vigente
+### Límites funcionales concretos
 
-### Limites funcionales actuales
+El flujo está ajustado a cuotas de APIs gratuitas:
 
-Segun `docs/product/product.md` y `docs/integrations/reddit/api-strategy.md`:
+- hasta 8 candidatos evaluados por día (`daily_review_limit`)
+- hasta 8 oportunidades entregadas por día (`max_daily_opportunities`)
+- los comentarios no se recogen durante la fase de colección; solo para los posts ya seleccionados aguas arriba
+- el caso "post antiguo con actividad reciente" está fuera del alcance actual
 
-- el caso `old but alive` queda fuera de alcance
-- el sistema se limita a dias laborables
-- los comentarios no forman parte de la coleccion inicial; se recuperan despues, solo para posts ya seleccionados aguas arriba
-- el flujo gratuito esta tensionado por cuotas, por eso el cap actual baja a 8/8
+Estos límites no son arbitrarios. Están documentados en `docs/integrations/reddit/api-strategy.md` con el análisis de cuota que los justifica.
 
 ---
 
-## 4. Estado actual, scaffolding y madurez
+## 4. Visión global del sistema
 
-Esta es probablemente la parte mas importante para no enganarte.
+### El mapa mental antes de ver código
 
-### Estado real del repo — actualizado 2026-03-30 (pipeline + integracion + smoke + hardening + CI + alineacion semantica + limpieza de artefactos historicos completos)
-
-Los trece changes estan **completados y archivados**. El pipeline es funcional de extremo a extremo, con cobertura de integracion operacional, smoke tests live verificados contra Reddit y Telegram reales, hardening del contrato de despliegue, CI automatico en GitHub Actions, limpieza de marcadores historicos de construccion en codigo activo y reorganizacion de la arquitectura de informacion documental.
-
-La base ejecutable incluye:
-
-- trece contratos Pydantic en `shared/contracts.py` cubriendo todo el pipeline
-- cliente Reddit con fallback chain para posts y comentarios
-- guard de fin de semana en `main.py`: el pipeline no se ejecuta en sabado ni domingo
-- `review_window_days` gobernando de verdad la ventana de coleccion en `client.py`
-- `max_daily_opportunities` como unico cap del pipeline (eliminado `max_daily_deliveries`)
-- resumen diario Telegram emitido en todo run laborable, incluyendo dias con 0 oportunidades
-- `CandidateStore` SQLite con modelo de estados y purga de TTL
-- evaluador IA con system prompt de dos fases, retry y validacion Pydantic estricta
-- modulo `delivery/` con selector determinista, renderer HTML y cliente Telegram
-- `main.py` con los cinco pasos del pipeline activos
-- 395 tests: 50 + 20 + 37 + 56 + 96 + 11 + 3 + 25 (runtime governance) + 22 (CI workflow) + 4 (conftest + correcciones) + 6 (settings semantic alignment)
-- `.env.example` con `DB_PATH=/data/auto_reddit.db` explicitamente configurado
-- `docker-compose.yml` con `environment: DB_PATH=/data/auto_reddit.db` como safety net
-- `.github/workflows/ci.yml` ejecutando la suite completa en cada push y PR a `main`
-- `tests/conftest.py` con defaults dummy para CI sin `.env`
-- `tests/test_ci_workflow.py` con 22 tests automatizados del workflow
-- once specs canonicas en `openspec/specs/`
-
-### Que esta maduro
-
-- producto definido en `docs/product/product.md`
-- reglas editoriales de IA en `docs/product/ai-style.md` con modelo recomendado
-- arquitectura modular documentada y validada en trece changes completos
-- los trece changes archivados con specs canonicas y trazabilidad completa
-- cobertura de tests unitarios + integracion operacional + smoke live
-- runtime governance: los settings `review_window_days` y `max_daily_opportunities` gobiernan el runtime de verdad
-- contrato de settings documentado con distinción explícita pre-IA / post-IA: `daily_review_limit` (cap antes de evaluación) vs `max_daily_opportunities` (cap después de evaluación)
-- guard de fin de semana operativo en `main.py`
-- contrato de despliegue cerrado: `DB_PATH` correcto en `docker-compose.yml` y `.env.example`
-- CI activo en GitHub Actions: validacion automatica en cada push y PR a `main`
-- `.env.example` como contrato publico de configuracion
-- skilling del repo y normas operativas consolidadas
-
-### Que sigue scaffolded
-
-Nada del pipeline ni del hardening operativo. Lo que queda como trabajo potencial futuro: observabilidad operativa avanzada, expansion a otros subreddits o fuentes, seccion de Execution Contract en `docs/architecture.md`.
-
-### Nivel de madurez por capas
-
-| Capa | Madurez | Comentario docente |
-|---|---|---|
-| Producto | Alta | Que, para que y limites bien cerrados. |
-| Arquitectura | Alta | Validada en diez changes completos. |
-| Contratos / shared | Alta | Trece contratos cubriendo todo el pipeline. |
-| Integracion Reddit | Alta | Posts, comentarios, fallback chain y smoke live verificado. |
-| Persistencia | Alta | `CandidateStore` con modelo de estados, TTL y 20 tests. |
-| IA / evaluacion | Alta | Evaluador completo con prompt de dos fases, retry y 56 tests. |
-| Delivery Telegram | Alta | Selector, renderer, cliente, 96 tests y smoke live verificado. |
-| Runtime governance | Alta | Guard de fin de semana, `review_window_days` y `max_daily_opportunities` activos. |
-| Testing | Alta | 395 tests: unitarios + integracion + smoke live + governance + CI workflow + documentales. |
-| Despliegue Docker | Alta | Contrato de DB_PATH cerrado en docker-compose y `.env.example`. |
-| CI | Alta | GitHub Actions activo: suite completa en cada push y PR a `main`. |
-
-### Lectura correcta de la madurez
-
-El sistema es funcionalmente completo y tiene cinco capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, smoke tests live contra las APIs reales, CI automatico en GitHub Actions, y tests documentales que verifican la coherencia del contrato de settings entre artefactos. Los settings operativos gobiernan el runtime de verdad y su contrato semantico esta documentado con distincion explicita entre cap pre-evaluacion IA y cap post-evaluacion IA. El codigo activo esta libre de marcadores historicos de construccion y la arquitectura documental tiene separacion explicita entre documentos vigentes, historicos y de proceso. Lo que no tiene aun es observabilidad avanzada en produccion.
-
----
-
-## 5. Project map
-
-### Mapa corto
-
-```text
-auto-reddit/
-|- src/auto_reddit/
-|   |- shared/contracts.py             13 contratos Pydantic — todo el pipeline
-|   |- reddit/client.py                Fallback chain posts + review_window_days — changes 1, 8
-|   |- reddit/comments.py             Fallback chain comentarios + ContextQuality — change 3
-|   |- persistence/store.py            CandidateStore SQLite + purge_expired — changes 2 y 5
-|   |- evaluation/evaluator.py         Evaluador IA DeepSeek con prompt 2 fases — change 4
-|   |- evaluation/__init__.py          Expone evaluate_batch
-|   |- delivery/selector.py            Seleccion determinista con TTL y retry-first — change 5
-|   |- delivery/renderer.py            Renderizado HTML para Telegram + 0-oportunidades — changes 5, 8
-|   |- delivery/telegram.py            Cliente Bot API Telegram — change 5
-|   |- delivery/__init__.py            Orquesta deliver_daily + resumen incondicional — changes 5, 8
-|   |- main.py                         Pipeline completo: 5 pasos activos + guard fin de semana — changes 1-5, 8
-|   |- config/settings.py              Configuracion, extra="ignore", max_daily_opportunities unico cap — changes 2, 7, 8
-|- tests/
-|   |- test_reddit/                    87 tests (changes 1 y 3) + TestReviewWindowDays (change 8)
-|   |- test_persistence/               20 tests — change 2
-|   |- test_evaluation/                56 tests — change 4
-|   |- test_delivery/                  96 tests (change 5) + TestDeliveryCapFromMaxDailyOpportunities, TestZeroOpportunitySummary (change 8)
-|   |- test_main.py                    TestWeekendGuard — change 8
-|   |- test_ci_workflow.py             22 tests del workflow de CI — change 10
-|   |- conftest.py                     Defaults dummy para coleccion en CI sin .env — change 10
-|   |- test_settings_govern_runtime.py  6 tests documentales del contrato de settings — change 11
-|   |- test_integration/               11 tests (smoke Reddit) + 3 smoke Telegram — changes 6 y 7
-|- .env.example                        Contrato publico de configuracion + DB_PATH descomentado
-|- docker-compose.yml                  Modelo efimero + environment: DB_PATH=/data/auto_reddit.db — change 9
-|- .github/
-|   |- workflows/
-|   |   |- ci.yml                      GitHub Actions: push/PR a main → uv sync + pytest — change 10
-|- docs/                               Fuente de verdad funcional y tecnica
-|- openspec/
-|   |- specs/                          Specs canonicas (fuente de verdad permanente)
-|   |   |- reddit-candidate-collection/spec.md
-|   |   |- candidate-memory/spec.md
-|   |   |- thread-context-extraction/spec.md
-|   |   |- ai-opportunity-evaluation/spec.md
-|   |   |- telegram-daily-delivery/spec.md   (actualizado con resumen incondicional)
-|   |   |- operational-integration-tests/spec.md  (actualizado con smoke Telegram)
-|   |   |- daily-runtime-governance/spec.md  (nueva — change 8; actualizada — change 11)
-|   |   |- repository-ci/spec.md             (nueva — change 10)
-|   |- changes/archive/                Todos los changes archivados
-|   |   |- 2026-03-27-reddit-candidate-collection/
-|   |   |- 2026-03-27-candidate-memory-and-uniqueness/
-|   |   |- 2026-03-28-thread-context-extraction/
-|   |   |- 2026-03-28-ai-opportunity-evaluation/
-|   |   |- 2026-03-28-telegram-daily-delivery/
-|   |   |- 2026-03-28-operational-integration-tests/
-|   |   |- 2026-03-28-telegram-smoke-tests/
-|   |   |- 2026-03-29-runtime-documented-truth-alignment/
-|   |   |- 2026-03-29-environment-persistence-execution-hardening/
-|   |   |- 2026-03-29-minimum-ci-baseline/
-|   |   |- 2026-03-30-settings-govern-runtime/
-|   |   |- 2026-03-30-connect-or-remove-half-landed-logic/
-|   |   |- 2026-03-30-docs-information-architecture-cleanup/
-|- skills/                             Skills locales del repo
-|- scripts/                            Tooling de investigacion, no flujo de producto
-|- TFM/                                Documentacion academica
-|- AGENTS.md / CLAUDE.md               Reglas operativas para agentes
-```
-
-### Mapa semantico
-
-No pienses el repo por carpetas. Piensalo por capas:
-
-1. `docs/` dice que producto y arquitectura queremos
-2. `openspec/` dice como descomponemos e implementamos ese camino
-3. `skills/` y `AGENTS.md` dicen como deben trabajar los agentes en este repo
-4. `scripts/` ayuda a reducir incertidumbre tecnica antes de codificar
-5. `src/auto_reddit/` sera la realizacion del sistema cuando los changes se implementen
-
-### Mapa de verdad documental
-
-| Pregunta | Documento fuente |
-|---|---|
-| Que problema resuelve el producto | `docs/product/product.md` |
-| Como debe comportarse la IA | `docs/product/ai-style.md` |
-| Como se organiza el sistema | `docs/architecture.md` |
-| Que APIs de Reddit usar y con que fallback | `docs/integrations/reddit/api-strategy.md` |
-| Como se esta planificando el trabajo | `openspec/` |
-| Como deben trabajar los agentes | `AGENTS.md`, `CLAUDE.md`, `skills/` |
-
----
-
-## 6. Glosario
-
-### Conceptos de negocio
-
-- `oportunidad`: post donde tiene sentido que el equipo humano considere intervenir
-- `candidato`: post normalizado que aun no ha sido evaluado como oportunidad
-- `hilo resuelto o cerrado`: conversacion donde intervenir ya no aporta valor real
-- `recencia`: prioridad por fecha de creacion del post, no por ultima actividad
-
-### Conceptos tecnicos
-
-- `monolito modular`: una sola aplicacion con modulos bien separados, sin microservicios
-- `contrato`: estructura de datos compartida entre modulos; en este repo es `RedditCandidate` en `shared/contracts.py`
-- `DTO/modelo de transferencia`: objeto orientado a mover datos entre capas
-- `fallback chain`: cadena ordenada de proveedores; si el primero falla se intenta el siguiente (`reddit3 → reddit34 → reddapi`)
-- `normalizer`: funcion que transforma la respuesta heterogenea de una API externa al contrato propio del sistema
-- `cursor`: token opaco que una API devuelve para indicar el punto de inicio de la pagina siguiente; cada provider de Reddit usa un campo distinto
-- `is_complete`: campo computado de `RedditCandidate` que indica si el candidato tiene todos los campos minimos del contrato; los incompletos se conservan pero se marcan
-- `idempotencia`: propiedad de una operacion que produce el mismo resultado si se ejecuta varias veces; en este sistema se logra con persistencia de estados (`sent`, `rejected`)
-- `TTL`: tiempo de vida de un registro; aqui se piensa como `created_at + 7 dias`
-- `scaffolding`: estructura inicial preparada pero aun sin implementacion real
-- `blast radius`: conjunto de simbolos y modulos que se ven afectados cuando cambias uno concreto; se mide con `gitnexus_impact`
-- `decision final`: estado que no puede revertirse en el modelo de negocio; aqui `sent` y `rejected` son finales; el post no vuelve a entrar al pipeline
-- `estado transitorio`: estado operativo temporal que puede evolucionar; `pending_delivery` es transitorio porque representa "la IA dijo si, Telegram aun no confirma"
-- `upsert`: operacion de base de datos que inserta si no existe o actualiza si ya existe; evita duplicados sin necesidad de consultar antes de escribir
-- `idempotencia de reintentos`: capacidad de reintentar una operacion sin efectos secundarios adicionales; en este sistema, reintentar Telegram no re-evalua la IA porque `pending_delivery` guarda el resultado anterior
-- `ContextQuality`: enum que indica la riqueza del contexto de hilo extraido segun el proveedor; `full` (reddit34 con arbol y timestamps), `partial` (reddit3 sin metadatos de anidamiento), `degraded` (reddapi solo top comments y plano)
-- `ThreadContext`: contrato que empaqueta candidato original, lista de comentarios normalizados, calidad y proveedor; es la salida del change 3 y la entrada del change 4
-- `depth / parent_id`: metadatos de anidamiento en un hilo de comentarios; reddit34 los expone, reddit3 no los incluye en sus campos (su arbol se recorre via `replies[]` pero no hay valor directo), reddapi no los tiene
-- `structured output`: respuesta de un modelo de lenguaje forzada a cumplir un esquema JSON; en este proyecto DeepSeek devuelve un JSON validado por `AIRawResponse` — si no pasa Pydantic, el post se salta sin abortar el batch
-- `dos fases en el prompt`: patron de diseno de prompts donde el modelo primero DECIDE (acepta/rechaza) y luego GENERA contenido; evita que la IA escriba una respuesta plausible y luego racionalice la aceptacion
-- `prompt cacheado`: system prompt estatico que los modelos modernos pueden mantener en cache de prefijo para reducir latencia y coste; en este proyecto `_build_system_prompt()` devuelve siempre el mismo string
-- `retry con tenacity`: libreria de Python para reintentos declarativos con decoradores; `@retry(stop=stop_after_attempt(3), wait=wait_exponential(...))` es mas limpio y testeable que un bucle manual
-- `union discriminada (EvaluationResult)`: tipo que puede ser `AcceptedOpportunity` o `RejectedPost`; el caller usa `isinstance()` para saber cual recibio, sin castings inseguros
-- `retry-first selection`: politica de priorizacion en el selector de entregas; los registros que ya tuvieron un intento fallido de entrega se seleccionan antes que los nuevos dentro del cap diario; maximiza la probabilidad de que una oportunidad evaluada llegue al equipo
-- `sent solo tras confirmacion`: el estado `sent` no se escribe en SQLite hasta que Telegram confirma la entrega; un fallo de red no produce un post marcado como enviado sin haberlo entregado
-- `resumen no bloqueante`: el mensaje de resumen diario (fecha, posts revisados, oportunidades detectadas) se envia al final; si falla, las entregas individuales ya estan hechas y no se deshacen
-- `TTL de entrega`: tiempo maximo de vida de un registro `pending_delivery`; en este sistema son 7 dias desde `decided_at`; pasado ese tiempo el post ya no es editorialmente relevante y se purga
-- `test de integracion operacional`: test que prueba el comportamiento del sistema como orquestador, no de un modulo aislado; usa SQLite real y mocks de I/O externo para verificar que las fases no interfieren entre si y que el estado persiste correctamente entre ejecuciones
-- `boundary isolation test`: test que verifica que una fase del pipeline no llama a otra fase que no le corresponde; usa un sentinel que lanza `AssertionError` si se invoca; si el test pasa, el boundary se respeto
-- `env-gated test`: test que se salta automaticamente si no existe una variable de entorno especifica; util para smoke tests contra APIs reales que no deben ejecutarse en CI normal; ojo: `os.getenv()` solo ve variables ya presentes en el proceso, no lee `.env` automaticamente — hay que llamar a `load_dotenv()` explicitamente para ejecucion local
-- `parche en namespace del caller`: tecnica de mocking en Python; los patches deben aplicarse en el modulo donde se usa el nombre importado, no donde esta definido; si `main.py` importa `evaluate_batch`, el patch va en `auto_reddit.main.evaluate_batch`, no en `auto_reddit.evaluation.evaluator`
-- `smoke test live`: test que llama a una API o servicio externo real para verificar que la integracion funciona de extremo a extremo; en este proyecto Reddit y Telegram tienen smoke tests gated que solo se ejecutan cuando existen credenciales dedicadas en `.env`
-- `credenciales dedicadas para smoke`: el smoke de Telegram usa `TELEGRAM_SMOKE_BOT_TOKEN` / `TELEGRAM_SMOKE_CHAT_ID` y no hace fallback a las de produccion; mezclar ambos enviaria mensajes reales al canal del equipo; el riesgo es asimetrico
-- `extra="ignore" en pydantic-settings`: configuracion que permite variables adicionales en `.env` sin que el modelo `Settings` falle; necesario cuando `.env` contiene variables de smoke que `Settings` no declara
-- `.env.example`: fichero rastreado en git que documenta todas las variables de entorno del proyecto con comentarios; es el contrato publico de configuracion; `.env` con credenciales reales sigue ignorado en `.gitignore`
-- `knob decorativo`: setting que existe en `Settings` y en `.env.example` pero cuyo valor no llega a gobernar el runtime porque el codigo usa una constante hard-codeada en lugar de leerlo; `review_window_days` era un ejemplo hasta el change 8
-- `runtime governance`: alineacion entre los settings declarados y el comportamiento observable del sistema; un setting que gobierna de verdad el runtime cambia el comportamiento cuando se cambia su valor
-- `weekend guard`: logica que protege la ejecucion del pipeline de dias no laborables; en este sistema vive en `main.py:run()` y hace `return` antes de cualquier side effect si `datetime.date.today().weekday() >= 5`
-- `split truth`: situacion en que dos settings distintos (p.ej. `max_daily_deliveries` y `max_daily_opportunities`) controlan el mismo concepto con el mismo valor default; es una trampa de mantenimiento porque una futura actualizacion del uno no actualiza automaticamente el otro
-- `contrato de despliegue`: conjunto de valores de configuracion necesarios para que el sistema funcione correctamente en produccion; en este proyecto incluye obligatoriamente `DB_PATH=/data/auto_reddit.db` al desplegar con Docker
-- `gap silencioso de configuracion`: error de configuracion que no produce error ni advertencia pero altera el comportamiento; `DB_PATH` apuntando a la capa del contenedor en lugar del volumen es un ejemplo canonico
-- `CI baseline`: primer paso de CI automatizado; en este proyecto es el workflow de GitHub Actions que ejecuta `uv run pytest tests/ -x --tb=short` en cada push y PR a `main`
-- `uv sync --extra dev vs --dev`: `--extra dev` instala las dependencias bajo `[project.optional-dependencies].dev` en `pyproject.toml`; `--dev` instala las de `[dependency-groups]`; en este proyecto las deps de test estan bajo optional-dependencies, por lo que el flag correcto es `--extra dev`
-- `conftest.py como bootstrap de CI`: fichero de pytest que configura el entorno antes de la coleccion; en este proyecto establece defaults dummy para las cuatro variables obligatorias de `Settings` para que la coleccion no falle en CI donde no existe `.env`
-
-### Conceptos de proceso
-
-- `OpenSpec`: sistema de artefactos de planificacion en ficheros
-- `SDD`: Spec-Driven Development, desarrollo guiado por especificacion
-- `change`: slice vertical de trabajo dentro de OpenSpec
-- `skill`: paquete de instrucciones especializadas para un agente
-- `Engram`: memoria persistente entre sesiones
-- `GitNexus`: capa de inteligencia estructural del codigo basada en grafo
-
----
-
-## 7. Arquitectura explicada para juniors
-
-### La idea base
-
-Imagina una cocina profesional.
-
-- un puesto recoge ingredientes
-- otro decide si merecen entrar en el menu
-- otro prepara el emplatado
-- otro registra que ya se ha servido
-- y un jefe de cocina coordina todo
-
-Eso es exactamente lo que intenta hacer `auto-reddit`.
-
-### Por que no meter todo en un solo archivo
-
-Porque mezclar extraccion Reddit, evaluacion IA, persistencia y entrega Telegram en el mismo modulo crea acoplamiento y vuelve muy caro cambiar cualquier parte.
-
-En este repo se decide lo contrario: separar responsabilidades desde el principio.
-
-### Los bloques de la arquitectura
-
-#### `reddit/`
-
-Es la puerta de entrada de datos externos. Su trabajo no es decidir si un post merece respuesta. Su trabajo es traer posts y comentarios y normalizarlos.
-
-#### `evaluation/`
-
-Es la capa de juicio asistido por IA. Recibe candidatos ya limpios y devuelve una decision estructurada.
-
-#### `delivery/`
-
-Es la capa de salida. Convierte resultados evaluados en mensajes Telegram.
-
-#### `persistence/`
-
-Es la memoria operativa minima. Sirve para recordar que ya se envio o que ya se descarto un post.
-
-#### `shared/`
-
-Es el sitio donde viven los contratos comunes. Esto evita que cada modulo invente su propia forma de representar un post o una evaluacion.
-
-#### `config/`
-
-Carga settings y secretos. Su objetivo es fallar rapido si falta algo critico.
-
-#### `main.py`
-
-Es el director de orquesta. No deberia contener la logica de negocio fina. Solo deberia coordinar pasos.
-
-### Regla de oro del repo
-
-La arquitectura documentada insiste en esto: ningun modulo importa a otro modulo directamente. Todos hablan a traves de `shared/` y `config/`, y `main.py` los conecta.
-
-### Por que esta regla es buena
-
-Porque si `evaluation/` dependiera internamente de detalles de `reddit/`, cada cambio en Reddit romperia la evaluacion. Con contratos, cada modulo depende del idioma comun, no de la implementacion del vecino.
-
-### Modelo operativo: contenedor efimero
-
-El sistema no se piensa como un servidor vivo 24/7. Se piensa como un trabajo diario:
-
-1. arranca
-2. ejecuta el pipeline
-3. envia resultados
-4. termina
-
-Eso simplifica mucho:
-
-- menos complejidad de infraestructura
-- menos estado vivo
-- menos problemas de procesos colgados
-- despliegue mas simple con cron externo
-
-### La parte delicada: las APIs de Reddit
-
-No hay una unica API perfecta. Por eso la arquitectura ya nace con idea de fallback.
-
-Segun `docs/integrations/reddit/api-strategy.md`:
-
-- posts: `reddit3 -> reddit34 -> reddapi`
-- comentarios: `reddit34 -> reddit3 -> reddapi`
-
-Esto ensena una leccion muy util: la arquitectura no se hace por gusto, sino porque la realidad externa obliga.
-
----
-
-## 8. Decisiones arquitectonicas por bloques, con trade-offs
-
-### 8.1 Monolito modular en vez de microservicios
-
-**Decision:** un solo proyecto Python con modulos internos.
-
-**Por que:** el problema aun es pequeno y esta cambiando mucho. Separarlo en servicios ahora seria sobrearquitectura.
-
-**Trade-off:**
-
-- ventaja: menos complejidad de despliegue y de coordinacion
-- coste: si el sistema crece mucho, hara falta vigilar el acoplamiento interno
-
-### 8.2 Contratos Pydantic explicitos
-
-**Decision:** los datos entre modulos deben pasar por modelos compartidos.
-
-**Por que:** las APIs Reddit son heterogeneas y la IA exige esquemas claros.
-
-**Trade-off:**
-
-- ventaja: validacion temprana y menos ambiguedad
-- coste: obliga a disenar mejor antes de picar codigo
-
-### 8.3 Contenedor efimero + cron externo
-
-**Decision:** no tener daemon persistente.
-
-**Por que:** el caso de uso es batch diario.
-
-**Trade-off:**
-
-- ventaja: operaciones simples, menos coste cognitivo
-- coste: menos flexibilidad para eventos en tiempo real
-
-### 8.4 Persistencia minima en SQLite
-
-**Decision:** guardar solo lo necesario para idempotencia y unicidad.
-
-**Por que:** el objetivo no es montar una plataforma editorial completa.
-
-**Trade-off:**
-
-- ventaja: simplicidad brutal
-- coste: menos historico y menos analitica desde el principio
-
-### 8.5 Sin backlog explicito en la version vigente
-
-**Decision:** `approved` desaparece del modelo vigente y quedan `sent` y `rejected` como estados documentados.
-
-**Por que:** se quiere evitar convertir un MVP de deteccion en una cola editorial compleja.
-
-**Trade-off:**
-
-- ventaja: reglas mas simples
-- coste: menos control fino sobre items no tratados hoy
-
-**Nota docente importante:** el repo conserva restos historicos donde si aparecia `approved` o incluso un modelo 10/10. Eso ya no es la referencia vigente.
-
-### 8.6 Comentarios solo cuando el post ya ha pasado aguas arriba
-
-**Decision:** no pedir comentarios en la coleccion inicial.
-
-**Por que:** los comentarios son donde de verdad se quema cuota.
-
-**Trade-off:**
-
-- ventaja: ahorro de requests
-- coste: la primera fase decide con menos contexto
-
-### 8.7 Estrategia multi-provider para Reddit
-
-**Decision:** repartir responsabilidades por proveedor y usar fallback.
-
-**Por que:** ninguna API no oficial cubre bien todo con la cuota gratuita y calidad necesarias.
-
-**Trade-off:**
-
-- ventaja: resiliencia y mejor encaje por caso de uso
-- coste: mas complejidad de normalizacion, pruebas y observabilidad
-
-### 8.8 `User-Agent: RapidAPI Playground` para ReddAPI
-
-**Decision documentada:** el script de snapshots fuerza ese `User-Agent` en `scripts/reddit_api_raw_snapshot.py` para ReddAPI.
-
-**Por que:** la evidencia raw muestra el cambio 403 -> 200 cuando el cliente replica una firma aceptada por Cloudflare.
-
-**Trade-off:**
-
-- ventaja: recupera un fallback util
-- coste: dependes de un detalle operativo externo y algo fragil
-
-### 8.9 OpenSpec antes de implementar serio
-
-**Decision:** descomponer en changes verticales antes de construir el producto completo.
-
-**Por que:** evita mezclar demasiadas decisiones a la vez.
-
-**Trade-off:**
-
-- ventaja: mejor trazabilidad y menos caos
-- coste: da sensacion de avance mas lento al principio
-
----
-
-## 9. OpenSpec, SDD, skills, AGENTS.md, GitNexus, Engram y MCP: como encajan
-
-Esta es la parte que convierte el repo en algo mas que codigo fuente.
-
-### 9.1 OpenSpec
-
-`openspec/` es la capa de artefactos de planificacion.
-
-Segun `openspec/README.md`, el proyecto implemento trece changes en cuatro fases:
-
-**Fase 1 — pipeline principal (changes 1-5):**
-
-1. `reddit-candidate-collection`
-2. `candidate-memory-and-uniqueness`
-3. `thread-context-extraction`
-4. `ai-opportunity-evaluation`
-5. `telegram-daily-delivery`
-
-**Fase 2 — integracion, smoke y hardening (changes 6-10):**
-
-6. `operational-integration-tests`
-7. `telegram-smoke-tests`
-8. `runtime-documented-truth-alignment`
-9. `environment-persistence-execution-hardening`
-10. `minimum-ci-baseline`
-
-**Fase 3 — alineacion semantica (change 11):**
-
-11. `settings-govern-runtime`
-
-**Fase 4 — limpieza de artefactos historicos (changes 12-13):**
-
-12. `connect-or-remove-half-landed-logic`
-13. `docs-information-architecture-cleanup`
-
-Los cuatro ultimos changes de la fase 2 y el change 11 son especialmente relevantes desde el punto de vista de arquitectura profesional: no anaden funcionalidad nueva, sino que cierran la distancia entre lo que el sistema *dice* que hace y lo que *realmente* hace. El change 11 va un paso mas alla: no era suficiente que los settings gobernaran el runtime; habia que documentar explicitamente la semantica de cada uno para que ningun operador pudiera confundir `daily_review_limit` (cap de entrada a la evaluacion IA) con `max_daily_opportunities` (cap de salida hacia Telegram). Esa distincion es la diferencia entre configuracion que informa y configuracion que puede inducir a error.
-
-Los changes 12 y 13 cierran la brecha entre el lexico del proceso de construccion y el lexico del sistema vivo. El change 12 elimina del codigo activo los marcadores `# Change N` que servian de guia durante la construccion incremental pero que, una vez cerrada la iniciativa, solo aportaban ruido de lectura. El change 13 reorganiza la arquitectura de informacion documental para que cualquier lector pueda distinguir sin ambiguedad que documentos describen el sistema hoy y cuales narran como se construyo. Juntos hacen que el repo sea legible no solo para quien participio en su construccion, sino para cualquiera que llegue nuevo. Esa distancia entre el lexico de construccion y el lexico operativo es una deuda silenciosa muy comun en proyectos que se desarrollan de forma incremental.
-
-OpenSpec sirve para evitar el error clasico de los juniors: ponerse a programar una idea grande sin haberla troceado.
-
-### 9.2 SDD
-
-SDD significa Spec-Driven Development. Aqui la idea no es "primero codifico y luego ya veremos". Aqui la idea es:
-
-1. discovery del problema
-2. proposal del change
-3. spec funcional
-4. design tecnico
-5. tasks
-6. apply
-7. verify
-8. archive
-
-En este repo se ve muy bien en todos los changes archivados, que tienen el ciclo completo de discovery a archive. El change `runtime-documented-truth-alignment` es especialmente ilustrativo para entender que SDD no es solo para funcionalidad nueva: tambien sirve para cerrar derives entre lo documentado y lo ejecutable.
-
-### 9.3 Skills globales relevantes en este ecosistema
-
-Ademas de las skills locales del repo, el entorno de trabajo de esta tarea expone una familia de skills globales. Eso es verificable en el runtime del agente, aunque no en un fichero `.atl/skill-registry.md` local.
-
-Las familias mas relevantes para entender este proyecto son estas:
-
-- **GitNexus**: `gitnexus-exploring`, `gitnexus-debugging`, `gitnexus-impact-analysis`, `gitnexus-refactoring`, `gitnexus-guide`, `gitnexus-cli` y `gitnexus-pr-review`. Su papel es navegar el codigo como grafo, no escribir el producto por si solos.
-- **SDD**: `sdd-init`, `sdd-explore`, `sdd-propose`, `sdd-spec`, `sdd-design`, `sdd-tasks`, `sdd-apply`, `sdd-verify` y `sdd-archive`. Juntas modelan el ciclo de trabajo por changes: descubrir, proponer, especificar, disenar, implementar, verificar y cerrar.
-- **Descubrimiento y soporte al proceso**: `product-discovery` ayuda a definir bien un cambio antes de formalizarlo; `create-repo-context` sirve para crear o mantener ficheros de contexto como `AGENTS.md`; `skill-creator` sirve para empaquetar patrones recurrentes en nuevas skills reutilizables.
-
-La leccion docente importante es esta: una skill global suele capturar metodo reusable. No habla de `auto-reddit` en concreto, sino de como pensar o ejecutar mejor un tipo de trabajo.
-
-### 9.4 Skills locales del repo y por que importan
-
-Las skills locales SI forman parte de la identidad operativa de `auto-reddit`, porque viven en `skills/` y estan referenciadas explicitamente desde `AGENTS.md`.
-
-- `skills/python-conventions/SKILL.md`: fija la arquitectura modular, el uso de Pydantic para contratos, `uv` como interfaz de trabajo y el reparto de responsabilidades entre modulos.
-- `skills/deepseek-integration/SKILL.md`: aterriza como conectar con DeepSeek a traves del SDK de OpenAI, como exigir structured output y como manejar errores sin esconder excepciones.
-- `skills/docker-deployment/SKILL.md`: consolida el modelo de contenedor efimero, volumen para SQLite y cron externo en VPS.
-
-Por eso importan tanto: convierten decisiones dispersas del repo en instrucciones accionables. No son propaganda de tooling; son una forma de evitar que un agente nuevo improvise donde el proyecto ya habia decidido.
-
-### 9.5 `AGENTS.md`
-
-`AGENTS.md` es la capa de reglas de operacion para agentes dentro de este repo.
-
-Aqui fija:
-
-- entorno (`uv`, Python 3.14, `.env.example`)
-- restricciones (no publicar autonomamente en Reddit)
-- estructura del paquete (`src/auto_reddit/`)
-- skills del proyecto
-- reglas GitNexus para explorar, refactorizar y verificar cambios
-
-En otras palabras: `AGENTS.md` hace explicito el "manual de taller" del repo.
-
-### 9.6 GitNexus
-
-GitNexus es la capa de inteligencia estructural del codigo. Aunque en esta tarea no he ejecutado consultas interactivas al grafo, el repo deja claro su papel:
-
-- explorar arquitectura y execution flows
-- medir blast radius antes de tocar simbolos
-- detectar alcance real de cambios antes de commit
-- hacer renombres con mas seguridad
-
-La metadata verificable en `.gitnexus/meta.json` dice que el indice tiene:
-
-- 87 files
-- 592 nodes
-- 644 edges
-- 5 communities
-- 3 processes
-
-La leccion docente aqui es potente: no solo tienes codigo, tambien tienes una representacion navegable del codigo.
-
-### 9.7 Engram
-
-Engram es la memoria persistente entre sesiones de agentes.
-
-En este proyecto resulta util para:
-
-- recordar decisiones ya tomadas
-- guardar hallazgos tecnicos, como el fix del `User-Agent` de ReddAPI
-- no perder contexto del planning y los cambios documentales
-
-En otras palabras, OpenSpec guarda artefactos formales del trabajo y Engram guarda memoria operativa del trabajo.
-
-### 9.8 Como se trabaja concretamente en este proyecto
-
-El autor usa un flujo agentico por fases. Cada fase tiene un tipo de trabajo distinto y usa la herramienta mas adecuada para ese trabajo:
-
-- **Discovery y definicion de producto**: se trabaja con `product-discovery` para formular el problema antes de planificar nada
-- **Propuesta, spec, design y tasks**: se producen artefactos SDD con agentes especializados, uno por fase, para no mezclar el que con el como
-- **Implementacion**: el agente recibe el contexto de spec y design y produce codigo siguiendo las skills locales del repo
-- **Verificacion**: un agente revisa que la implementacion cumple la spec antes de dar el change por cerrado
-- **Tests**: se automatizan como parte del proceso de verificacion, no como afterthought
-- **Debate de alternativas y analisis de problemas**: se usan los modelos como interlocutores tecnicos para contrastar opciones y razonar trade-offs antes de decidir
-
-Este flujo demuestra algo importante para un junior: la IA no es un sustituto del criterio de ingenieria. Es una herramienta que amplifica ese criterio cuando el que la usa sabe exactamente que le esta pidiendo y por que.
-
-### 9.9 MCP: el protocolo que conecta agentes con herramientas
-
-MCP son las siglas de Model Context Protocol. Es el protocolo estandar que permite a un agente de IA usar herramientas externas reales: leer memoria, consultar un grafo de codigo, buscar en bases de datos, ejecutar comandos, acceder a APIs.
-
-Sin MCP, el agente solo tiene texto. Con MCP, el agente puede actuar.
-
-La analogia mas util: si el agente es un cirujano, MCP es el instrumental quirurgico. Sin instrumentos, el conocimiento no alcanza. Con ellos, puede operar con precision.
-
-#### Como funciona MCP en la practica
-
-Un servidor MCP expone un conjunto de herramientas y/o recursos. El agente puede llamar esas herramientas durante una sesion, igual que llama a funciones. La diferencia con una funcion normal es que el servidor MCP corre fuera del modelo: es un proceso externo que el agente invoca, no logica interna suya.
-
-Esto tiene una consecuencia importante: **el agente no sabe por si solo que herramientas tiene disponibles**. Las herramientas se configuran en el entorno donde corre el agente, no en el modelo. Por eso en este repo no encontraras un `.mcp.json` dentro de la carpeta del proyecto: la configuracion MCP vive en el entorno del autor, no en el producto `auto-reddit`.
-
-#### Los servidores MCP activos en este proyecto
-
-En este repo hay dos servidores MCP que el agente usa activamente durante el desarrollo.
-
-**GitNexus MCP**
-
-Este es el MCP mas visible en el repo. Su presencia esta verificada explicitamente en `AGENTS.md`, donde se documentan las herramientas que los agentes deben usar antes de editar codigo.
-
-Las herramientas que expone, con ejemplos reales del repo:
-
-| Herramienta | Para que sirve | Ejemplo concreto en auto-reddit |
-|---|---|---|
-| `gitnexus_query` | Encontrar codigo por concepto | `gitnexus_query({query: "reddit fallback"})` para localizar donde se gestiona el fallback entre providers |
-| `gitnexus_context` | Ver callers, callees y flujos de un simbolo | `gitnexus_context({name: "collect_candidates"})` para ver quien llama a esa funcion y a quien llama |
-| `gitnexus_impact` | Calcular blast radius antes de editar | `gitnexus_impact({target: "RedditCandidate", direction: "upstream"})` para saber que se romperia si cambias el contrato |
-| `gitnexus_detect_changes` | Verificar alcance real antes de commit | `gitnexus_detect_changes({scope: "staged"})` para confirmar que solo tus cambios previstos han tocado el grafo |
-| `gitnexus_rename` | Renombrar simbolos de forma segura | `gitnexus_rename({symbol_name: "RedditCandidate", new_name: "RedditPost", dry_run: true})` para previsualizar el impacto |
-| `gitnexus_cypher` | Consultas custom al grafo de conocimiento | `gitnexus_cypher({query: "MATCH (n)-[:CALLS]->(m) WHERE n.name='main' RETURN m"})` para ver todos los simbolos que llama main |
-
-Ademas de herramientas, GitNexus expone recursos legibles directamente:
+Antes de abrir ningún archivo, necesitas una imagen mental del sistema. Esta es la más simple que lo describe correctamente:
 
 ```
-gitnexus://repo/auto-reddit/context       — vision general del repo e indice actual
-gitnexus://repo/auto-reddit/clusters      — areas funcionales del codigo
-gitnexus://repo/auto-reddit/processes     — todos los flujos de ejecucion identificados
-gitnexus://repo/auto-reddit/process/{name} — traza paso a paso de un flujo concreto
+Reddit (r/Odoo)
+      │
+      ▼
+  [Colección]          ← reddit/client.py
+      │                   tres proveedores, fallback chain
+      ▼
+  [Filtrado]           ← persistence/store.py
+      │                   excluir ya procesados
+      ▼
+  [Contexto]           ← reddit/comments.py
+      │                   recuperar comentarios del hilo
+      ▼
+  [Evaluación IA]      ← evaluation/evaluator.py
+      │                   DeepSeek decide y genera
+      ▼
+  [Persistencia]       ← persistence/store.py
+      │                   guardar decisión
+      ▼
+  [Entrega]            ← delivery/
+      │                   Telegram, retry-first
+      ▼
+  Equipo humano        ← publica o descarta
 ```
 
-La leccion para un junior es esta: antes de editar cualquier funcion en este repo, se espera que el agente haya corrido `gitnexus_impact` sobre ella. Ese protocolo esta escrito en `AGENTS.md` como regla, no como sugerencia.
+`main.py` es el director de orquesta. No contiene la lógica de negocio: conecta los pasos.
 
-**Engram MCP**
+`shared/contracts.py` es el idioma común. Los módulos no se importan entre sí directamente; todos hablan a través de ese archivo.
 
-Engram tambien es un servidor MCP. Lo que el agente llama `mem_save`, `mem_search`, `mem_context` o `mem_get_observation` son herramientas de ese servidor.
+### Principios de diseño visible en esa imagen
 
-Ejemplos reales de lo que Engram ha guardado en este proyecto durante el desarrollo:
+**Separación de responsabilidades**: cada bloque tiene un trabajo único y bien definido. El bloque de colección no decide si un post merece respuesta. El bloque de evaluación no sabe cómo funciona Telegram.
 
-- el bugfix de ReddAPI: cuando se descubrio que el script fallaba por un `User-Agent` incorrecto, se guardo en Engram con tipo `bugfix`, titulo y contexto. La proxima sesion, el agente puede recuperarlo sin que el autor tenga que repetir todo el contexto.
-- las decisiones del cap de 8/dia: cuando se decidio bajar el limite de 10 a 8, Engram guardo la razon. Las sesiones posteriores que tocaron documentacion relacionada recuperaron ese contexto antes de editar.
-- el resumen de cada sesion: al cerrar una sesion larga de trabajo, el agente guarda un resumen estructurado con objetivo, descubrimientos, lo que se completo y los proximos pasos. Sin esto, cada sesion empezaria desde cero.
+**Contratos explícitos**: la salida de cada paso tiene un tipo Pydantic definido. No hay diccionarios ambiguos pasando de módulo en módulo.
 
-La diferencia entre Engram y un archivo de notas manual es que el agente puede buscar en Engram con lenguaje natural y recuperar observaciones concretas. No es busqueda por nombre de archivo; es busqueda semantica sobre lo que se guardo.
+**Recuperabilidad**: si Telegram falla en la entrega, el resultado de la IA está guardado. En el próximo ciclo se reintenta sin volver a llamar a la IA.
 
-#### Lo que MCP permite que no seria posible sin el
-
-Sin MCP, el agente trabaja con texto: lee lo que le das y responde. Con MCP:
-
-- puede consultar el grafo de codigo antes de editar
-- puede recuperar memoria de sesiones anteriores
-- puede verificar el impacto real de un cambio antes de cometerlo
-- puede buscar en la historia de decisiones del proyecto sin que el autor tenga que recordarlas
-
-Eso es lo que convierte un modelo de lenguaje en un agente capaz de trabajar de forma sostenida en un proyecto real.
+**Human-in-the-loop**: el sistema no publica. Entrega al humano y para ahí.
 
 ---
 
-### 9.10 Como encaja todo junto
+## 5. Flujo completo end-to-end
 
-La mejor forma de verlo es esta:
-
-| Capa | Funcion |
-|---|---|
-| `docs/` | Define verdad funcional y tecnica |
-| `openspec/` | Descompone el camino de entrega |
-| `skills/` | Estandariza como debe trabajar el agente dentro de este repo |
-| `AGENTS.md` | Orquesta reglas, restricciones y uso de MCPs del repo |
-| Skills globales | Aportan metodo reusable entre proyectos |
-| GitNexus MCP | Da inteligencia estructural del codigo en tiempo de trabajo |
-| Engram MCP | Conserva memoria operativa entre sesiones |
-| `src/` | Implementa el producto |
-
-Eso, dicho claro, es ingenieria de producto. No solo programacion.
-
----
-
-## 10. Recorrido por carpetas y archivos Python relevantes
-
-En esta seccion no solo digo que contiene cada archivo. Explico por que existe y que papel juega en la arquitectura.
-
-### 10.1 Raiz del proyecto
-
-#### `README.md`
-
-Es el mejor punto de entrada general. Resume descripcion, stack, estructura, funcionalidades y reglas operativas del MVP.
-
-Rol: documento de onboarding rapido.
-
-#### `pyproject.toml`
-
-Verifica decisiones importantes:
-
-- nombre del paquete
-- `requires-python = ">=3.14"`
-- dependencias runtime: `pydantic`, `pydantic-settings`, `openai`
-- dependencias dev: `pytest`, `pytest-cov`
-- src-layout con Hatchling
-
-Rol: contrato de build y dependencias.
-
-#### `Dockerfile`
-
-Materializa el modelo efimero:
-
-- usa `python:3.14-slim`
-- copia `uv`
-- instala la app en sistema con `uv pip install --system --no-cache .`
-- arranca con `python -m auto_reddit.main`
-
-Rol: empaquetado de ejecucion.
-
-**Lectura honesta:** hoy ese entrypoint apunta a un `main.py` vacio de logica, asi que el contenedor esta alineado con la arquitectura prevista, pero no con una funcionalidad completa.
-
-#### `docker-compose.yml`
-
-Define un servicio `auto-reddit` con:
-
-- build local
-- `env_file: .env`
-- volumen `sqlite_data:/data`
-- `restart: "no"`
-
-Rol: orquestacion local/minima del contenedor y preparacion de persistencia por volumen.
-
-### 10.2 `src/auto_reddit/`
-
-#### `src/auto_reddit/main.py`
-
-**Changes 1 y 2 implementados.**
-
-La funcion `run()` ya orquesta los dos primeros pasos del pipeline y deja marcados con comentarios los siguientes:
+Este flujo simplificado es fiel al comportamiento actual de `main.py` pero no es una copia literal: el código real añade logging intermedio, ordenación explícita por recencia tras el filtrado, y comentarios sobre qué significa cada fase. Léelo como una guía de comprensión, no como la fuente de verdad; para eso está `src/auto_reddit/main.py`.
 
 ```python
 def run() -> None:
-    # Change 2: inicializar store
+    # 0. Guard de fin de semana
+    if datetime.date.today().weekday() >= 5:
+        logger.info("Weekend — skipping pipeline")
+        return
+
+    # 1. Inicializar persistencia
     store = CandidateStore(settings.db_path)
     store.init_db()
 
-    # Change 1: recoger candidatos (ventana 7 dias, sin recorte)
+    # 2. Colectar candidatos
     candidates = collect_candidates(settings)
+    # → lista de RedditCandidate, ordenados por recencia
 
-    # Change 2: excluir decisiones finales y recortar a 8
+    # 3. Filtrar ya decididos y candidatos incompletos
     decided_ids = store.get_decided_post_ids()
-    eligible = [c for c in candidates if c.post_id not in decided_ids]
+    eligible = [
+        c for c in candidates
+        if c.post_id not in decided_ids and c.is_complete
+    ]
     review_set = eligible[:settings.daily_review_limit]
+    # → máximo 8 candidatos limpios y únicos
 
-    # Change 3 (pendiente): enriquecer con comentarios
-    # Change 4 (pendiente): evaluacion IA → store.save_pending_delivery / save_rejected
-    # Change 5 (pendiente): entrega Telegram → store.mark_sent
+    # 4. Recuperar contexto de comentarios
+    thread_contexts = fetch_thread_contexts(review_set, settings)
+    # → dict[post_id, ThreadContext] con calidad graduada
+
+    # 5. Evaluar con IA
+    evaluation_results = evaluate_batch(thread_contexts, settings)
+    # → lista de AcceptedOpportunity | RejectedPost
+
+    # 6. Persistir decisiones
+    for result in evaluation_results:
+        if isinstance(result, AcceptedOpportunity):
+            store.save_pending_delivery(result.post_id, result.model_dump_json())
+        else:
+            store.save_rejected(result.post_id)
+
+    # 7. Entregar por Telegram
+    report = deliver_daily(store, settings, reviewed_post_count=len(review_set))
+    logger.info("Pipeline complete", extra={"report": report.model_dump()})
 ```
 
-Rol: director de orquesta. Cada change nuevo conecta aqui sin tocar los anteriores.
+### Qué enseña este código a un junior
 
-Con el change 5 integrado, `main.py` tiene el pipeline completo:
+**Una función, cinco responsabilidades distintas.** Cada línea lógica llama a un módulo diferente. `main.py` no implementa nada; coordina todo. Si ves código de negocio aquí, es una señal de que algo está en el lugar equivocado.
 
-```python
-store = CandidateStore(settings.db_path); store.init_db()          # change 2
-candidates = collect_candidates(settings)                           # change 1
-review_set = eligible[:settings.daily_review_limit]                 # change 2
-thread_contexts = fetch_thread_contexts(review_set, settings)       # change 3
-evaluation_results = evaluate_batch(thread_contexts, settings)      # change 4
-for result in evaluation_results:
-    if isinstance(result, AcceptedOpportunity):
-        store.save_pending_delivery(result.post_id, result.model_dump_json())
-    else:
-        store.save_rejected(result.post_id)
-report = deliver_daily(store, settings,                             # change 5
-                       reviewed_post_count=len(review_set))
+**Los tipos importan.** `evaluate_batch` devuelve una lista que puede contener dos tipos distintos. El `isinstance()` del paso 6 es una decisión de diseño: fuerza a que el caller maneje explícitamente ambos casos. No hay un campo `accepted: bool` que se pueda ignorar sin consecuencias.
+
+**El estado se escribe antes de entregar.** Los resultados de la IA se persisten en el paso 6. Si el paso 7 falla, los datos están guardados. El próximo ciclo puede reintentar sin re-evaluar.
+
+**El guard de fin de semana está en el código, no en el cron.** Si cambias el cron, el sistema sigue sin ejecutarse en fin de semana. Eso es un principio de diseño: no externalizar invariantes del negocio a infraestructura.
+
+---
+
+## 6. Arquitectura por capas
+
+### Las cinco capas del sistema
+
+```
+┌─────────────────────────────────────────┐
+│              ORQUESTACIÓN               │  main.py
+└───────────────────┬─────────────────────┘
+                    │ llama a
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+┌──────────────┐ ┌──────────┐ ┌──────────────┐
+│  INTEGRACIÓN │ │  DOMINIO │ │   ENTREGA    │
+│  EXTERNA     │ │          │ │              │
+│              │ │evaluator │ │  delivery/   │
+│ reddit/      │ │          │ │  selector    │
+│ client.py    │ └──────────┘ │  renderer    │
+│ comments.py  │              │  telegram    │
+└──────────────┘              └──────────────┘
+        │                           │
+        ▼                           ▼
+┌───────────────────────────────────────────┐
+│               CONTRATOS                   │  shared/contracts.py
+│   RedditCandidate · ThreadContext         │
+│   AcceptedOpportunity · RejectedPost      │
+│   PostRecord · DeliveryReport             │
+└───────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────┐
+│              PERSISTENCIA               │  persistence/store.py
+│           SQLite · 3 estados            │
+└─────────────────────────────────────────┘
 ```
 
-**Leccion docente:** este archivo es el mejor resumen del sistema. Cinco lineas logicas, cinco responsabilidades separadas, cinco modulos que no se conocen entre si. Cada change añadio exactamente una linea al orquestador sin tocar las anteriores. Eso es lo que hace que la arquitectura modular valga la pena.
+### Principio de dependencia
 
-#### `src/auto_reddit/evaluation/evaluator.py`
+El principio rector del diseño es que los módulos no deben depender de la estructura interna de otros módulos. En la práctica, esto significa que `reddit/`, `evaluation/`, `delivery/` y `persistence/` importan de `shared/contracts.py` y de `config/settings.py`, pero no se importan entre sí directamente. `main.py` los conecta en tiempo de ejecución.
 
-**Change 4 implementado.** El modulo mas complejo del proyecto hasta ahora.
+Esto no es una ley matemática que se cumpla en el 100% de los casos en cualquier proyecto: hay situaciones donde una dependencia directa entre módulos es razonable. El valor aquí es el principio: cada módulo depende del idioma común, no de la implementación del vecino. Si `reddit/client.py` dependiera de detalles internos de `evaluation/evaluator.py`, cualquier cambio en el evaluador rompería el cliente.
 
-Su estructura interna:
+### Capa de integración vs capa de dominio
 
-**`_SYSTEM_PROMPT_TEMPLATE`** — el system prompt estatico. Cacheable por los modelos modernos. Define el rol del evaluador (forero habitual de Reddit, sesgo por defecto hacia NO intervenir), el proceso obligatorio de dos fases (DECIDE primero, GENERA despues), la regla de abstension con sus cinco condiciones de aceptacion, las categorias excluidas, los tipos de oportunidad y rechazo cerrados, las reglas editoriales y la politica de idioma. Es largo y explicito porque la ambiguedad en el prompt se convierte en comportamiento impredecible del modelo.
+La capa de integración (`reddit/`) tiene una responsabilidad clara: absorber la heterogeneidad de las APIs externas y entregar contratos homogéneos. No decide. No evalúa. No persiste.
 
-**`_build_user_message(ctx)`** — construye el mensaje de usuario deterministico. Incluye subreddit, titulo, URL, calidad del contexto, contenido del post, comentarios y, si la calidad es degradada, un aviso explicito al modelo.
+La capa de dominio (`evaluation/`) tiene otra responsabilidad clara: aplicar criterio inteligente a datos ya limpios. No sabe de dónde vienen los datos ni a dónde van.
 
-**`_evaluate_single_raw(ctx, client, model)`** — llamada a DeepSeek sin retry. Crea la request, parsea el JSON, valida con `AIRawResponse`, y construye `AcceptedOpportunity` o `RejectedPost`. Los campos `post_id`, `title` y `link` vienen del pipeline, no de la IA.
+Esta separación es el principio de diseño más importante del sistema. Cuando la fuente externa cambia, solo toca la integración. Cuando cambian las reglas de evaluación, solo toca el dominio.
 
-**`evaluate_batch(thread_contexts, settings)`** — punto de entrada publico. Itera el dict `post_id → ThreadContext`, llama al evaluador con retry de tenacity (backoff exponencial), salta posts que fallan todos los reintentos sin abortar el batch.
+---
 
-Rol: capa de juicio asistido. Transforma contexto bruto en decisiones justificadas con estructura definida.
+## 7. Cómo está organizado el repositorio
 
-#### `src/auto_reddit/config/settings.py`
+```
+auto-reddit/
+├── src/auto_reddit/           ← el producto
+│   ├── main.py                  orquestador del pipeline
+│   ├── config/settings.py       configuración y secretos
+│   ├── shared/contracts.py      contratos Pydantic (idioma común)
+│   ├── reddit/
+│   │   ├── client.py            colección de candidatos (posts)
+│   │   ├── comments.py          extracción de contexto (comentarios)
+│   │   └── _constants.py        URLs y hosts de APIs
+│   ├── evaluation/
+│   │   └── evaluator.py         evaluación IA con DeepSeek
+│   ├── delivery/
+│   │   ├── __init__.py          orquestador de entrega diaria
+│   │   ├── selector.py          selección determinista con TTL
+│   │   ├── renderer.py          renderizado HTML para Telegram
+│   │   └── telegram.py          cliente Bot API Telegram
+│   └── persistence/
+│       └── store.py             CandidateStore SQLite
+├── tests/                     ← 396 tests (4 skipped)
+│   ├── conftest.py              defaults dummy para CI sin .env
+│   ├── test_main.py             weekend guard, filtro is_complete
+│   ├── test_import_smoke.py     todos los módulos importan sin error
+│   ├── test_settings_govern_runtime.py   contratos documentales
+│   ├── test_ci_workflow.py      CI YAML verificado
+│   ├── test_infra_hardening.py  robustez de infraestructura
+│   ├── test_reddit/             colección y comentarios
+│   ├── test_evaluation/         evaluación IA y contratos
+│   ├── test_delivery/           selector, renderer, telegram, deliver_daily
+│   ├── test_persistence/        SQLite CRUD y estado
+│   └── test_integration/        integración operacional y smoke live
+├── docs/                      ← fuente de verdad funcional y técnica
+│   ├── README.md                mapa de documentación (leer primero)
+│   ├── architecture.md          decisiones arquitectónicas
+│   ├── operations.md            runbook operativo
+│   ├── product/
+│   │   ├── product.md           qué hace el producto y sus reglas
+│   │   └── ai-style.md          cómo debe comportarse la IA
+│   └── integrations/reddit/     estrategia y análisis de APIs
+├── openspec/                  ← artefactos SDD archivados
+│   ├── specs/                   especificaciones canónicas
+│   └── changes/archive/         13 changes completos
+├── skills/                    ← instrucciones para agentes
+├── scripts/                   ← herramientas de investigación
+├── .github/workflows/ci.yml   ← GitHub Actions
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml
+└── .env.example
+```
 
-Es uno de los pocos ficheros con implementacion real. Define `Settings` usando `BaseSettings`.
+### Mapa semántico: qué pregunta responde cada directorio
 
-Campos verificados:
+| Pregunta | Dónde buscar |
+|---|---|
+| ¿Qué hace el producto? | `docs/product/product.md` |
+| ¿Cómo debe comportarse la IA? | `docs/product/ai-style.md` |
+| ¿Cómo está organizado el sistema? | `docs/architecture.md` |
+| ¿Qué APIs de Reddit usar? | `docs/integrations/reddit/api-strategy.md` |
+| ¿Cómo se ejecuta? | `docs/operations.md` |
+| ¿Cómo se construyó? | `openspec/changes/archive/` y `TFM/diario.md` |
+| ¿Cuál es el código real? | `src/auto_reddit/` |
+| ¿Cómo trabajan los agentes en este repo? | `AGENTS.md`, `CLAUDE.md`, `skills/` |
 
-- `deepseek_api_key`
-- `telegram_bot_token`
-- `telegram_chat_id`
-- `reddit_api_key`
-- `max_daily_opportunities = 10`
-- `review_window_days = 7`
-- `daily_review_limit = 10`
+---
 
-Rol: configuracion y validacion de entorno.
+## 8. Ruta recomendada de lectura del código
 
-**Detalle docente importante:** el archivo instancIa `settings = Settings()` a nivel de modulo. Eso significa que la validacion ocurre al importar, no solo al ejecutar el flujo principal.
+Si llegas al repo por primera vez, este es el orden que maximiza la comprensión:
 
-**Tension verificada:** los defaults siguen en `10`, pero la documentacion vigente y el design del change 1 ya hablan de `8`. Este gap esta incluso recogido como tarea OpenSpec (`openspec/changes/reddit-candidate-collection/tasks.md`).
+### Paso 1: entiende el problema antes de ver código
 
-#### `src/auto_reddit/shared/contracts.py`
+Lee primero:
+- `README.md` (3 minutos)
+- `docs/product/product.md` (10 minutos)
+- `docs/architecture.md` (10 minutos)
 
-**Changes 1 y 2 implementados.** Este archivo es el idioma comun de todo el sistema.
+Hasta aquí deberías poder responder: qué hace el sistema, qué no hace, y por qué está organizado como está.
 
-Contiene tres contratos:
+### Paso 2: entiende los contratos antes de ver implementaciones
 
-**`RedditCandidate`** (change 1) — el candidato normalizado que sale del cliente Reddit:
+Lee:
+- `src/auto_reddit/shared/contracts.py` completo
+
+Este archivo es el vocabulario del sistema. Si no entiendes los tipos, no entenderás las implementaciones. Verás los modelos Pydantic que definen cómo viajan los datos de un módulo a otro.
+
+### Paso 3: lee el orquestador
+
+Lee:
+- `src/auto_reddit/main.py`
+
+Cinco pasos lógicos. Entiende cuál es la responsabilidad de cada llamada antes de entrar en cada módulo.
+
+### Paso 4: entra en los módulos de afuera hacia adentro
+
+En este orden:
+1. `src/auto_reddit/reddit/client.py` — de dónde vienen los datos
+2. `src/auto_reddit/reddit/comments.py` — cómo se enriquecen
+3. `src/auto_reddit/evaluation/evaluator.py` — cómo se evalúan
+4. `src/auto_reddit/persistence/store.py` — cómo se persisten
+5. `src/auto_reddit/delivery/__init__.py` — cómo se entregan
+6. `src/auto_reddit/delivery/selector.py`, `renderer.py`, `telegram.py` — los colaboradores
+
+### Paso 5: lee los tests para entender el diseño
+
+Para cada módulo que acabas de leer:
+- `tests/test_reddit/test_client.py`
+- `tests/test_reddit/test_comments.py`
+- `tests/test_evaluation/test_evaluator.py`
+- `tests/test_persistence/test_store.py`
+- `tests/test_delivery/test_deliver_daily.py`
+- `tests/test_integration/test_operational.py`
+
+Los tests no son solo verificación. Son especificación ejecutable. Te dicen qué comportamiento es intencionado.
+
+### Cómo leer un archivo de este repo
+
+Cuando abras cualquier archivo de `src/auto_reddit/`, sigue este protocolo antes de leer línea por línea:
+
+**1. Mira los imports**
+Los imports te dicen de qué depende el módulo. Si importa de `shared/contracts.py`, trabaja con los contratos del pipeline. Si importa de `config/settings.py`, consume configuración. Si importa de `httpx` o `openai`, hace I/O externo.
+
+**2. Identifica el punto de entrada público**
+Las funciones sin prefijo `_` son la API del módulo. Las funciones con `_` son helpers privados. El punto de entrada público es lo que `main.py` llama directamente. Por ejemplo: `collect_candidates`, `fetch_thread_contexts`, `evaluate_batch`, `deliver_daily`.
+
+**3. Lee la firma del punto de entrada**
+La firma te dice qué recibe y qué devuelve. Antes de entender la implementación, entiende el contrato: `collect_candidates(settings: Settings) -> list[RedditCandidate]`.
+
+**4. Separa los helpers del flujo principal**
+Los helpers privados (funciones `_`) hacen una sola cosa: normalizar, paginar, construir mensajes, calcular TTL. El flujo principal los llama en orden. Léelos en el orden en que los llama el flujo, no en el orden en que aparecen en el archivo.
+
+**5. Detecta los contratos de entrada y salida**
+Fíjate en qué tipo Pydantic llega y qué tipo sale. Eso te dice el papel del módulo en el pipeline: adapta datos de entrada, transforma, persiste o entrega.
+
+**6. Busca dónde se testea**
+Cada módulo tiene su directorio de tests en `tests/`. Los tests concretan el comportamiento esperado mejor que cualquier comentario. Si hay algo que no entiendes en el código, busca el test correspondiente.
+
+**7. Anota qué decisiones de diseño revela**
+Pregúntate: ¿por qué esta función está separada? ¿por qué este campo es opcional? ¿por qué este orden de operaciones? La mayoría de las decisiones no-obvias tienen una razón que se explica en esta guía o en `docs/architecture.md`.
+
+---
+
+## 9. Explicación carpeta por carpeta
+
+### `src/auto_reddit/`
+
+El producto. Todo lo que ejecuta el pipeline vive aquí.
+
+La razón del `src-layout` (código en `src/`, no en la raíz) es que evita problemas de importación durante los tests: fuerza que el código se instale como paquete antes de ser importado, en lugar de resolverse desde el directorio actual.
+
+### `src/auto_reddit/config/`
+
+Un solo archivo: `settings.py`. Define `Settings` con `pydantic-settings`, que lee variables de entorno (y opcionalmente de `.env`) con validación en tiempo de importación.
+
+**Qué es importante aquí**: la instancia `settings = Settings()` se crea a nivel de módulo. Eso significa que si falta una variable obligatoria, el error ocurre al importar, no al ejecutar. Falla rápido, falla con claridad.
+
+### `src/auto_reddit/shared/`
+
+Un solo archivo: `contracts.py`. Define todos los modelos Pydantic del sistema.
+
+**Por qué existe este módulo**: para que ningún módulo dependa de la estructura interna de otro. Si `evaluation/evaluator.py` necesita saber cómo es un `ThreadContext`, lo importa de `shared/`, no de `reddit/comments.py`. Esa indirección parece burocracia al principio; se agradece cuando hay que cambiar algo.
+
+### `src/auto_reddit/reddit/`
+
+Dos archivos de lógica (`client.py`, `comments.py`) más uno de constantes (`_constants.py`).
+
+`client.py` recolecta posts. `comments.py` recolecta comentarios para posts ya seleccionados. Ambos tienen la misma arquitectura interna: normalizers por proveedor, fallback chain, retry.
+
+La razón de tenerlos separados es que los comentarios solo se piden después de que el filtrado ya redujo la lista. Si los pidieras en la colección inicial, gastarías cuota en posts que luego se filtran.
+
+### `src/auto_reddit/evaluation/`
+
+Un solo archivo: `evaluator.py`. Conecta con DeepSeek vía el SDK de OpenAI, envía el system prompt y el contexto del hilo, valida la respuesta con Pydantic y construye el resultado final.
+
+Este es el módulo más complejo del sistema. El system prompt es estático y extenso (~280 líneas). La razón de un prompt largo y explícito es que la ambigüedad en las instrucciones produce comportamiento impredecible en el modelo.
+
+### `src/auto_reddit/persistence/`
+
+Un solo archivo: `store.py`. Define `CandidateStore`, que gestiona la tabla SQLite `post_decisions`.
+
+**Qué hace**: recuerda qué posts ya fueron procesados para no repetirlos. Guarda el resultado de la IA para poder reintentar la entrega sin volver a llamarla.
+
+### `src/auto_reddit/delivery/`
+
+Cuatro archivos con responsabilidades separadas:
+
+- `__init__.py` — orquestador: conecta selector, renderer y telegram
+- `selector.py` — decide qué entregar hoy: reintentos primero, luego nuevos, con TTL y cap
+- `renderer.py` — formatea mensajes HTML para Telegram
+- `telegram.py` — cliente mínimo de la Bot API
+
+La separación aquí es especialmente limpia: el selector no sabe de Telegram, el renderer no sabe de SQLite, el cliente de Telegram no sabe de negocio.
+
+### `tests/`
+
+396 tests organizados por módulo más tests transversales. La estructura espeja `src/`: hay un directorio de tests por módulo de producción.
+
+Los tests más instructivos para aprender del diseño son los de integración en `test_integration/test_operational.py`. No prueban funciones aisladas; prueban que las fases del pipeline no interfieren entre sí.
+
+### `docs/`
+
+Fuente de verdad funcional y técnica. `docs/README.md` actúa como mapa: te dice qué documento responde cada tipo de pregunta.
+
+Regla importante: si hay contradicción entre `docs/` y `src/`, el código manda. Pero en este proyecto los dos están deliberadamente alineados.
+
+### `openspec/`
+
+Artefactos del proceso de construcción. Cada change tiene su carpeta en `openspec/changes/archive/` con discovery, proposal, spec, design, tasks y verify.
+
+No es código de producción. Es la trazabilidad de cómo se construyó el sistema. Para un junior es valiosísimo porque muestra que los sistemas no nacen completos: se construyen paso a paso con criterio.
+
+### `scripts/`
+
+Herramientas de investigación, no de producto. `scripts/reddit_api_raw_snapshot.py` llama a los endpoints de las APIs de Reddit y guarda los JSON crudos en `docs/integrations/reddit/*/raw/`. Existió para reducir incertidumbre antes de codificar los normalizers.
+
+**Lección**: antes de escribir un adaptador para una API externa, captura evidencia reproducible de qué devuelve esa API. No asumas. No confíes solo en la documentación.
+
+---
+
+## 10. Módulos clave: explicación en profundidad
+
+### `shared/contracts.py` — el idioma del sistema
+
+Es el archivo más importante para entender el sistema. Antes de leer cualquier otra implementación, lee este.
+
+**Por qué los contratos importan tanto en este sistema**
+
+Las APIs de Reddit devuelven estructuras diferentes según el proveedor. DeepSeek devuelve un JSON con decenas de campos. Telegram espera texto formateado. Sin contratos explícitos, cada módulo inventaría su propia representación de los datos y el sistema entero sería frágil.
+
+Los contratos Pydantic hacen tres cosas:
+1. Validan que los datos tienen la forma esperada
+2. Documentan el "idioma" de cada paso del pipeline
+3. Fuerzan decisiones explícitas sobre campos opcionales
+
+**La cadena de tipos del pipeline**
+
+```
+Reddit API (heterogéneo)
+    │ normalizer por proveedor
+    ▼
+RedditCandidate          ← contrato de colección
+    │ + recuperar comentarios
+    ▼
+ThreadContext            ← contrato de contexto
+    │ + evaluar IA
+    ▼
+AIRawResponse            ← respuesta bruta del modelo
+    │ + enriquecer con datos del pipeline
+    ▼
+AcceptedOpportunity      ← contrato de oportunidad aceptada
+RejectedPost             ← contrato de post rechazado
+    │ + persistir
+    ▼
+PostRecord               ← contrato de registro SQLite
+    │ + entregar
+    ▼
+DeliveryReport           ← contrato de informe de entrega
+```
+
+Cada paso transforma un tipo en otro. Los módulos no comparten estado interno; se comunican exclusivamente a través de estos tipos.
+
+**Diseño de `AcceptedOpportunity`: qué genera la IA y qué no**
 
 ```python
-class RedditCandidate(BaseModel):
+class AcceptedOpportunity(BaseModel):
+    # Estos campos los construye el pipeline, nunca la IA:
     post_id: str
     title: str
-    selftext: str | None = None
-    url: str            # siempre URL absoluta
-    permalink: str      # siempre URL absoluta
-    author: str | None = None
-    subreddit: str
-    created_utc: int
-    num_comments: int | None = None
-    source_api: str
+    link: str
 
-    @computed_field
-    @property
-    def is_complete(self) -> bool: ...  # True si todos los campos minimos presentes
-```
-
-**`PostDecision`** (change 2) — enum de estados de decision:
-
-```python
-class PostDecision(str, Enum):
-    sent = "sent"                         # entregado a Telegram — decision final
-    rejected = "rejected"                 # rechazado por IA — decision final
-    pending_delivery = "pending_delivery" # IA acepto, Telegram aun no confirma
-```
-
-`pending_delivery` es el estado mas interesante didacticamente: representa la frontera entre la decision de negocio (la IA evaluo) y la confirmacion operativa (Telegram entrego). Sin ese estado, un fallo de Telegram obligaria a re-evaluar con IA, lo que consume cuota y puede cambiar el resultado.
-
-**`PostRecord`** (change 2) — el registro persistido en SQLite:
-
-```python
-class PostRecord(BaseModel):
-    post_id: str
-    status: PostDecision
-    opportunity_data: str | None = None  # JSON del resultado IA para reintentos
-    decided_at: int                      # Unix timestamp
-```
-
-`opportunity_data` permite reintentar la entrega Telegram usando el resultado ya guardado de la IA, sin volver a llamarla.
-
-Leccion docente sobre contratos: **un buen contrato no solo describe datos; describe semantica**. `pending_delivery` no es un estado tecnico de implementacion; es una decision de diseno que protege la idempotencia del sistema y el presupuesto de API.
-
-**`ContextQuality`** (change 3) — enum que indica la riqueza del contexto extraido:
-
-```python
-class ContextQuality(str, Enum):
-    full     = "full"      # reddit34: arbol, timestamps, sort=new garantizado
-    partial  = "partial"   # reddit3: lista recursiva, sin depth/parent_id
-    degraded = "degraded"  # reddapi: solo top comments, plano, sin timestamps
-```
-
-**`RedditComment`** (change 3) — comentario normalizado con campos opcionales segun proveedor:
-
-```python
-class RedditComment(BaseModel):
-    comment_id: str | None = None   # None en reddapi
-    author: str | None = None
-    body: str                       # normalizado desde text/content/body/comment
-    score: int | None = None
-    created_utc: int | None = None  # None en reddapi; ISO 8601 en reddit34
-    permalink: str | None = None
-    parent_id: str | None = None    # None en reddit3 y reddapi
-    depth: int | None = None        # None en reddit3 y reddapi
-    source_api: str
-```
-
-**`ThreadContext`** (change 3) — salida del paso de extraccion, entrada del paso de evaluacion IA:
-
-```python
-class ThreadContext(BaseModel):
-    candidate: RedditCandidate
-    comments: list[RedditComment]
-    comment_count: int
-    quality: ContextQuality
-    source_api: str
-```
-
-Esta separacion entre extraccion y evaluacion es una decision de diseno importante: el modulo de comentarios no sabe si el post merece respuesta; solo extrae y normaliza. La decision es del modulo de evaluacion.
-
-**Contratos del change 4** (evaluacion IA):
-
-```python
-class OpportunityType(str, Enum):
-    funcionalidad = "funcionalidad"        # preguntas sobre configuracion de Odoo
-    desarrollo = "desarrollo"              # desarrollo, modulos, codigo Python
-    dudas_si_merece_la_pena = "..."        # dudas sobre si Odoo vale para un caso
-    comparativas = "comparativas"          # comparativas con otras herramientas
-
-class RejectionType(str, Enum):
-    resolved_or_closed = "..."             # hilo cerrado o resuelto
-    no_useful_contribution = "..."         # nada util que anadir
-    excluded_topic = "..."                 # tema excluido o de riesgo
-    insufficient_evidence = "..."          # contexto insuficiente para evaluar
-
-class AIRawResponse(BaseModel):
-    accept: bool
-    opportunity_type: OpportunityType | None = None
-    opportunity_reason: str | None = None  # por que aporta valor (no es el resumen)
-    post_summary_es: str | None = None
-    comment_summary_es: str | None = None  # None si no hay comentarios utiles
-    suggested_response_es: str | None = None
-    suggested_response_en: str | None = None
-    post_language: str | None = None       # unico campo detectado por la IA
-    rejection_type: RejectionType | None = None
-    warning: str | None = None             # solo en aceptaciones con calidad degradada
-    human_review_bullets: list[str] | None = None  # idem
-
-class AcceptedOpportunity(BaseModel):     # campos deterministicos + generados por IA
-    post_id: str; title: str; link: str   # nunca pedidos a la IA
+    # Estos campos los genera la IA:
+    post_language: str
     opportunity_type: OpportunityType
     opportunity_reason: str
     post_summary_es: str
@@ -1094,1166 +566,971 @@ class AcceptedOpportunity(BaseModel):     # campos deterministicos + generados p
     suggested_response_en: str
     warning: str | None = None
     human_review_bullets: list[str] | None = None
-
-class RejectedPost(BaseModel):
-    post_id: str
-    rejection_type: RejectionType         # sin warning ni bullets — no aplican
-
-EvaluationResult = Annotated[Union[AcceptedOpportunity, RejectedPost], ...]
 ```
 
-**Leccion clave:** los campos `post_id`, `title` y `link` los construye el pipeline, no la IA. La IA solo genera lo que requiere razonamiento. Esta separacion evita alucinaciones en campos deterministicos y hace la validacion Pydantic mucho mas fiable.
+`post_id`, `title` y `link` nunca se le piden a la IA. La razón es que estos campos son deterministas: el pipeline ya los conoce. Pedírselos a la IA introduce riesgo de alucinación donde no hace falta. Esta decisión de diseño es sutil pero importante: la IA solo genera lo que requiere razonamiento.
 
-**Otra leccion:** `warning` y `human_review_bullets` solo existen en `AcceptedOpportunity`. Si un post es rechazado, el humano no necesita esas senales — solo necesita saber el tipo de rechazo. Este nivel de granularidad en el contrato comunica la intencion del diseno sin necesidad de comentarios.
-
-**`DeliveryReport`** (change 5) — informe de una ejecucion de entrega:
+**El estado de `pending_delivery`: por qué existe**
 
 ```python
-class DeliveryReport(BaseModel):
-    total_selected: int    # candidatos seleccionados por el selector (≤ cap)
-    retries: int           # reintentos (ya tuvieron intento previo fallido)
-    new: int               # nuevos (primer intento)
-    sent_ok: int           # mensajes individuales entregados con exito
-    sent_failed: int       # mensajes que fallaron en Telegram
-    summary_sent: bool     # True si el mensaje de resumen se envio con exito
-    expired_skipped: int   # registros excluidos por TTL expirado
+class PostDecision(str, Enum):
+    sent = "sent"                         # entregado — decisión final
+    rejected = "rejected"                 # rechazado — decisión final
+    pending_delivery = "pending_delivery" # IA aceptó, Telegram pendiente
 ```
 
-`DeliveryReport` no es solo un log; es el contrato que permite al orquestador loguear con precision lo que paso en cada ciclo de entrega y detectar anomalias (muchos `sent_failed`, `expired_skipped` alto, etc.).
+`pending_delivery` existe para desacoplar la decisión de la IA de la confirmación de Telegram. Si Telegram falla en la entrega, el resultado de la IA está guardado en `opportunity_data`. El próximo ciclo reintenta la entrega sin volver a llamar a DeepSeek. Sin ese estado intermedio, un fallo de red causaría re-evaluación innecesaria y posiblemente cambio de decisión.
 
-Rol: idioma comun del sistema. Ningun modulo importa de otro directamente; todos hablan a traves de este archivo.
+---
 
-#### `src/auto_reddit/reddit/client.py`
+### `reddit/client.py` — la capa de integración más compleja
 
-**Change 1 implementado.** Este es el archivo mas rico del proyecto en este momento: 348 lineas de codigo real, bien estructurado, con separacion clara de responsabilidades internas.
+Este archivo tiene ~350 líneas. Recolecta posts de `r/Odoo` usando tres proveedores distintos con fallback.
 
-Su estructura interna merece un recorrido docente:
+**Estructura interna por responsabilidades**
 
-**Normalizers por provider** (`_normalize_reddit3`, `_normalize_reddit34`, `_normalize_reddapi`)
-Cada funcion sabe exactamente como transformar la forma especifica de una API al contrato `RedditCandidate`. Estan separadas porque cada API tiene una estructura distinta. Esta decision evita condicionales anidados en el codigo principal.
+```
+collect_candidates(settings)          ← punto de entrada público
+    │
+    ├── Intenta reddit3
+    │       _paginate(reddit3, ...)
+    │           _fetch_with_retry(url, headers) → JSON crudo
+    │           _normalize_reddit3(json) → [RedditCandidate]
+    │           _cursor_reddit3(json) → cursor o None
+    │
+    ├── Si falla → Intenta reddit34
+    │       _paginate(reddit34, ...)
+    │           _fetch_with_retry(url, headers) → JSON crudo
+    │           _normalize_reddit34(json) → [RedditCandidate]
+    │           _cursor_reddit34(json) → cursor o None
+    │
+    ├── Si falla → Intenta reddapi
+    │       _paginate(reddapi, ...)
+    │           _fetch_with_retry(url, headers) → JSON crudo
+    │           _normalize_reddapi(json) → [RedditCandidate]
+    │           _cursor_reddapi(json) → cursor o None
+    │
+    └── Sobre el resultado del proveedor ganador:
+            filtrar por review_window_days
+            filtrar subreddit == "odoo"
+            ordenar por created_utc descendente
+            devolver lista
+```
+
+**Tres patrones de diseño que conviene aprender aquí**
+
+*Normalizers separados por proveedor*
+
+Cada API tiene una estructura distinta. `reddit3` devuelve posts en `body.body[]`, `reddit34` en `data.posts[].data`, `reddapi` en `posts[].data`. En lugar de un gran `if/elif/else` en el código principal, hay una función normalizer por proveedor. El código principal llama al normalizer correcto y no sabe nada de las diferencias.
+
+Este patrón se llama adaptador. Es uno de los más útiles en sistemas que integran fuentes heterogéneas.
+
+*Cursor extractors separados*
+
+La paginación también difiere por proveedor. El cursor está en `response.meta.cursor` en reddit3, en `response.data.cursor` en reddit34, en `response.cursor` en reddapi. En lugar de condicionales en el bucle de paginación, hay un extractor por proveedor. El bucle genérico `_paginate` recibe una función y la llama.
+
+*Fallback whole-step*
+
+Si un proveedor falla en cualquier punto del proceso (no solo en la primera llamada), se descarta entero y se intenta el siguiente. No hay fallback parcial por página. Esta decisión evita resultados mezclados que serían difíciles de normalizar consistentemente.
+
+**Por qué los órdenes de fallback son distintos para posts y comentarios**
+
+Posts: `reddit3 → reddit34 → reddapi`
+Comentarios: `reddit34 → reddit3 → reddapi`
+
+Para comentarios, `reddit34` es el proveedor primario porque ofrece `sort=new` (recientes primero), timestamps precisos, `parent_id` y árbol de replies anidado. Para posts, `reddit3` es primario porque ofrece una colección más amplia y paginación más estable.
+
+La calidad del contexto de comentarios importa más que la calidad de la lista de posts, porque el sistema de evaluación IA depende directamente de entender la conversación. Por eso se optimiza primero el proveedor de comentarios.
+
+**`ContextQuality`: haciendo visible la calidad del contexto**
 
 ```python
-# reddit3: posts planos en body[]
-# reddit34: posts en data.posts[].data
-# reddapi: posts en posts[].data
+class ContextQuality(str, Enum):
+    full     = "full"      # reddit34: árbol, timestamps, sort=new garantizado
+    partial  = "partial"   # reddit3: árbol recursivo, sin depth/parent_id
+    degraded = "degraded"  # reddapi: solo top comments, plano, sin timestamps
 ```
 
-**Helper `_to_absolute_url`**
-Pequeña funcion con un trabajo muy claro: si la URL es relativa, la convierte a absoluta. Extraida como helper para no repetirla tres veces. Es un ejemplo perfecto de DRY aplicado con criterio.
+Este enum no es solo documentación. El evaluador IA lo lee y ajusta su comportamiento: con calidad `degraded`, añade un aviso explícito en el prompt al modelo y genera campos `warning` y `human_review_bullets` en la respuesta.
 
-**Cursor extractors** (`_cursor_reddit3`, `_cursor_reddit34`, `_cursor_reddapi`)
-La ubicacion del cursor de paginacion es distinta en cada API. En lugar de un condicional en el bucle de paginacion, cada provider tiene su extractor. El bucle no sabe nada de las diferencias; recibe una funcion y la llama.
+---
+
+### `evaluation/evaluator.py` — la capa de dominio
+
+Este es el módulo más complejo del sistema. Su trabajo: recibir un `ThreadContext` y devolver un `AcceptedOpportunity` o un `RejectedPost`.
+
+**Arquitectura interna**
 
 ```python
-# reddit3:  response.meta.cursor
-# reddit34: response.data.cursor
-# reddapi:  response.cursor
+evaluate_batch(thread_contexts, settings)
+    │ itera cada post
+    ▼
+_evaluate_single(ctx, client, model)   ← con retry tenacity
+    │
+    ▼
+_evaluate_single_raw(ctx, client, model)
+    ├── _build_system_prompt()         ← estático, cacheable
+    ├── _build_user_message(ctx)       ← determinista por post
+    │
+    ├── llamada DeepSeek con structured output
+    │
+    ├── validar AIRawResponse (Pydantic)
+    │
+    └── construir AcceptedOpportunity / RejectedPost
 ```
 
-Esta fue una incognita abierta durante el diseno que se resolvio verificando los raws reales.
+**El system prompt: por qué es tan largo**
 
-**`_fetch_with_retry`**
-Reintentos con backoff exponencial (2s, 4s). Cualquier excepcion se loggea y se reintenta hasta agotar los intentos. Si todo falla, lanza `RuntimeError`. La decision de no silenciar errores es correcta: el fallo de un provider debe ser visible, no invisible.
+El system prompt tiene ~280 líneas. Esto no es exceso; es precisión.
 
-**`_paginate`**
-Funcion generica de paginacion que no sabe nada del provider concreto. Recibe: URL, headers, params base, nombre del param de cursor, normalizer y extractor de cursor. Pagina hasta que no hay mas cursor o hasta que el post mas antiguo de la pagina esta fuera de la ventana de 7 dias.
+Un prompt corto y ambiguo delega decisiones al modelo. Un prompt largo y explícito fija el comportamiento esperado. En este caso el prompt define:
 
-**`collect_candidates`** — el punto de entrada publico
-Implementa el fallback chain: `reddit3 → reddit34 → reddapi`. Si un provider lanza excepcion, pasa al siguiente. Si todos fallan, devuelve lista vacia y logea error. Aplica dos filtros sobre el resultado del provider ganador: ventana de 7 dias y subreddit == "odoo" (case-insensitive). Devuelve ordenado por recencia descendente.
+- El rol: "evaluador con sesgo por defecto hacia NO intervenir"
+- El proceso obligatorio: DECIDE primero, luego GENERA. Este orden evita que el modelo escriba una respuesta plausible y luego racionalice la aceptación.
+- La regla de abstención: solo ACEPTA si hay evidencia clara + contribución útil posible
+- Los tipos cerrados de oportunidad (cuatro valores exactos)
+- Los tipos cerrados de rechazo (cuatro valores exactos)
+- Las reglas editoriales: no inventar rutas de menú, no defender Odoo por reflejo, distinguir hipótesis de hechos
+- El checklist técnico de Odoo: productos, multi-empresa, contabilidad, OCR, OCA, etc.
+- La política de idioma: sumarios en español, respuestas en español y en inglés
 
-Rol: adaptador de entrada del sistema. Absorbe la heterogeneidad de tres APIs externas y entrega un contrato homogeneo al siguiente paso del pipeline.
+La longitud del prompt es proporcional a la precisión del comportamiento esperado. Cuando el modelo tiene que inferir las reglas, las infiere de forma inconsistente. Cuando las tiene explícitas, las sigue.
 
-#### `src/auto_reddit/persistence/store.py` (ampliado en change 5)
+**Structured output y validación Pydantic**
 
-El change 5 añadio `purge_expired(post_ids)` a `CandidateStore`:
+DeepSeek devuelve un JSON que se valida contra `AIRawResponse`. Si la validación falla (campo faltante, tipo incorrecto, valor fuera del enum cerrado), el post se salta sin abortar el batch.
 
-```python
-def purge_expired(self, post_ids: list[str]) -> int:
-    """Elimina registros pending_delivery con TTL expirado."""
-```
+Esta estrategia tiene consecuencias importantes: un fallo de validación no cuenta como rechazo, no se persiste en SQLite y no reduce el cap diario. Es como si el post no hubiera pasado por el evaluador. Eso puede causar que el mismo post vuelva a evaluarse en el próximo ciclo.
 
-Llamado por `deliver_daily` al final del ciclo con la lista de `post_id` que el selector descarto por TTL. Limpia SQLite de registros que ya no pueden entregarse. Devuelve el numero de filas eliminadas.
+La alternativa sería marcar el post como rechazado con un tipo de error. Eso sería más conservador pero consumiría la "ranura" de rechazo para algo que es un fallo técnico, no una decisión de negocio. El sistema elige no contaminar el modelo de estados con errores transitorios.
 
-El selector identifica los registros expirados antes de construir el set de entrega; `purge_expired` los borra despues de que el ciclo ha terminado.
+---
 
-#### `src/auto_reddit/delivery/` (change 5)
+### `persistence/store.py` — la memoria operativa mínima
 
-Modulo nuevo con cuatro colaboradores. La separacion de responsabilidades aqui es especialmente clara:
+`CandidateStore` es una clase que envuelve SQLite con la API mínima necesaria para el pipeline.
 
-**`selector.py`** — `select_deliveries(records, now, cap)` → `(selected, expired_post_ids)`
-
-Recibe todos los registros `pending_delivery`, filtra los expirados (TTL > 7 dias), ordena reintentos antes que nuevos, excluye registros con `opportunity_data` malformed antes de consumir el cap, y devuelve el set seleccionado mas la lista de expirados para purga. No sabe nada de Telegram.
-
-**`renderer.py`** — `render_opportunity(opp)` y `render_summary(date, reviewed, opportunities)`
-
-Renderiza mensajes Telegram en HTML. `render_opportunity` formatea un mensaje por oportunidad aceptada. `render_summary` genera el mensaje de resumen diario con fecha, posts revisados y numero de oportunidades — campos exigidos explicitamente en `product.md §10`. No sabe nada de SQLite.
-
-**`telegram.py`** — `send_message(token, chat_id, text)` → `bool`
-
-Cliente minimo de la Bot API de Telegram: una llamada HTTP POST, devuelve `True` si Telegram responde 200. Sin logica de negocio, sin estado. La responsabilidad de reintentar o saltar es del orquestador, no del cliente.
-
-**`__init__.py`** — `deliver_daily(store, settings, reviewed_post_count)` → `DeliveryReport`
-
-El orquestador de delivery. Conecta los tres colaboradores:
-1. obtiene `pending_delivery` del store
-2. llama al selector para el set del dia
-3. para cada registro seleccionado: renderiza, envia, marca `sent` solo si Telegram confirma
-4. envia el mensaje de resumen (no bloqueante: fallo no deshace entregas)
-5. purga expirados del store
-6. devuelve `DeliveryReport`
-
-Leccion docente clave: este modulo demuestra que una responsabilidad compleja (entregar con retry, respetar el cap, no re-evaluar la IA, purgar TTL) se puede implementar de forma legible cuando se separa en colaboradores con contratos claros.
-
-#### `src/auto_reddit/reddit/comments.py`
-
-**Change 3 implementado.** Modulo nuevo, analogo a `client.py` pero para comentarios.
-
-Punto de entrada publico: `fetch_thread_contexts(review_set, settings) → dict[str, ThreadContext]`.
-
-Internamente tiene la misma arquitectura que `client.py`:
-
-- un normalizer por proveedor (`_normalize_reddit34_comments`, `_normalize_reddit3_comments`, `_normalize_reddapi_comments`)
-- fallback chain: `reddit34 → reddit3 → reddapi`
-- si todos los providers fallan para un post, ese post queda fuera del dict resultado (no bloquea el pipeline)
-
-**Diferencia clave frente al fallback de posts:** el fallback de comentarios esta ordenado de forma distinta. `reddit34` es el proveedor primario para comentarios porque ofrece `sort=new`, timestamps ISO 8601, `parent_id`, `depth` y arbol de replies. `reddit3` como fallback parcial: tiene el arbol recursivo via `replies[]` pero no expone `depth` ni `parent_id` como campos directos. `reddapi` como fallback degradado: solo top comments, plano, sin timestamps ni identificadores de comentario.
-
-**Detalle tecnico de reddit34:** el campo `created` de comentarios llega como string ISO 8601 (`"2026-03-27T13:46:04.000000+0000"`), no como unix timestamp. El normalizer aplica `datetime.fromisoformat(v.replace("+0000", "+00:00"))` antes de convertir a int.
-
-**Detalle tecnico de reddit3:** los comentarios se recorren recursivamente via `replies[]`. Se podria derivar un `depth` sintetico contando niveles de recursion, pero eso no es equivalente a un `depth` real que viene del API. Decision explicita: `depth=None` y `parent_id=None` para todos los comentarios de reddit3, reflejado en `ContextQuality.partial`.
-
-Rol: adaptador de entrada de contexto de hilo. Normaliza la heterogeneidad de las APIs de comentarios al contrato `ThreadContext`.
-
-#### `src/auto_reddit/evaluation/evaluator.py`
-
-Contenido real verificado: una docstring.
-
-Rol esperado:
-
-- aplicar criterio IA
-- devolver decision estructurada
-
-Rol actual: placeholder de la capa de juicio.
-
-#### `src/auto_reddit/delivery/telegram.py`
-
-Contenido real verificado: una docstring.
-
-Rol esperado:
-
-- formatear mensajes
-- enviarlos a Telegram
-
-Rol actual: placeholder de la salida del sistema.
-
-#### `src/auto_reddit/persistence/store.py`
-
-**Change 2 implementado.** Ya no es un placeholder.
-
-Contiene `CandidateStore`, la clase que gestiona la memoria operativa del sistema via SQLite:
-
-```python
-class CandidateStore:
-    def init_db(self) -> None                                    # crea tabla si no existe
-    def get_decided_post_ids(self) -> set[str]                   # sent + rejected (NO pending)
-    def save_rejected(self, post_id: str) -> None                # upsert como rejected
-    def save_pending_delivery(self, post_id: str, data: str)     # upsert como pending_delivery
-    def mark_sent(self, post_id: str) -> None                    # transicion pending → sent
-    def get_pending_deliveries(self) -> list[PostRecord]         # para reintentos Telegram
-```
-
-El detalle mas importante de diseno esta en `get_decided_post_ids`: devuelve `sent` y `rejected` pero **NO** `pending_delivery`. Esto es intencional: un post en `pending_delivery` debe seguir siendo elegible para reintento. Si lo incluyeras en los decididos, bloquearias el reintento y perderia la oportunidad.
-
-Todos los metodos de escritura usan `INSERT ... ON CONFLICT DO UPDATE` (upsert), lo que hace las operaciones idempotentes: ejecutarlas dos veces produce el mismo resultado que ejecutarlas una.
-
-La tabla SQLite tiene esta forma:
+**El esquema**
 
 ```sql
 CREATE TABLE post_decisions (
     post_id          TEXT PRIMARY KEY,
-    status           TEXT NOT NULL,       -- sent | rejected | pending_delivery
-    opportunity_data TEXT,                -- JSON del resultado IA (nullable)
-    decided_at       INTEGER NOT NULL     -- Unix timestamp
+    status           TEXT NOT NULL,
+    opportunity_data TEXT,
+    decided_at       INTEGER NOT NULL
 )
 ```
 
-Rol: memoria operativa minima. No es una base de datos editorial completa; es exactamente lo necesario para garantizar unicidad de posts entre ejecuciones diarias y permitir reintentos sin re-evaluar la IA.
-
-### 10.3 `scripts/`
-
-#### `scripts/reddit_api_raw_snapshot.py`
-
-Este es, junto a `settings.py`, el fichero de codigo mas importante que SI existe hoy de verdad.
-
-Que hace:
-
-- llama endpoints de `reddit3`, `reddit34`, `reddapi` y `reddit-com`
-- guarda un JSON por llamada en `docs/integrations/reddit/<provider>/raw/`
-- conserva request, headers, tiempos, respuesta y payload crudo
-
-Por que existe:
-
-Porque antes de programar adaptadores de producto hay que validar shapes y comportamientos reales. Este script es investigacion reproducible, no producto.
-
-Detalles tecnicos docentes muy buenos:
-
-- usa `dataclass` para `SnapshotContext` y `EndpointSpec`
-- separa especificacion del endpoint, construccion de URL, headers, fetch y guardado
-- redacciona headers sensibles antes de persistir raws
-- incorpora el fix de ReddAPI con `REDDAPI_USER_AGENT = "RapidAPI Playground"`
-
-Rol arquitectonico: reduce incertidumbre antes de disenar e implementar `reddit/client.py`.
-
-### 10.4 `docs/`
-
-#### `docs/product/product.md`
-
-Es la fuente de verdad funcional del slice actual.
-
-Rol: producto.
-
-#### `docs/product/ai-style.md`
-
-Define comportamiento esperado de la IA, tono, limites editoriales y politica de idioma.
-
-Rol: politica de evaluacion y redaccion, no implementacion.
-
-#### `docs/architecture.md`
-
-Define la arquitectura fundacional.
-
-Rol: decisiones tecnicas de alto nivel.
-
-#### `docs/integrations/reddit/api-strategy.md`
-
-Es probablemente el documento tecnico operativo mas importante ahora mismo.
-
-Rol: fuente vigente de estrategia externa.
-
-#### `docs/integrations/reddit/comparison.md`
-
-Compara proveedores y justifica descartes o fallback.
-
-Rol: soporte comparativo e historico.
-
-#### `docs/integrations/reddit/*/README.md`
-
-Cada uno documenta una API concreta con ejemplos, limites y veredicto.
-
-Rol: base tecnica detallada por proveedor.
-
-### 10.5 `openspec/`
-
-#### `openspec/config.yaml`
-
-Traduce al plano SDD las reglas del proyecto: stack, comandos, verdad de producto, verify, etc.
-
-Rol: contrato operativo del proceso SDD.
-
-#### `openspec/discovery/reddit-candidate-collection.md`
-
-Captura el problema, flujo principal, alcance y readiness del change 1.
-
-Rol: discovery estructurado.
-
-#### `openspec/changes/reddit-candidate-collection/proposal.md`
-
-Delimita intent, scope, risks, rollback y success criteria.
-
-Rol: propuesta ejecutable del slice.
-
-#### `openspec/changes/reddit-candidate-collection/specs/reddit-candidate-collection/spec.md`
-
-Formula requirements y scenarios estilo Given/When/Then.
-
-Rol: especificacion funcional verificable.
-
-#### `openspec/changes/reddit-candidate-collection/design.md`
-
-Baja la spec a decisiones tecnicas concretas: normalizadores, cursor pagination, fallback whole-step, etc.
-
-Rol: diseno tecnico.
-
-#### `openspec/changes/reddit-candidate-collection/tasks.md`
-
-Convierte el design en trabajo implementable.
-
-Rol: plan de ejecucion.
-
-### 10.6 `skills/`
-
-#### `skills/python-conventions/SKILL.md`
-
-Es una especie de guia de estilo + arquitectura del proyecto para codigo Python.
-
-Rol: convencion de implementacion.
-
-#### `skills/deepseek-integration/SKILL.md`
-
-Define como conectar con DeepSeek via SDK de OpenAI y structured output.
-
-Rol: convencion de integracion IA.
-
-#### `skills/docker-deployment/SKILL.md`
-
-No se ha recorrido en detalle en esta tarea, pero su existencia esta verificada por `AGENTS.md` y el arbol del repo.
-
-Rol: convencion de despliegue.
-
-### 10.7 `tests/`
-
-**Los seis changes implementados.**
-
-`tests/test_reddit/` — 87 tests (changes 1 y 3)
-
-`tests/test_persistence/` — 20 tests (change 2)
-
-`tests/test_evaluation/` — 56 tests (change 4)
-
-`tests/test_delivery/` — 96 tests (change 5):
-- `test_selector.py`: seleccion con cap, retry-first, exclusion de malformed, TTL, mezcla de reintentos y nuevos
-- `test_renderer.py`: formato HTML de oportunidades, campos del resumen exigidos por `product.md §10`, escape de caracteres especiales
-- `test_telegram.py`: llamadas HTTP mockeadas, respuesta 200 y error
-- `test_deliver_daily.py`: ciclo completo con mocks de store y Telegram; `sent` solo tras confirmacion; resumen no bloqueante; purga de expirados; `DeliveryReport` correcto
-
-`tests/test_integration/` — 10 tests + 1 smoke opcional (change 6):
-
-Los tests de integracion son cualitativamente distintos a los unitarios. No prueban que una funcion devuelve el valor correcto: prueban que las fases del pipeline no interfieren entre si y que el estado persiste correctamente entre ejecuciones.
-
-- `TestRetryWithoutAIReEvaluation`: `pending_delivery` persiste entre runs; el reintento de Telegram no llama a `evaluate_batch` ni a los providers de Reddit
-- `TestDeliveryBoundaryIsolation`: delivery solo consume registros persistidos; nunca re-entra en coleccion ni evaluacion
-- `TestEvaluationBoundaryIsolation`: una aceptacion queda persistida antes del delivery; un rechazo no toca el cliente Telegram
-- `TestMultiRunMemoryBoundaries` (SQLite real, no mock): sent y rejected de la primera ejecucion quedan excluidos en la segunda; `pending_delivery` se reintenta en la segunda sin llamar a la IA
-- `TestRedditSmokeOptional`: llamada real a Reddit, env-gated con `REDDIT_SMOKE_API_KEY` (fallback a `REDDIT_API_KEY`), carga `.env` explicitamente con `load_dotenv()` para ejecucion local
-
-Las advertencias de los changes 4 y 5 sobre ausencia de tests de integracion quedan cerradas por este change.
-
-Total: **270 tests pasando, 0 skipped**.
-
-**Correccion post-archive del smoke test:** tras archivar el change, el smoke test seguia apareciendo como skipped en ejecucion local aunque `REDDIT_API_KEY` estuviera en `.env`. Causa: `os.getenv()` no lee `.env`; solo ve variables ya presentes en el proceso. Solucion: `load_dotenv()` anadido antes del env-gate y `python-dotenv` formalizado en dev deps. El env-gate paso a usar fallback `REDDIT_SMOKE_API_KEY or REDDIT_API_KEY` para no requerir una clave dedicada. Resultado: 270 pasando, 0 skipped.
-
-**Change 7 — smoke tests de Telegram** (change 7): se anado `TestTelegramSmokeOptional` con tres escenarios live:
-- S1: texto plano, `send_message()` devuelve `True`
-- S2: token invalido, `send_message()` devuelve `False` sin excepcion
-- S3: HTML formateado, `send_message()` devuelve `True`
-
-Gate: `TELEGRAM_SMOKE_BOT_TOKEN` y `TELEGRAM_SMOKE_CHAT_ID` deben estar presentes; sin fallback a produccion por diseno. Los tres tests pasaron en ejecucion live real contra la Bot API de Telegram. Suite: 273 pasando, 0 skipped.
-
-Tambien se crearon `.env.example` con todas las variables documentadas por dominio, y `settings.py` recibio `"extra": "ignore"` para no rechazar variables de smoke desconocidas.
-
-Leccion importante: la diferencia entre tests unitarios y de integracion no es el tamano. Es el nivel de abstraccion. Los unitarios prueban que cada pieza hace lo que dice. Los de integracion prueban que las piezas no interfieren entre si y que el sistema recuerda lo que hizo.
-
-### 10.8 `TFM/`
-
-Antes de esta guia ya existian al menos:
-
-- `TFM/motivacion.md`
-- `TFM/diario.md`
-
-Rol: trazabilidad academica.
-
-`TFM/diario.md` es especialmente util porque deja ver la evolucion del pensamiento del proyecto, incluidas decisiones historicas que luego fueron refinadas.
-
----
-
-## 11. Flujos principales del sistema
-
-Como el codigo del producto aun no esta implementado, aqui conviene distinguir entre flujo previsto y flujo actualmente ejecutable.
-
-### 11.1 Flujo funcional del producto — IMPLEMENTADO Y ARCHIVADO
-
-1. `main.py` comprueba si es dia laborable (guard de fin de semana activo desde change 8)
-2. `reddit/client.py` recoge posts de `r/Odoo` dentro de la ventana configurada por `review_window_days`
-3. `persistence/store.py` excluye posts ya marcados `sent` o `rejected`
-4. se recortan los elegibles al cap definido por `daily_review_limit`
-5. `reddit/comments.py` recupera comentarios solo para esos posts seleccionados
-6. `evaluation/evaluator.py` decide si hay oportunidad y genera resumen + respuestas sugeridas
-7. `delivery/__init__.py` selecciona, renderiza y envia por Telegram con retry-first y cap de `max_daily_opportunities`
-8. `persistence/store.py` registra estado para unicidad e idempotencia
-9. mensaje de resumen siempre emitido al final, incluso con 0 oportunidades
-
-### 11.2 Flujo del change 1 — IMPLEMENTADO Y ARCHIVADO
-
-El change `reddit-candidate-collection` ya no es un flujo previsto: es codigo ejecutable verificado con 50 tests.
-
-```
-collect_candidates(settings)
-  ├── Intenta reddit3
-  │     ├── _paginate() con cursor reddit3
-  │     │     └── _fetch_with_retry() → _normalize_reddit3() → [RedditCandidate]
-  │     └── Si excepcion → siguiente provider
-  ├── Intenta reddit34 (si reddit3 fallo)
-  │     ├── _paginate() con cursor reddit34
-  │     │     └── _fetch_with_retry() → _normalize_reddit34() → [RedditCandidate]
-  │     └── Si excepcion → siguiente provider
-  ├── Intenta reddapi (si reddit34 fallo)
-  │     └── _paginate() con cursor reddapi + User-Agent obligatorio
-  │           └── _fetch_with_retry() → _normalize_reddapi() → [RedditCandidate]
-  └── Sobre el resultado del provider ganador:
-        ├── Filtro: created_utc >= now - 7 dias
-        ├── Filtro: subreddit.lower() == "odoo"
-        └── Sort: created_utc descendente → [RedditCandidate] ordenados
+Tres columnas y un índice. El sistema completo vive en esa tabla.
+
+**Por qué `get_decided_post_ids` no devuelve `pending_delivery`**
+
+```python
+def get_decided_post_ids(self) -> set[str]:
+    cursor.execute(
+        "SELECT post_id FROM post_decisions WHERE status IN (?, ?)",
+        ("sent", "rejected")
+    )
 ```
 
-Cada candidato lleva `is_complete=True/False` calculado automaticamente al construirse. Los incompletos no se descartan: quedan en la lista para que el paso siguiente decida.
+Los posts `pending_delivery` no están en el conjunto de "ya decididos". Eso es intencional: un post en `pending_delivery` debe seguir siendo elegible para reintento de entrega. Si lo incluyeras en los decididos, bloquearías el reintento y perderías la oportunidad.
 
-### 11.3 Flujo de investigacion tecnica real ya existente
+Esta distinción entre "ya procesado por la IA" y "ya entregado al equipo" es el corazón del modelo de estados.
 
-Este SI existe y SI funciona hoy, porque esta soportado por `scripts/reddit_api_raw_snapshot.py`:
+**Operaciones idempotentes con upsert**
 
-1. leer API key
-2. construir contexto de snapshot
-3. recorrer endpoints definidos en `endpoint_specs()`
-4. llamar a cada endpoint
-5. guardar JSON raw por llamada
-6. dejar evidencia en `docs/integrations/reddit/*/raw/`
+Todos los métodos de escritura usan `INSERT ... ON CONFLICT DO UPDATE`:
 
-### 11.4 Flujo operativo de documentacion y planning
+```python
+cursor.execute(
+    """
+    INSERT INTO post_decisions (post_id, status, decided_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(post_id) DO UPDATE SET status=excluded.status
+    """,
+    (post_id, "rejected", int(time.time()))
+)
+```
 
-Tambien hay un flujo muy real, aunque no sea el producto final:
+Idempotente significa que ejecutar la operación dos veces produce el mismo resultado que ejecutarla una. Eso importa porque en sistemas con reintentos, las mismas operaciones pueden ejecutarse más de una vez.
 
-1. discovery de idea y limites
-2. consolidacion de producto y arquitectura
-3. investigacion tecnica de APIs
-4. revalidacion con raws
-5. descomposicion OpenSpec
-6. design del change
-7. tasks previas a implementacion
+**Bug real encontrado y corregido: `decided_at` y el TTL**
 
-Esto es valioso en un TFM porque enseña que la ingenieria seria empieza mucho antes del `def main():`.
+En la versión inicial, `save_pending_delivery` sobreescribía `decided_at` en cada reintento. El resultado: el TTL (tiempo de vida del registro) se recalculaba desde el último intento, no desde la decisión original de la IA. Un post evaluado el lunes que fallaba en Telegram el martes y se reintentaba el jueves tendría su TTL calculado desde el jueves.
 
-### 11.5 Flujo completo ejecutable hoy
+La corrección: el upsert de `save_pending_delivery` preserva `decided_at` original en reintentos usando `DO UPDATE SET ... decided_at=CASE WHEN ...`. El test de regresión añadido verifica exactamente este comportamiento.
 
-Con `DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` y `REDDIT_API_KEY` configuradas, el sistema ejecuta el pipeline completo:
-
-1. Comprueba si hoy es dia laborable; si es sabado o domingo, termina sin side effects
-2. Inicializa `CandidateStore` y la tabla SQLite (ruta de `DB_PATH` o default de `settings.db_path`)
-3. Recolecta candidatos de r/Odoo via fallback chain de posts; ventana gobernada por `settings.review_window_days`
-4. Excluye decididos, recorta a 8, extrae contexto de comentarios via fallback chain de comentarios
-5. Evalua con DeepSeek: decision justificada por post, persiste aceptados como `pending_delivery` y rechazados como `rejected`
-6. Selecciona registros `pending_delivery` con retry-first y cap gobernado por `settings.max_daily_opportunities`, excluye malformed y expirados
-7. Renderiza mensajes HTML, envia cada oportunidad a Telegram, marca `sent` solo tras confirmacion
-8. Envia mensaje de resumen diario incluso si no hay oportunidades (no bloqueante)
-9. Purga registros expirados de SQLite
-10. Logea el `DeliveryReport` con todos los contadores del ciclo
-
-El sistema es operativo y tiene cuatro capas de verificacion: tests unitarios por modulo, tests de integracion operacional entre fases, smoke tests live contra APIs reales, y CI automatico en GitHub Actions. No es un prototipo ni un scaffolding: es un pipeline diario funcional con 339 tests y validacion continua activa.
+Esta es una lección importante: algunos bugs no son errores de lógica obvia. Son errores de semántica, donde el código "funciona" pero hace algo diferente a lo que pretende.
 
 ---
 
-## 12. Problemas, riesgos y mitigaciones conocidos
+### `delivery/__init__.py` — orquestador de entrega
 
-### 12.1 Cuotas gratuitas tensionadas
+`deliver_daily` es la función que conecta los tres colaboradores del módulo delivery.
 
-**Riesgo:** el modelo historico 10/10 no aguanta bien con la capacidad realmente util.
+**Flujo interno**
 
-**Evidencia:** `docs/integrations/reddit/api-strategy.md` y `comparison.md` consolidan un modelo operativo 8/8 con margen aproximado de `~22 req/mes` antes de paginacion extra.
+```python
+def deliver_daily(store, settings, *, reviewed_post_count=None, now_utc=None):
+    now = now_utc or datetime.datetime.now(datetime.timezone.utc)
 
-**Mitigacion:** bajar cap a 8 y recuperar comentarios solo aguas abajo.
+    # 1. Obtener todos los pending_delivery
+    pending = store.get_pending_deliveries()
 
-### 12.2 Ninguna API de Reddit sirve sola para todo
+    # 2. Seleccionar qué entregar hoy (retry-first, cap, TTL)
+    selected, expired_ids = select_deliveries(pending, now, cap=settings.max_daily_opportunities)
 
-**Riesgo:** si dependes de un unico proveedor, te quedas corto o en posts o en comentarios o en semantica real.
+    # 3. Enviar cada oportunidad
+    sent_ok = sent_failed = 0
+    for record in selected:
+        opp = AcceptedOpportunity.model_validate_json(record.opportunity_data)
+        html = render_opportunity(opp)
+        ok = send_message(settings.telegram_bot_token, settings.telegram_chat_id, html)
+        if ok:
+            store.mark_sent(record.post_id)
+            sent_ok += 1
+        else:
+            sent_failed += 1
 
-**Mitigacion:** estrategia multi-provider y fallback.
+    # 4. Enviar resumen (no bloqueante)
+    summary_html = render_summary(len(selected), retries=..., new=..., ...)
+    summary_ok = send_message(settings.telegram_bot_token, settings.telegram_chat_id, summary_html)
 
-### 12.3 ReddAPI es util pero fragil
+    # 5. Purgar expirados
+    store.purge_expired(expired_ids)
 
-**Riesgo:** su operatividad depende de reproducir un `User-Agent` aceptado.
+    return DeliveryReport(...)
+```
 
-**Mitigacion:** dejar el detalle capturado y documentado; no tratar ReddAPI como principal para comentarios.
+**Principio: `sent` solo se escribe tras confirmación**
 
-### 12.4 Gap entre documentacion vigente y codigo real — RESUELTO (change 8)
+`store.mark_sent(record.post_id)` se llama dentro del `if ok:`. Si Telegram responde con un error, el post sigue en `pending_delivery`. Esto es intencional: la transición al estado final `sent` requiere confirmación explícita de la entrega.
 
-**Riesgo:** un desarrollador puede leer solo `src/` y pensar que falta todo, o leer solo `TFM/diario.md` y llevarse decisiones historicas superadas.
+Un bug aquí sería escribir `mark_sent` antes del `if ok:`. El post quedaría marcado como enviado aunque no hubiera llegado al equipo. Es un error de orden de operaciones, no de lógica.
 
-**Mitigacion:** respetar la jerarquia de verdad documental: `docs/product/product.md` + `docs/integrations/reddit/api-strategy.md` + `docs/architecture.md`. Las cuatro derives identificadas (weekend guard, review_window_days, cap duplicado, resumen incondicional) fueron cerradas en el change 8.
+**El resumen se envía siempre, incluso con 0 oportunidades**
 
-### 12.5 Defaults desalineados — RESUELTO (change 8)
-
-**Riesgo:** `settings.py` con `max_daily_deliveries` duplicado y constante `_7_DAYS_SECONDS` ignorando el setting.
-
-**Mitigacion:** change 8 elimino `max_daily_deliveries`, conecto `review_window_days` al runtime y valido con tests.
-
-### 12.6 Estado de persistencia ambiguo — RESUELTO (change 2)
-
-El modelo de 3 estados (`sent`, `rejected`, `pending_delivery`) es la unica verdad. `TFM/diario.md` conserva entradas historicas con `approved` como evidencia del proceso de refinamiento, no como estado vigente.
-
-### 12.7 Sin tests reales — RESUELTO (changes 1-7, 10)
-
-339 tests: unitarios por modulo, integracion operacional entre fases, smoke live contra Reddit y Telegram, y 22 tests del workflow de CI.
-
-### 12.8 Riesgo de sobreconfiar en la IA
-
-**Riesgo:** convertir la IA en actor autonomo o propagandistico.
-
-**Mitigacion:** `docs/product/ai-style.md` y la regla base del producto limitan claramente su papel. El sistema nunca publica autonomamente en Reddit.
-
-### 12.9 Contrato de despliegue Docker silenciosamente roto — RESUELTO (change 9)
-
-**Riesgo:** `DB_PATH` sin configurar hacia el volumen: SQLite escribe en la capa del contenedor y la persistencia desaparece en cada ejecucion.
-
-**Mitigacion:** `docker-compose.yml` ahora tiene `environment: DB_PATH=/data/auto_reddit.db` como safety net; `.env.example` tiene el valor correcto para despliegue Docker con comentario explicativo.
-
-### 12.10 Sin CI automatico — RESUELTO (change 10)
-
-**Riesgo:** un push puede romper la suite de tests sin que nadie lo detecte hasta ejecucion manual.
-
-**Mitigacion:** `.github/workflows/ci.yml` ejecuta `uv run pytest tests/ -x --tb=short` en cada push y PR a `main`. Los smoke tests se saltan por diseño sin necesidad de secretos.
+Esto responde a un requisito del producto: el equipo recibe confirmación todos los días laborables de que el sistema corrió, aunque no haya nada que entregar. Si no llega resumen, algo falló. El silencio del sistema es ruido, no señal.
 
 ---
 
-## 13. Learning notes para juniors
+### `delivery/selector.py` — selección determinista
 
-### 13.1 Primero entiende el problema, luego el codigo
+`select_deliveries` decide qué entregar cada día. Su comportamiento es determinista dado el mismo conjunto de registros y el mismo timestamp.
 
-Aqui se ve clarisimo. El repo tiene mejor definido el problema que la implementacion. Y eso es bueno. Muchisimo mejor eso que tener 2000 lineas de codigo sobre una idea confusa.
+**Algoritmo**
 
-### 13.2 La arquitectura no sale del aire
+```python
+def select_deliveries(records, now, cap=8):
+    # 1. Filtrar registros sin opportunity_data
+    # 2. Filtrar registros con JSON malformado (no cuentan para el cap)
+    # 3. Separar expirados (TTL < now) de válidos
+    # 4. Entre válidos, separar reintentos (decided_at anterior a hoy) de nuevos
+    # 5. Ordenar reintentos por decided_at ASC (más antiguos primero)
+    # 6. Ordenar nuevos por decided_at ASC
+    # 7. Reintentos primero, luego nuevos, hasta llenar el cap
+```
 
-El reparto `reddit/`, `evaluation/`, `delivery/`, `persistence/`, `shared/`, `config/` no es decorativo. Sale de responsabilidades reales diferentes.
+**Retry-first: por qué los reintentos tienen prioridad**
 
-### 13.3 Un documento puede ser mas importante que una funcion
+Un post que fue evaluado y aceptado ayer pero no se pudo entregar por un fallo de Telegram tiene más urgencia que un post evaluado hoy. La política retry-first maximiza la probabilidad de que una oportunidad detectada llegue al equipo.
 
-`docs/integrations/reddit/api-strategy.md` condiciona mas el exito del proyecto hoy que cualquier funcion de `src/auto_reddit/`, porque decide como sobrevivir a proveedores imperfectos.
+**TTL: tiempo de vida de `pending_delivery`**
 
-### 13.4 No confundas scaffold con producto terminado
+Los registros `pending_delivery` tienen fecha de caducidad. La regla:
+- Decidido lunes-miércoles → expira el viernes a las 23:59:59 UTC
+- Decidido jueves-domingo → expira el próximo lunes a las 23:59:59 UTC
 
-Ver carpetas y archivos no significa que el sistema ya exista. Hay que mirar dentro.
+La lógica: una oportunidad de este lunes sigue siendo relevante hasta el fin de la semana laboral. Pero si no se entrega antes del viernes, la siguiente semana laboral empieza con una pizarra limpia.
 
-### 13.5 Las decisiones cambian; la trazabilidad importa
-
-En `TFM/diario.md` veras decisiones antiguas como 10/10, `approved` o ciertas priorizaciones previas. Eso no es "malo". Es evidencia de aprendizaje y refinamiento. Lo importante es saber que documento manda hoy.
-
-### 13.6 La investigacion tecnica tambien es ingenieria
-
-`scripts/reddit_api_raw_snapshot.py` demuestra una practica buenisima: antes de prometer una integracion, captura evidencia reproducible.
-
-### 13.7 Diseñar contratos pronto ahorra dolor despues
-
-El design del change 1 ya propone `RedditCandidate` con campos concretos e `is_complete`. Ese tipo de decision evita peleas posteriores entre modulos.
-
-### 13.8 Menos automatizacion puede ser mejor producto
-
-No autopublicar en Reddit no es una carencia. Es una decision de riesgo, reputacion y control humano.
-
-### 13.9 Herramientas de proceso tambien son arquitectura
-
-OpenSpec, skills, AGENTS, GitNexus y Engram no son accesorios. Son parte del sistema socio-tecnico que hace sostenible el proyecto.
-
-### 13.10 Aprende a distinguir cuatro niveles
-
-Cuando leas un repo como este, distingue siempre:
-
-1. verdad de producto
-2. verdad arquitectonica
-3. verdad de planning
-4. verdad de implementacion actual
-
-Muchisimos errores vienen de mezclar esas cuatro capas.
-
-### 13.11 Un setting que no gobierna el runtime no es un setting; es documentacion
-
-Si tienes `review_window_days = 7` en tu configuracion pero en el codigo escribes `cutoff = now - 7 * 86400` como constante, el setting no hace nada. Puedes cambiar su valor todo lo que quieras; el sistema seguira usando 7 dias. Este error es comun y silencioso. La ensenanza del change 8: siempre verifica que los parametros configurables llegan de verdad al punto del codigo donde importan.
-
-### 13.12 Dos settings con el mismo default son una deuda de mantenimiento
-
-`max_daily_deliveries` y `max_daily_opportunities` tenian el mismo valor por defecto. Mientras no haya que cambiarlo, nadie lo nota. El dia que alguien actualice uno y no el otro, el sistema hace algo distinto a lo documentado sin ningun error. La solucion es tener UN solo setting por concepto. La deuda es tolerable cuando es joven; se hace cara con el tiempo.
-
-### 13.13 La distancia entre lo que la documentacion dice y lo que el codigo hace es una forma de deuda tecnica
-
-Documentacion que dice "solo ejecuta en dias laborables" y un `main.py` que arranca cualquier dia es una contradiccion. No hay un test rojo ni un error de compilacion: solo comportamiento incorrecto en fin de semana que nadie ha visto porque nadie ha ejecutado en fin de semana. Los changes de hardening y alineacion sirven para cerrar este tipo de gaps antes de que lleguen a produccion.
-
-### 13.14 CI no es burocracia; es red de seguridad
-
-Sin CI, alguien puede hacer push de codigo que rompe 300 tests y no enterarse hasta que alguien lo ejecuta manualmente. Con CI, el fallo es visible en segundos. El change 10 de este proyecto implementa exactamente eso: un workflow de GitHub Actions que ejecuta `uv run pytest tests/ -x --tb=short` en cada push y PR. El coste fue un fichero YAML y tres ciclos de correccion. La ganancia es que ningun merge futuro puede romper silenciosamente la suite.
-
-### 13.15 `uv sync --dev` y `uv sync --extra dev` no son lo mismo
-
-Si tu CI instala dependencias y luego no encuentra pytest, lo primero que debes revisar es el flag de instalacion. En este proyecto las deps de test estan bajo `[project.optional-dependencies].dev` en `pyproject.toml`, no en `[dependency-groups]`. El flag correcto para instalarlas es `--extra dev`, no `--dev`. Este error es facil de cometer y muy sigiloso: el CI no falla en la instalacion, sino en la coleccion de tests con un `ModuleNotFoundError: No module named 'pytest'` o simplemente con 0 tests encontrados.
-
-### 13.16 La configuracion de Docker puede matar la persistencia sin error visible
-
-Si `DB_PATH` no apunta al volumen montado, SQLite escribe en la capa del contenedor. El contenedor arranca, ejecuta, se detiene. La proxima ejecucion arranca con una base de datos vacia. `docker-compose up` no falla. El sistema "funciona". Pero los datos no persisten. Este tipo de bug no aparece en tests locales porque los tests mockean `db_path` con `tmp_path`. Solo aparece en produccion, cuando alguien se pregunta por que no hay registros de ayer. La leccion: el contrato de despliegue (que valores deben estar configurados en produccion) es parte del producto, no un detalle operativo.
-
-### 13.18 Un discovery obsoleto no es un fracaso del proceso; es una señal de que el sistema funciona
-
-Cuando el brief de discovery de `settings-govern-runtime` llegó al apply, sus premisas centrales ya no eran verdad: `review_window_days` y `max_daily_opportunities` ya gobernaban el runtime gracias a `runtime-documented-truth-alignment`, que se había cerrado antes. El descubrimiento no se ocultó: se documentó explícitamente en el propio fichero de discovery con un aviso de revisión y una tabla de estado verificado en código.
-
-Esto tiene una lectura positiva: el proceso funcionó. Si el discovery hubiera llegado al apply sin verificación previa del código, se habrían implementado cambios de runtime innecesarios sobre algo que ya estaba correcto. La verificación del apply detectó el desfase antes de tocar producción.
-
-La lección para un junior: en proyectos iterativos, un change puede arrancar con premisas válidas que quedan obsoletas por cambios posteriores. Eso no invalida el change; lo reencuadra. La disciplina correcta es verificar antes de implementar, no asumir que el discovery sigue siendo verdad porque lo era cuando se escribió.
-
-### 13.17 Verifica antes de arreglar: el método hipotesis-verificacion-clasificacion
-
-Cuando alguien te presenta una lista de posibles bugs o riesgos en un sistema, la reacción instintiva es empezar a aplicar fixes. Esa reacción tiene un coste invisible: puedes romper codigo que funcionaba correctamente, o invertir tiempo en arreglar algo que no estaba roto.
-
-El enfoque correcto es el que se siguió en la sesion de revisión del 30/03/2026:
-
-1. **Formular la hipotesis concretamente**: qué se espera que esté mal y por qué. No "puede haber un problema en `save_pending_delivery`" sino "el upsert sobreescribe `decided_at` en cada reintento, lo que hace que el TTL se calcule desde el último reintento en lugar de desde la decisión original de la IA".
-2. **Verificar contra el codigo real**: no asumir. Leer el codigo, los tests y la spec. Si la spec dice que el comportamiento es intencional, la spec gana. Si la spec no lo cubre pero el comportamiento es semánticamente incorrecto, eso también es un problema.
-3. **Clasificar el resultado** antes de tocar nada:
-   - *Problema confirmado*: el código hace algo diferente a lo que debería. Fix necesario.
-   - *Matizado / normalización*: el código funciona, pero hay espacio para mejorar legibilidad o normalizar el estilo sin cambiar comportamiento.
-   - *Comportamiento correcto por diseño*: la spec lo cubre explícitamente. No tocar sin cambiar la spec primero.
-
-Un ejemplo concreto de la sesión: la hipótesis inicial trató la sintaxis del bloque de excepciones en `selector.py` como posible bug funcional en Python 3.14. La verificación mostró que no era un bug funcional en este entorno — el código se comportaba correctamente. Aun así, el bloque se normalizó a `except (ValidationError, ValueError) as exc:` con `logger.debug()` por razones de claridad, observabilidad y portabilidad mental, con la clasificación correcta: normalización, no corrección de comportamiento roto.
-
-Esta disciplina protege contra los dos errores simétricos más caros de la ingeniería de software: arreglar lo que no está roto e ignorar lo que sí lo está.
+Los registros expirados no se incluyen en el conjunto entregable. Se purgan de SQLite al final del ciclo.
 
 ---
 
-## 14. Zonas pendientes o incognitas
+## 11. Contratos, tipos y validaciones
 
-### 14.1 Implementacion funcional del pipeline — RESUELTA
+### Por qué Pydantic y no diccionarios
 
-El pipeline completo (changes 1-5) esta implementado, verificado y archivado. Los trece changes estan cerrados.
+Pydantic valida en tiempo de construcción. Si intentas crear un `RedditCandidate` con un `post_id` que es `None`, Pydantic lanza `ValidationError` inmediatamente. Con diccionarios, ese error aparecería más tarde (o nunca, como un bug silencioso).
 
-### 14.2 Parametros exactos de paginacion — RESUELTA
+Además, los modelos Pydantic son documentación ejecutable. Leer `RedditCandidate` te dice exactamente qué campos existen, cuáles son opcionales y cuáles tienen valores por defecto.
 
-La incognita sobre la ubicacion del cursor en cada provider quedo cerrada al verificar los raws reales.
+### `is_complete`: un computed field
 
-### 14.3 Modelo final de persistencia materializado — RESUELTA
+`is_complete` es `True` solo cuando el candidato tiene todos los campos que el pipeline necesita para evaluarlo y persistirlo correctamente. Según el código actual de `shared/contracts.py`:
 
-`CandidateStore` con estados `sent`, `rejected` y `pending_delivery`. Archivado en change 2.
+```python
+@computed_field
+@property
+def is_complete(self) -> bool:
+    """True only when ALL minimum-contract fields are present and non-empty.
 
-### 14.4 Contratos reales de evaluacion IA — RESUELTA
+    Minimum contract: post_id, title, url, permalink, subreddit,
+    created_utc (non-zero), source_api, selftext (not None), author (not None).
+    Fields deliberately optional (num_comments) do NOT affect completeness.
+    """
+    return bool(
+        self.post_id
+        and self.title
+        and self.url
+        and self.permalink
+        and self.subreddit
+        and self.created_utc      # 0 means unknown → incomplete
+        and self.source_api
+        and self.selftext is not None
+        and self.author is not None
+    )
+```
 
-Seis contratos Pydantic completos en `shared/contracts.py`: `OpportunityType`, `RejectionType`, `AIRawResponse`, `AcceptedOpportunity`, `RejectedPost`, `EvaluationResult`. Archivados en change 4.
+El punto que puede sorprender: `selftext` y `author` son campos **opcionales** en el modelo (admiten `None`), pero afectan a `is_complete`. Un candidato donde el autor no se pudo determinar, o donde el cuerpo del post llegó como `None`, se considera incompleto. La razón: un post sin cuerpo ni autor proporciona contexto insuficiente para que la IA evalúe si merece respuesta.
 
-### 14.5 Formato final de mensajes Telegram en codigo — RESUELTA
+`num_comments` es la excepción deliberada: no forma parte del contrato mínimo porque su ausencia no impide la evaluación.
 
-`delivery/renderer.py` con `render_opportunity` y `render_summary`. Archivado en change 5.
+Un candidato incompleto no se descarta durante la colección. Se conserva con `is_complete=False` y se filtra antes de la evaluación IA. El filtro vive en `main.py`. Esta decisión de diseño mantiene la colección agnóstica sobre los requisitos del evaluador: si mañana el evaluador necesita menos campos, el filtro cambia en un solo punto.
 
-### 14.6 Observabilidad real del sistema en ejecucion — PENDIENTE
+### Enums cerrados: por qué importan
 
-El sistema loguea contadores del `DeliveryReport` pero no tiene observabilidad avanzada (alertas, metricas, dashboards). Queda como trabajo potencial futuro.
+`OpportunityType` y `RejectionType` son enums cerrados:
 
-### 14.7 Contradicciones historicas — RESUELTA
+```python
+class OpportunityType(str, Enum):
+    funcionalidad = "funcionalidad"
+    desarrollo = "desarrollo"
+    dudas_si_merece_la_pena = "dudas_si_merece_la_pena"
+    comparativas = "comparativas"
+```
 
-Las derives entre runtime y documentacion identificadas en el change 8 estan cerradas. Los knobs `review_window_days` y `max_daily_opportunities` gobiernan el runtime de verdad. El duplicado `max_daily_deliveries` fue eliminado.
+Si la IA devuelve un valor que no está en el enum, Pydantic lanza `ValidationError` y el post se salta. Esto es intencional. La alternativa sería aceptar cualquier string y dejar que el sistema procese tipos no definidos, lo que rompería las lógicas downstream que dependen de valores conocidos.
 
-La confusion entre documentos vigentes y documentos historicos quedo cerrada en el change 13: `docs/README.md` actua ahora como mapa canonico de cuatro carriles que separa con claridad lo vigente de lo historico. `TFM/diario.md` y los documentos de discovery conservan su valor como registro del proceso, pero su proposito queda explicitamente senalizado desde la primera linea de cada documento ambiguo.
+Un enum cerrado es un contrato: "el sistema solo entiende estos valores". Cualquier otra cosa es un error de integración.
 
-### 14.8 Seccion de Execution Contract en `docs/architecture.md` — PENDIENTE
+### `EvaluationResult`: unión discriminada
 
-La propuesta del change 9 incluia una seccion §10 con la clasificacion de variables de entorno (mandatory / optional / smoke-only), el contrato del volumen Docker y la sintaxis exacta de cron. Esta seccion no fue añadida en el ciclo de ese change. Queda identificada como deuda documental.
+```python
+EvaluationResult = Annotated[Union[AcceptedOpportunity, RejectedPost], ...]
+```
 
-### 14.9 CI con tests smoke live — PENDIENTE
+El caller usa `isinstance()` para distinguir casos:
 
-El workflow actual ejecuta solo la suite base (smoke tests se saltan por diseño). Si en el futuro se quiere CI con smoke live contra Reddit y Telegram, requeriria secretos configurados en GitHub Actions y una estrategia para no enviar mensajes de prueba al canal de produccion.
+```python
+for result in evaluation_results:
+    if isinstance(result, AcceptedOpportunity):
+        store.save_pending_delivery(...)
+    else:
+        store.save_rejected(...)
+```
 
-### 14.8 Tests de integracion entre ejecuciones — ABIERTA
-
-El verify del change 2 dejo dos advertencias no bloqueantes:
-- no existe test que pruebe "skipped today, eligible tomorrow" en dos runs consecutivos
-- no existe test end-to-end de reintento Telegram usando `pending_delivery` sin re-llamar a la IA
-
-Estas pruebas requieren estado persistente entre runs y un enfoque de integracion distinto al unitario. Quedan pendientes para cuando el pipeline este mas completo.
-
----
-
-## 15. Cierre: que es hoy auto-reddit de verdad
-
-Trece changes completados. Trescientos noventa y cinco tests pasando. El pipeline es funcional de extremo a extremo, el contrato de despliegue esta cerrado, hay CI activo en cada push y PR, el contrato de settings esta documentado con semantica explicita, el codigo activo esta libre de marcadores historicos de construccion y la arquitectura documental separa con claridad los documentos vigentes de los historicos.
-
-Lo que existe hoy:
-
-- recoleccion de candidatos con fallback chain entre tres providers de posts
-- guard de fin de semana en `main.py`: el pipeline no se ejecuta en sabado ni domingo
-- `review_window_days` gobernando de verdad la ventana de coleccion (ya no decorativo)
-- memoria operativa SQLite con unicidad, modelo de estados y TTL
-- extraccion de contexto de hilo con calidad graduada segun proveedor de comentarios
-- evaluacion IA con DeepSeek: prompt de dos fases, decision justificada, respuesta sugerida en dos idiomas, tipos cerrados de oportunidad y rechazo
-- entrega determinista a Telegram: retry-first, `max_daily_opportunities` como unico cap, HTML formateado, `sent` solo tras confirmacion, resumen diario incondicional (incluso con 0 oportunidades), purga de expirados
-- `main.py` como mapa completo del pipeline en cinco lineas logicas
-- contrato de despliegue cerrado: `DB_PATH=/data/auto_reddit.db` en `docker-compose.yml` y `.env.example`
-- CI activo: GitHub Actions ejecuta la suite completa en cada push y PR a `main` sin secretos ni credenciales live
-
-Si ejecutas el sistema hoy con las cuatro variables de entorno configuradas y lo despliegas con `docker-compose up`, detecta oportunidades en r/Odoo solo en dias laborables, evalua cuales merecen respuesta, las entrega al equipo humano por Telegram con resumen del dia, y persiste el estado en el volumen Docker correcto entre ejecuciones.
-
-Si tuviera que resumirlo para un junior:
-
-> Trece changes archivados. Trescientos noventa y cinco tests. Pipeline funcional, integracion operacional, smoke tests live contra Reddit y Telegram reales, settings que gobiernan de verdad el runtime con semantica explicita, contrato de despliegue Docker cerrado, CI automatico, codigo activo sin marcadores historicos de construccion y arquitectura documental con separacion clara entre verdad vigente y registro historico. Se construyo de afuera hacia adentro: primero el problema, luego la arquitectura, luego cada capa en orden, luego los tests que prueban que las capas no se pisan, luego el hardening que cierra la brecha entre lo que dice la documentacion y lo que ejecuta el sistema, luego la capa que asegura que el contrato documental de configuracion no puede inducir a error, y finalmente la limpieza del lexico de construccion para que el repo sea legible para cualquiera que llegue nuevo. El resultado es un sistema que cualquiera puede leer, entender, extender, verificar y desplegar.
-
-El proyecto esta completamente cerrado. Trece changes archivados, una base operativa completa y verificable, y una arquitectura de informacion documental que separa lo que el sistema es hoy de como llego a serlo. Lo que sigue — observabilidad operativa avanzada, expansion a otras fuentes, seccion de Execution Contract en `docs/architecture.md` — tiene una base solida sobre la que construir.
-
----
-
-## 16. Historial de changes
-
-Esta seccion se actualiza cada vez que un change completa el ciclo SDD completo (apply + verify + archive). Es el registro vivo del avance real del proyecto.
-
-### Change 13 — `docs-information-architecture-cleanup` — ARCHIVADO 2026-03-30
-
-**Alcance:** reorganizar la arquitectura de informacion documental del repo para separar con claridad los documentos vigentes, los historicos y los de proceso, y evitar que un lector nuevo confunda el registro de construccion con la verdad operativa actual.
-
-**El problema:**
-
-El repo habia acumulado capas documentales con distinta caducidad sin senalizacion consistente. `docs/README.md` existia pero no actuaba como mapa navegable. `docs/discovery/idea-inicial.md` y `docs/discovery/ideas.md` tenian avisos de supersesion pero rol ambiguo. `TFM/guia-didactica-auto-reddit.md` no dejaba claro desde la primera linea que es material didactico historico. `README.md` raiz no enlazaba al mapa documental. Cuando documentos de proceso y documentos operativos coexisten sin separacion explicita, cualquier lector que llega sin contexto previo tiene que inferir cual manda, y esa inferencia es costosa y propensa a error.
-
-**Lo que se implemento:**
-
-- `docs/README.md`: reescrito como mapa canonico de cuatro carriles — Current Truth (documentos vigentes del sistema), Planning & Archive (artefactos SDD y changes archivados), Didactic & Historical (material pedagogico y registros del proceso de construccion), Agent Context (reglas operativas para agentes)
-- `README.md` raiz: enlace a `docs/README.md` para que el punto de entrada natural del repo lleve al mapa documental
-- `TFM/guia-didactica-auto-reddit.md`: header de proposito en la primera linea que lo identifica como material didactico e historico, con referencia a `docs/README.md` como fuente de verdad operativa
-- `docs/discovery/idea-inicial.md`: header que lo identifica como documento historico del proceso de ideacion
-- `docs/discovery/ideas.md`: header analogo
-
-**Dependencia:**
-
-Este change era el ultimo de la iniciativa. Requeria que los doce changes previos estuvieran cerrados para poder trazar el mapa definitivo del repo sin que quedara obsoleto al dia siguiente.
-
-**Archivos afectados:** `docs/README.md`, `README.md`, `TFM/guia-didactica-auto-reddit.md`, `docs/discovery/idea-inicial.md`, `docs/discovery/ideas.md`
-
-**Archivo:** `openspec/changes/archive/2026-03-30-docs-information-architecture-cleanup/`
-
-**Resultado:** arquitectura de informacion documental limpia y navegable; repositorio completamente cerrado; suite en 395 tests pasando, 4 skipped; cero cambios funcionales
+Este patrón fuerza el manejo explícito de ambos casos. Sin él, un `result.post_id` funcionaría en ambos (ambos tienen ese campo) pero `result.opportunity_type` lanzaría `AttributeError` en los rechazos. La unión discriminada hace que el compilador de tipos (o los tests) capten ese error antes de llegar a producción.
 
 ---
 
-### Change 12 — `connect-or-remove-half-landed-logic` — ARCHIVADO 2026-03-30
+## 12. Dependencias externas y por qué están ahí
 
-**Alcance:** eliminar los marcadores historicos de construccion del estilo `# Change N` que habian quedado en el codigo activo del pipeline una vez cerrados todos los changes funcionales.
+### `pydantic` y `pydantic-settings`
 
-**El problema:**
+Pydantic valida datos en tiempo de construcción y genera modelos con documentación implícita. `pydantic-settings` extiende eso a la configuración: lee variables de entorno, valida tipos y falla rápido si falta algo obligatorio.
 
-Durante el desarrollo incremental, cada archivo Python del pipeline fue recibiendo comentarios `# Change 1`, `# Change 2`, `# Change 3 (pendiente)` para orientarse en que estaba hecho y que quedaba por hacer. Una vez cerrados los trece changes, esos marcadores dejaron de aportar contexto operativo: informan sobre como se construyo el sistema, no sobre como funciona. Un lector nuevo no necesita saber que `evaluate_batch` se conecto en el change 4; necesita saber que `evaluate_batch` evalua un batch de candidatos. Mantener ese ruido en el codigo activo es una forma de deuda conceptual silenciosa.
+Alternativa que no se usa: `dataclasses` + validación manual. Se descarta porque es más verboso y la validación hay que escribirla a mano.
 
-**Regla de decision aplicada:**
+### `openai` SDK
 
-- comentario que solo aporta historia de construccion (en que momento se anadio esta linea) → eliminar
-- comentario que aporta contexto operativo (por que existe esta logica, que hace este bloque) → reescribir en tiempo presente, eliminando la referencia al numero de change
+DeepSeek expone una API compatible con la API de OpenAI. El proyecto usa el SDK de OpenAI para conectar con DeepSeek simplemente cambiando la `base_url`. Esto evita escribir un cliente HTTP a mano para una API ya documentada y con SDK maduro.
 
-**Lo que se modifico:**
+La clave para entender esta decisión: el sistema no usa ChatGPT, pero aprovecha el estándar de API que OpenAI popularizó. Muchos proveedores de modelos adoptaron ese estándar para facilitar la migración.
 
-- `src/auto_reddit/main.py`: comentarios `# Change 1` a `# Change 5` usados como etiquetas de autor durante la construccion del pipeline
-- `src/auto_reddit/shared/contracts.py`: anotaciones inline que indicaban en que change se introdujo cada contrato
-- `src/auto_reddit/reddit/comments.py`: marcador de change en la cabecera del modulo
+### `httpx`
 
-**Resultado:** cero cambios de comportamiento, cero cambios en la interfaz publica de ningun modulo; suite en 395 tests pasando, 4 skipped; la trazabilidad del proceso sigue disponible en los artefactos OpenSpec archivados, en `TFM/diario.md` y en el historial de git
+Cliente HTTP con soporte nativo para async, context managers y retry-friendly. Se usa para las llamadas a las APIs de Reddit. Alternativa obvia: `requests`. Se elige `httpx` porque es la evolución moderna y tiene mejor soporte para el modelo de I/O que usa el sistema.
 
-**Archivo:** `openspec/changes/archive/2026-03-30-connect-or-remove-half-landed-logic/`
+### `tenacity`
 
----
+Reintentos declarativos con decoradores:
 
-### Sesion de revision de robustez — 30/03/2026
+```python
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    reraise=True,
+)
+def _evaluate_single_raw(...):
+    ...
+```
 
-**Tipo:** revision metodologica y fixes de robustez. No es un change SDD con ciclo completo; es una sesión de revisión guiada por hipótesis.
+Alternativa: bucles `while` con `time.sleep`. Se descarta porque mezcla la lógica de negocio con la lógica de retry, hace el código más difícil de leer y los tests más difíciles de escribir. Con `tenacity`, el retry es una anotación separable de la lógica.
 
-**Enfoque:**
+### Stack de Python y herramientas
 
-Se aplicó un protocolo de tres pasos: formular hipótesis concreta → verificar contra código y spec → clasificar como confirmado / matizado / ya cubierto. Este orden importa: sin verificación previa, hay riesgo de romper código que funcionaba correctamente al intentar arreglar algo que no estaba roto.
+**Python 3.14**: La versión más reciente del lenguaje. En un proyecto educativo y en desarrollo, usar la versión más reciente es apropiado.
 
-**Cambios reales aplicados:**
+**uv**: gestor de paquetes y entornos virtuales de nueva generación. Más rápido que `pip` + `venv`, con lockfile reproducible (`uv.lock`) y gestión integrada de versiones de Python.
 
-| Area | Fix / Mejora | Naturaleza |
-| --- | --- | --- |
-| `delivery/selector.py` | Normalización a `except (ValidationError, ValueError) as exc:` con `logger.debug()` | Normalización de estilo — no era bug funcional de Python 3.14 |
-| `persistence/store.py` | Opción C en `save_pending_delivery`: upsert preserva `decided_at` original en reintentos; test de regresión añadido | Bug confirmado — el upsert sobreescribía la fecha original |
-| `delivery/__init__.py` | `now_utc` como referencia temporal única para TTL, retry/new y fecha del resumen; `run_date` como alias de compatibilidad | Bug confirmado — dispersión de fuentes temporales en el ciclo |
-| `main.py` | Filtro `is_complete` explícito antes de evaluación IA con logging y tests | Mejora de trazabilidad — la spec permitía el paso, pero sin visibilidad |
-| `Dockerfile` | `org.opencontainers.image.source` corregida; instalación cambiada a `uv sync --frozen --no-dev` | Mantenimiento de build y reproducibilidad |
-| `.gitignore` | Refinado para garantizar que `uv.lock` está rastreado y artefactos de desarrollo excluidos | Mantenimiento |
-| `.dockerignore` | Creado excluyendo `.venv`, `tests/`, `openspec/`, `TFM/`, `docs/`, `scripts/`, `.gitnexus/` y artefactos de desarrollo | Mantenimiento de imagen |
-| `tests/test_import_smoke.py` | Smoke test de importación del paquete añadido a la suite de CI | QA — detecta imports circulares y errores de inicialización de `Settings()` |
+**Docker**: el sistema se ejecuta como contenedor efímero. Ver sección 17.3 para el razonamiento.
 
-**Puntos debatidos que no resultaron bugs tal como se plantearon:**
-
-- La sintaxis de excepciones en Python 3.14+: no era un bug funcional de la versión; se normalizó el estilo.
-- La crítica general a la estrategia de tests: quedó matizada. Se añadieron mejoras concretas (filtro `is_complete` con tests, test de regresión de `decided_at`), no una revisión de estrategia.
-
-**Resultado:** Los tests existentes siguen pasando antes y después de los cambios. El sistema queda con mejoras de robustez semántica (`decided_at` preservado, fuente temporal única), trazabilidad (filtro `is_complete` logueado), reproducibilidad de build y cobertura de importación.
-
-**Leccion clave:** separar hipótesis de hechos antes de tocar código. La verificación previa permite distinguir bugs reales, puntos de normalización y comportamiento correcto por diseño. Sin ese paso, hay riesgo de introducir regressions en código que funcionaba o de pasar por alto deuda semántica real.
+**SQLite**: base de datos integrada en Python. No requiere proceso separado, no tiene configuración de red, es suficiente para un pipeline de un solo proceso por día. Ver sección 14.
 
 ---
 
-### Change 11 — `settings-govern-runtime` — ARCHIVADO 2026-03-30
+## 13. Manejo de errores, retries y robustez
 
-**Alcance:** documentar el contrato semántico de settings con distinción explícita entre cap pre-evaluación IA y cap post-evaluación IA, y eliminar cualquier ambigüedad documental que pudiera llevar a un operador a confundir `daily_review_limit` con `max_daily_opportunities`.
+### Estrategia general: errores transitorios vs permanentes
 
-**Contexto — discovery corregido:**
+El sistema distingue dos tipos de errores:
 
-El brief de discovery original asumía que `review_window_days` y `max_daily_opportunities` eran knobs decorativos que no gobernaban el runtime. Esa premisa había quedado obsoleta por `runtime-documented-truth-alignment`. La verificación de código durante el apply confirmó que todos los settings ya gobernaban el runtime. El discovery se actualizó con tabla de estado verificado y aviso de revisión, y el problema real que quedaba era únicamente de alineación semántica documental.
+**Transitorios**: problemas de red, rate limits, timeouts. Se retribuyen con backoff exponencial. Ejemplo: `APIError` de DeepSeek.
 
-**Lo que se implementó:**
+**Permanentes**: validación fallida, JSON malformado, error de tipo. Se saltan sin reintentar. Ejemplo: `ValidationError` de Pydantic al parsear la respuesta IA.
 
-- `docs/architecture.md`: §6 ampliado con inventario completo — 4 secretos + 5 parámetros operativos — con descripción explícita de `daily_review_limit` (cap pre-IA) vs `max_daily_opportunities` (cap post-IA), y `deepseek_model` / `db_path` clasificados como parámetros operativos con su consumidor runtime
-- `docs/product/product.md`: `daily_review_limit` añadido como parámetro configurable con su momento de actuación en el pipeline
-- `.env.example`: bloque `DB_PATH` ampliado con micro-nota que diferencia el valor Docker (`/data/auto_reddit.db`) del default de `Settings` (`auto_reddit.db`)
-- `docs/integrations/reddit/api-strategy.md`: terminología alineada con el vocabulario canónico pre/post-IA en la sección de cuotas y en el listado de parámetros operativos (quick follow-up documental)
-- `openspec/discovery/settings-govern-runtime.md`: premisas obsoletas marcadas como superadas; tabla de estado verificado en código añadida
-- `tests/test_settings_govern_runtime.py`: 646 líneas, 6 clases de test documentales que hacen aserciones estructurales sobre artefactos del repositorio para verificar las propiedades especificadas
+```python
+try:
+    return _evaluate_single_raw(ctx, client, model)
+except (ValidationError, JSONDecodeError, ValueError) as exc:
+    logger.warning("Permanent error for post %s: %s", ctx.candidate.post_id, exc)
+    return None  # el post se salta, no se aborta el batch
+except Exception as exc:
+    # reraise para tenacity
+    raise
+```
 
-**Los 6 escenarios de spec:**
+### Robustez en la colección de candidatos
 
-- `TestRuntimeBackedSettingsInventoryIsDocumentedConsistently`: el inventario documenta todos los settings con consumidor runtime real
-- `TestOperationalParametersAreNotOmittedFromContract`: `deepseek_model` y `db_path` están clasificados explícitamente
-- `TestPreEvaluationCapIsExplainedCorrectly`: `daily_review_limit` documenta que actúa antes de la evaluación IA
-- `TestPostEvaluationCapRemainsDistinctEvenWithSameDefault`: `max_daily_opportunities` documenta que actúa después de la evaluación IA
-- `TestCrossDocumentReviewNoLongerProducesContradictoryGuidance`: los tres artefactos target son coherentes entre sí
-- `TestExampleDbPathDoesNotMisstateRuntimeDefault`: `.env.example` no confunde el valor Docker con el default de `Settings`
+Si un proveedor de Reddit falla completamente, se intenta el siguiente. Si todos fallan, `collect_candidates` devuelve lista vacía y loguea el error. El pipeline continúa con 0 candidatos (lo cual produce un resumen diario con "0 posts revisados").
 
-**Decisiones editoriales clave:**
+Este comportamiento es intencional: un fallo de la API de Reddit no debe derribar el pipeline. El sistema degrada limpiamente.
 
-- el change es puramente documental; no hay cambios de runtime ni de código de producción
-- los tests son documentales: leen archivos del repositorio y hacen aserciones de texto estructurado; no requieren servicios externos ni mocks
-- el discovery se corrije en el mismo ciclo en lugar de abrirse como change separado, porque la corrección es parte de la trazabilidad honesta del proceso
+### Robustez en la extracción de comentarios
 
-**Spec canonica:** `openspec/specs/daily-runtime-governance/spec.md` (actualizada)
+Si todos los proveedores fallan para un post específico, ese post se descarta del diccionario de contextos. El resto del batch sigue. Un post sin contexto de comentarios no bloquea la evaluación de los demás.
 
-**Archivo:** `openspec/changes/archive/2026-03-30-settings-govern-runtime/`
+### Robustez en la entrega Telegram
 
-**Verificacion:** PASS — 12/12 tasks completas, 6/6 escenarios de spec cubiertos con evidencia automatizada; suite global 395 tests pasando, 4 skipped; sin advertencias
+Tenacity reintenta hasta 3 veces con backoff (2s–10s) ante `HTTPError`. Si falla después de los reintentos, `send_message` devuelve `False`. El orquestador registra el fallo pero no aborta. Los demás mensajes se intentan.
 
----
+El resumen diario se envía después de los mensajes individuales y se trata como no bloqueante: si falla, los mensajes individuales ya están enviados.
 
-### Change 1 — `reddit-candidate-collection` — ARCHIVADO 2026-03-27
+### El principio de "no contaminar el estado con errores transitorios"
 
-**Alcance:** recoger todos los posts de `r/Odoo` de los ultimos 7 dias y entregarlos normalizados al siguiente paso del pipeline.
+Un post que falla la validación Pydantic de la respuesta IA no se marca como `rejected`. Queda sin estado, lo que significa que volverá a entrar al pipeline al día siguiente.
 
-**Lo que implemento:**
-
-- `shared/contracts.py`: `RedditCandidate` con `is_complete` como computed field
-- `reddit/client.py`: tres normalizers, tres cursor extractors, `_fetch_with_retry`, `_paginate` generico y `collect_candidates` con fallback chain
-- `main.py`: funcion `run()` con comentarios explicitando los changes pendientes
-- `tests/test_reddit/`: 50 tests con fixtures de raws reales
-
-**Decisiones tecnicas clave:**
-
-- los candidatos incompletos se conservan con `is_complete=False`; no se descartan
-- `url` y `permalink` se canonican a URL absoluta en el normalizer, no en el consumidor
-- el subreddit se filtra post-normalizacion con `subreddit.lower() == "odoo"` como guard explicito
-- el fallback chain es whole-step: si un provider falla en cualquier punto, se descarta entero y se intenta el siguiente; no hay fallback parcial por pagina
-- `User-Agent: RapidAPI Playground` es obligatorio para reddapi; sin el, Cloudflare devuelve 403
-
-**Spec canonica:** `openspec/specs/reddit-candidate-collection/spec.md`
-
-**Archivo:** `openspec/changes/archive/2026-03-27-reddit-candidate-collection/`
-
-**Verificacion:** PASS — 21/21 tasks completas, 50 tests pasando, 6 escenarios de spec cubiertos
+Podría parecer un bug, pero es una decisión de diseño. Marcar como `rejected` algo que no es realmente un rechazo de negocio distorsionaría las métricas y ocuparía espacio en el cap diario. Un error de validación es una anomalía técnica, no una decisión editorial.
 
 ---
 
-### Change 10 — `minimum-ci-baseline` — ARCHIVADO 2026-03-29
+## 14. Persistencia y estado
 
-**Alcance:** minimo CI viable para el repo: validacion automatica de la suite de tests en cada push y pull request a `main` mediante GitHub Actions, sin secretos ni credenciales live.
+### Por qué SQLite y no algo más
 
-**Lo que implemento:**
+El sistema ejecuta una vez al día. Un solo proceso. Sin concurrencia. La persistencia necesaria es mínima: recordar qué posts ya se procesaron.
 
-- `.github/workflows/ci.yml`: workflow single-job con `astral-sh/setup-uv@v7`, `uv sync --extra dev` y `uv run pytest tests/ -x --tb=short`; se activa en `push` a `main` y `pull_request` targeting `main`; lee `.python-version` automaticamente sin pin explicito en el workflow
-- `tests/test_ci_workflow.py`: 22 tests que verifican el YAML del workflow — triggers, comando exacto de pytest, ausencia de secretos, gate de smoke tests
-- `tests/conftest.py`: defaults dummy de las cuatro variables de entorno obligatorias para que la coleccion de pytest no falle en CI donde no hay `.env`
-- `tests/test_integration/test_operational.py`: correccion del guard del smoke de Reddit para usar solo `REDDIT_SMOKE_API_KEY` y no el fallback a `REDDIT_API_KEY` (que el conftest ya proporciona con valor dummy)
+SQLite es suficiente para eso. No requiere configuración, no tiene proceso separado, el archivo de base de datos puede vivir en un volumen Docker, y Python trae soporte nativo.
 
-**Ciclos correctivos:**
+La decisión de no usar PostgreSQL, MySQL o cualquier otro servidor de base de datos no es descuido. Es apropiada para la escala y el modelo operativo del sistema.
 
-- ciclo 1: `--frozen` eliminado del comando de pytest
-- ciclo 2: `uv sync --dev` → `uv sync --extra dev` (las deps dev estan en `[project.optional-dependencies]`, no en `[dependency-groups]`)
-- ciclo 3: creacion de `conftest.py` + correccion del guard del smoke para evitar que el dummy de conftest active el smoke con credenciales invalidas
+### El modelo de tres estados
 
-**Decisiones tecnicas clave:**
+```
+          ┌─────────────┐
+          │   pipeline  │
+          │   (nuevo)   │
+          └──────┬──────┘
+                 │
+    ┌────────────┴────────────┐
+    │ IA acepta               │ IA rechaza
+    ▼                         ▼
+pending_delivery         rejected (final)
+    │
+    │ Telegram confirma
+    ▼
+  sent (final)
+```
 
-- `astral-sh/setup-uv` en lugar de `actions/setup-python` + pip: una sola accion para install, Python y cache
-- `.python-version` como unica fuente de verdad de la version de Python; sin pin en el workflow
-- sin secretos: los smoke tests tienen gate de env var propio; en CI se saltan sin configuracion especial
-- `conftest.py` con `os.environ.setdefault`: los tests del pipeline que instancian `Settings()` en tiempo de coleccion no fallan en CI sin `.env`
+`sent` y `rejected` son estados finales: un post en esos estados no vuelve a entrar al pipeline.
 
-**Spec canonica:** `openspec/specs/repository-ci/spec.md`
+`pending_delivery` es transitorio: un post en este estado puede reintentarse en la entrega. También puede expirar por TTL.
 
-**Archivo:** `openspec/changes/archive/2026-03-29-minimum-ci-baseline/`
+### El TTL de `pending_delivery`
 
-**Verificacion:** PASS — 21/21 tasks completas, 339 tests pasando, 4 skipped (smoke tests sin credenciales, por diseño), 22 tests de workflow pasando
+Los registros `pending_delivery` caducan al final de la semana laboral. La regla concreta:
+- Decidido lunes a miércoles → expira el viernes a las 23:59:59 UTC
+- Decidido jueves a domingo → expira el siguiente lunes a las 23:59:59 UTC
 
----
+Un post evaluado y aceptado el jueves que no se pudo entregar el viernes expira el siguiente lunes, no el viernes. Eso da la semana laboral siguiente como ventana de reintento antes de considerarlo irrelevante.
 
-### Change 9 — `environment-persistence-execution-hardening` — ARCHIVADO 2026-03-29
+### El contrato de despliegue: `DB_PATH`
 
-**Alcance:** cerrar el gap entre el contrato de despliegue documentado (contenedor efimero + cron externo + SQLite en volumen Docker) y el comportamiento real: cuando `DB_PATH` no esta explicitamente configurado, SQLite escribe en la capa del contenedor y la persistencia se pierde en cada ejecucion.
+```
+# docker-compose.yml
+services:
+  auto-reddit:
+    volumes:
+      - sqlite_data:/data
+    environment:
+      DB_PATH: /data/auto_reddit.db
+```
 
-**Lo que implemento:**
+Este detalle es crítico. Si `DB_PATH` no apunta al volumen montado, SQLite escribe en la capa efímera del contenedor. El sistema "funciona" sin error: arranca, ejecuta, termina. Pero la próxima ejecución empieza con una base de datos vacía. Todos los posts procesados ayer son desconocidos hoy.
 
-- `docker-compose.yml`: bloque `environment: DB_PATH=/data/auto_reddit.db` para que `docker-compose up` sea correcto incluso sin `.env` pre-configurado
-- `.env.example`: `DB_PATH=/data/auto_reddit.db` descomentado y anotado con diferencia entre valor de despliegue Docker y override para desarrollo local
-
-**Cambios NO realizados (fuera del scope declarado):**
-
-- `settings.py`: el default `"auto_reddit.db"` se mantiene para compatibilidad con tests y desarrollo local
-- `docs/architecture.md §10 (Execution Contract)`: identificada como deuda documental pendiente; la seccion completa con clasificacion de variables y sintaxis de cron no se añadio en este change
-
-**Decisiones tecnicas clave:**
-
-- la correccion se aplico en la capa de configuracion, no en el codigo del pipeline ni en `settings.py`
-- el gap es silencioso: `docker-compose up` no falla ni advierte, simplemente escribe en la capa efimera
-- `docker-compose.yml` actua como safety net para despliegue sin `.env` previo; `.env.example` actua como documentacion ejecutable para desarrolladores
-
-**Archivo:** `openspec/changes/archive/2026-03-29-environment-persistence-execution-hardening/`
-
-**Verificacion:** tests existentes pasan sin modificacion (298 en el momento del change); no se añadieron tests nuevos porque el fix es de configuracion pura, no de logica
-
----
-
-### Change 8 — `runtime-documented-truth-alignment` — ARCHIVADO 2026-03-29
-
-**Alcance:** cerrar cuatro derives verificables entre la verdad documental y el comportamiento ejecutable diario del pipeline.
-
-**Las cuatro derives:**
-
-1. El runtime no tenia guard de fin de semana; la documentacion decia "solo lunes a viernes".
-2. `review_window_days` era un setting decorativo; la ventana real era la constante hard-codeada `_7_DAYS_SECONDS` en `client.py`.
-3. El cap de entrega usaba `settings.max_daily_deliveries`; la documentacion solo mencionaba `max_daily_opportunities`. Dos settings con el mismo default creaban una verdad dividida.
-4. El resumen diario de Telegram se emitia solo si habia al menos una oportunidad; la spec exigia emision incondicional en dias laborables.
-
-**Lo que implemento:**
-
-- `src/auto_reddit/main.py`: guard de fin de semana al inicio de `run()` — `return` antes de cualquier side effect si `weekday() >= 5`
-- `src/auto_reddit/reddit/client.py`: sustitucion de `_7_DAYS_SECONDS` por `settings.review_window_days * 86400`; constante eliminada; docstrings actualizados
-- `src/auto_reddit/config/settings.py`: eliminado `max_daily_deliveries`; `max_daily_opportunities` como unico cap
-- `src/auto_reddit/delivery/__init__.py`: cap desde `max_daily_opportunities`; `render_summary()` movido fuera del guard de `total_selected > 0`
-- `src/auto_reddit/delivery/renderer.py`: `render_summary(count=0)` produce HTML valido
-- `docs/product/product.md`, `docs/architecture.md`, `docs/integrations/reddit/api-strategy.md`: alineados con la verdad unica por parametro
-- `tests/test_main.py`: `TestWeekendGuard` — sabado/domingo saltan el pipeline, miercoles lo ejecuta
-- `tests/test_reddit/test_client.py::TestReviewWindowDays`: ventana de 3 dias excluye candidatos de dia 4, incluye dia 2
-- `tests/test_delivery/test_deliver_daily.py`: cap configurable y resumen con 0 oportunidades
-
-**Ciclo correctivo post-verify:**
-
-Tres derives residuales detectadas y corregidas: hardcoded "8 oportunidades al dia" en `product.md §7.5`, comentario con `max_daily_deliveries` en `main.py`, y wording "ventana de 7 dias" en doc que no apuntaba al setting.
-
-**Decisiones tecnicas clave:**
-
-- el guard de fin de semana se puso en `main.py`, no en el cron; la spec dice que la logica vive en el runtime, no en la infraestructura
-- el setting `review_window_days` ya existia; solo habia que usarlo de verdad
-- `max_daily_deliveries` se elimino para que no haya forma de que dos settings divergan en silencio
-- el resumen incondicional garantiza que el equipo sabe cada dia laborable si hubo oportunidades o no
-
-**Spec canonica:** `openspec/specs/daily-runtime-governance/spec.md` (nueva); `openspec/specs/telegram-daily-delivery/spec.md` actualizada
-
-**Archivo:** `openspec/changes/archive/2026-03-29-runtime-documented-truth-alignment/`
-
-**Verificacion:** PASS — 22/22 tasks completas, 298 tests pasando, 8/8 escenarios de spec cubiertos; sin advertencias criticas ni de baja severidad
+El bug es silencioso: no hay error, no hay advertencia. Solo comportamiento incorrecto. La lección para un junior: los contratos de despliegue (qué configuración es necesaria en producción) son parte del sistema, no un detalle operativo secundario.
 
 ---
 
-### Change 7 — `telegram-smoke-tests` — ARCHIVADO 2026-03-28
+## 15. Integraciones externas
 
-**Alcance:** smoke tests opt-in live contra la Bot API de Telegram real, verificando que `send_message()` entrega texto plano, maneja tokens invalidos y entrega HTML. Sin funcionalidad nueva.
+### Reddit — tres proveedores vía RapidAPI
 
-**Lo que implemento:**
+El sistema usa tres APIs no oficiales de Reddit disponibles en RapidAPI:
 
-- `tests/test_integration/test_operational.py`: clase nueva `TestTelegramSmokeOptional` con 3 tests (S1 texto plano, S2 token invalido, S3 HTML)
-- `src/auto_reddit/config/settings.py`: `"extra": "ignore"` en `model_config` para no rechazar variables de smoke desconocidas
-- `.env.example`: creado con todas las variables del proyecto documentadas y agrupadas por dominio
-- `.gitignore`: corregido para rastrear `.env.example` y mantener `.env` ignorado
+| Proveedor | Fortaleza | Uso |
+|---|---|---|
+| reddit3 | Paginación estable, amplia colección | Posts (primario) |
+| reddit34 | Árbol de comentarios, timestamps, sort=new | Comentarios (primario) |
+| reddapi | Fallback ligero | Backup de posts y comentarios |
 
-**Decisiones tecnicas clave:**
+Ninguna de estas APIs es oficial de Reddit. Todas tienen cuotas gratuitas limitadas. La estrategia de fallback existe precisamente porque ninguna es completamente fiable por sí sola.
 
-- sin fallback a credenciales de produccion: a diferencia del smoke de Reddit, el de Telegram exige `TELEGRAM_SMOKE_*` dedicados; mezclar con produccion enviaria mensajes reales al canal del equipo
-- S2 (token invalido) dentro de la clase gated: podria correr sin credenciales pero se mantiene gated para respetar el contrato de opt-in explicito
-- gate con ambas variables obligatorias: `not _SMOKE_TG_TOKEN or not _SMOKE_TG_CHAT_ID`
-- el bot debe ser miembro del canal antes de correr el smoke; primer intento fallo con `chat not found`
+**El User-Agent de reddapi**
 
-**Spec sync:** `openspec/specs/operational-integration-tests/spec.md` actualizada para incluir el requisito de smoke Telegram y la regla de credenciales dedicadas
+reddapi requiere `User-Agent: RapidAPI Playground` para evitar bloqueo de Cloudflare. Sin este header, la API devuelve 403. Esta es una dependencia de un detalle operativo externo y potencialmente frágil. Está documentada explícitamente en `docs/integrations/reddit/api-strategy.md`.
 
-**Archivo:** `openspec/changes/archive/2026-03-28-telegram-smoke-tests/`
+### DeepSeek
 
-**Verificacion:** PASS limpio — 8/8 tasks completas, 273 tests pasando en suite completa, 3 smoke live pasando contra Bot API real
+DeepSeek es el modelo de lenguaje que evalúa los posts. Se conecta vía el SDK de OpenAI con `base_url` personalizada. El modelo configurado por defecto es `deepseek-chat`.
 
----
+La integración usa `structured output`: se le pide al modelo que devuelva un JSON que cumpla el esquema de `AIRawResponse`. Esto reduce la probabilidad de respuestas que no se puedan parsear.
 
-### Change 6 — `operational-integration-tests` — ARCHIVADO 2026-03-28
+### Telegram Bot API
 
-**Alcance:** tests de integracion operacional para verificar que las fases del pipeline no interfieren entre si y que el estado persiste correctamente entre ejecuciones consecutivas. Sin funcionalidad nueva.
+El sistema usa la Bot API de Telegram, que es un endpoint HTTP simple. `send_message` hace un POST con el token del bot, el chat ID y el texto HTML.
 
-**Lo que implemento:**
-
-- `tests/test_integration/test_operational.py`: 832 lineas, 5 clases, 10 tests + 1 smoke opcional
-  - `TestRetryWithoutAIReEvaluation`: reintento Telegram sin llamar a la IA
-  - `TestDeliveryBoundaryIsolation`: delivery no re-entra en upstream
-  - `TestEvaluationBoundaryIsolation`: evaluacion sin side effects en delivery
-  - `TestMultiRunMemoryBoundaries`: persistencia real entre dos runs con SQLite no mockeado
-  - `TestRedditSmokeOptional`: llamada real a Reddit, env-gated, skipped por defecto
-
-**Decisiones de diseno de tests:**
-
-- SQLite real con `tmp_path` en los tests de multi-run; el mock ocultaria exactamente lo que se quiere verificar
-- parche en el namespace del caller (`auto_reddit.main`), no en el modulo de definicion
-- sentinel con `AssertionError` para boundary isolation: si el test pasa, la fase no fue invocada
-- env-gate con `REDDIT_SMOKE_API_KEY` para el smoke sin romper CI normal
-- estrategia de prueba de P2 (boundary de delivery): entrada controlada vacia que atraviesa `main.run()` sin activar upstream, en lugar de hard-fail sentinels que habrian requerido refactorizacion de produccion
-
-**Spec canonica:** `openspec/specs/operational-integration-tests/spec.md`
-
-**Archivo:** `openspec/changes/archive/2026-03-28-operational-integration-tests/`
-
-**Verificacion:** PASS limpio — 10/10 tasks completas, 270 tests pasando (0 skipped tras correccion post-archive); cierra las advertencias de integracion abiertas en los changes 4 y 5; sin advertencias residuales
+Telegram soporta un subconjunto de HTML para formateo: `<b>`, `<i>`, `<a>`, `<blockquote>`. `renderer.py` usa exactamente esos tags para formatear los mensajes.
 
 ---
 
-### Change 5 — `telegram-daily-delivery` — ARCHIVADO 2026-03-28
+## 16. Tests: qué cubren y qué enseñan del diseño
 
-**Alcance:** entrega determinista de oportunidades aceptadas al equipo humano por Telegram, con retry-first dentro del cap diario, `sent` solo tras confirmacion, resumen no bloqueante y purga de registros expirados por TTL.
+### La suite actual
 
-**Lo que implemento:**
+396 tests totales, 4 skipped (los smoke tests live que requieren credenciales reales, se saltan en CI por diseño).
 
-- `shared/contracts.py`: `DeliveryReport` con contadores del ciclo de entrega
-- `persistence/store.py`: `purge_expired(post_ids)` para limpiar registros TTL expirados
-- `delivery/selector.py`: `select_deliveries` — retry-first, exclusion de malformed, TTL 7 dias, devuelve seleccionados y expirados
-- `delivery/renderer.py`: `render_opportunity` y `render_summary` — mensajes HTML con campos exigidos por `product.md §10`
-- `delivery/telegram.py`: `send_message` — cliente minimo Bot API
-- `delivery/__init__.py`: `deliver_daily` — orquestador del ciclo completo
-- `main.py`: change 5 activo, pipeline completo
-- `tests/test_delivery/`: 96 tests en cuatro ficheros
+Los tests se organizan en cinco categorías cualitativas:
 
-**Decisiones tecnicas clave:**
+1. **Tests unitarios por módulo**: prueban que cada función hace lo que dice
+2. **Tests de integración operacional**: prueban que las fases del pipeline no interfieren entre sí
+3. **Tests de smoke live**: llaman a las APIs reales para verificar que la integración funciona
+4. **Tests de CI**: verifican que el workflow de GitHub Actions está correctamente configurado
+5. **Tests documentales**: leen artefactos del repositorio y verifican coherencia documental
 
-- retry-first: reintentos antes que nuevos dentro del cap; maximiza entrega de oportunidades ya evaluadas
-- `sent` solo tras confirmacion de Telegram; nunca antes
-- resumen no bloqueante: su fallo no deshace entregas individuales
-- exclusion de malformed antes de consumir el cap (correccion post-verify)
-- TTL de 7 dias: pasada esa ventana el post ya no es editorialmente relevante
-- `reviewed_post_count` pasado desde upstream para el resumen de Telegram
+### Qué enseñan los tests de integración
 
-**Spec canonica:** `openspec/specs/telegram-daily-delivery/spec.md`
+Los tests de integración en `test_integration/test_operational.py` son los más instructivos para entender el diseño.
 
-**Archivo:** `openspec/changes/archive/2026-03-28-telegram-daily-delivery/`
+**`TestRetryWithoutAIReEvaluation`**
 
-**Verificacion:** PASS CON ADVERTENCIAS — 18/18 tasks completas, 259 tests pasando; advertencia de baja severidad sobre ausencia de test de orquestacion end-to-end que pruebe que delivery nunca re-entra en evaluacion IA
+Verifica que un post en `pending_delivery` en el siguiente ciclo se reintenta en Telegram sin llamar a `evaluate_batch` ni a los proveedores de Reddit.
 
-**Estado del proyecto:** pipeline principal completo — cinco changes archivados
+Este test no prueba solo que el código funciona. Prueba que una decisión de diseño se mantiene: la IA no re-evalúa lo que ya evaluó. Esa propiedad tiene consecuencias en el coste de API, la consistencia de las decisiones y la carga en los sistemas externos.
 
----
+**`TestDeliveryBoundaryIsolation`**
 
-### Change 4 — `ai-opportunity-evaluation` — ARCHIVADO 2026-03-28
+Verifica que el módulo de delivery solo consume registros persistidos. Nunca re-entra en colección ni evaluación.
 
-**Alcance:** evaluar con IA los posts enriquecidos con contexto de hilo, producir decisiones justificadas (aceptado/rechazado) con estructura definida para revision humana y persistir el resultado para entrega Telegram sin re-evaluar.
+Este test usa un `sentinel`: una función que lanza `AssertionError` si se llama. Si el módulo de delivery intentara llamar al evaluador, el test fallaría con una excepción de `AssertionError`, no con un error de lógica de negocio. Es una técnica de verificación de fronteras arquitectónicas.
 
-**Lo que implemento:**
+**`TestMultiRunMemoryBoundaries`**
 
-- `shared/contracts.py`: seis nuevos contratos — `OpportunityType`, `RejectionType`, `AIRawResponse`, `AcceptedOpportunity`, `RejectedPost`, `EvaluationResult`
-- `evaluation/evaluator.py`: system prompt de dos fases, constructor de mensaje deterministico, llamada a DeepSeek con retry tenacity, validacion Pydantic, `evaluate_batch`
-- `evaluation/__init__.py`: expone `evaluate_batch`
-- `main.py`: change 4 activo — persiste aceptados como `pending_delivery` y rechazados como `rejected`
-- `tests/test_evaluation/`: 56 tests en `test_contracts.py` y `test_evaluator.py`
+Ejecuta el pipeline dos veces con SQLite real (no mock). Verifica que:
+- Los posts marcados `sent` en la primera ejecución no entran en la segunda
+- Los posts marcados `rejected` en la primera ejecución no entran en la segunda
+- Los posts en `pending_delivery` después de la primera ejecución se reintenten en la segunda
 
-**Decisiones tecnicas clave:**
+Este test usa SQLite real porque la semántica del modelo de estados solo se puede verificar con persistencia real. Un mock de SQLite podría devolver lo que el test espera, pero no verificaría que el SQL real produce ese comportamiento.
 
-- prompt de dos fases (DECIDE → GENERA) para evitar racionalizacion post-hoc
-- campos deterministicos (`post_id`, `title`, `link`) construidos por el pipeline, nunca pedidos a la IA
-- `warning`/`human_review_bullets` solo en `AcceptedOpportunity` con calidad degradada; `RejectedPost` no los lleva
-- `opportunity_data` en `pending_delivery` guarda el JSON de `AcceptedOpportunity` para que el change 5 pueda reintentar Telegram sin re-evaluar la IA
-- sistema de tipos cerrado con enums validados por Pydantic; cualquier valor fuera del esquema falla antes de llegar al pipeline
-- retry/skip por post: si un post falla todos los reintentos, se salta sin abortar el batch
-- ciclo correctivo post-verify: se alinearon contratos e implementacion con la regla de que `warning`/`bullets` solo aplican a aceptaciones
+### Tests documentales: una categoría inusual
 
-**Spec canonica:** `openspec/specs/ai-opportunity-evaluation/spec.md`
+`test_settings_govern_runtime.py` lee archivos del repositorio y hace aserciones de texto. Por ejemplo:
 
-**Archivo:** `openspec/changes/archive/2026-03-28-ai-opportunity-evaluation/`
+```python
+def test_daily_review_limit_documents_pre_ia_cap():
+    content = Path("docs/architecture.md").read_text()
+    assert "antes de la evaluación IA" in content or "pre-IA" in content
+```
 
-**Verificacion:** PASS CON ADVERTENCIAS — 37/37 tasks completas, 163 tests pasando; advertencias de baja severidad sobre pruebas de integracion end-to-end pendientes
+Esto puede parecer extraño. ¿Por qué testear documentación?
 
----
+La razón: hay un contrato documental entre operadores y desarrolladores sobre qué significa `daily_review_limit`. Si alguien actualiza la documentación y rompe esa semántica, el test falla. Los contratos documentales son tan rompibles como los contratos de código, pero sin tests, los primeros se rompen silenciosamente.
 
-### Change 3 — `thread-context-extraction` — ARCHIVADO 2026-03-28
+### `test_import_smoke.py`: detectar errores de importación
 
-**Alcance:** enriquecer solo los posts ya seleccionados aguas arriba con el contexto bruto normalizado de su hilo de comentarios, sin mezclar extraccion con evaluacion IA ni con entrega.
+Este test importa dinámicamente todos los módulos del paquete y verifica que ninguno lanza `ImportError`, `SyntaxError` o cualquier excepción en la inicialización. Es especialmente útil para detectar errores en la inicialización de `Settings()` (que ocurre en tiempo de importación).
 
-**Lo que implemento:**
+Si añades un módulo nuevo que importa una dependencia no instalada, este test lo detectará antes de que el problema llegue a producción.
 
-- `shared/contracts.py`: `ContextQuality` enum, `RedditComment` con campos opcionales segun proveedor y `ThreadContext` como salida del paso
-- `reddit/comments.py`: modulo nuevo con `fetch_thread_contexts`, normalizers por proveedor y fallback chain `reddit34 → reddit3 → reddapi`
-- `main.py`: change 3 conectado, placeholder de change 4 actualizado
-- `tests/test_reddit/test_comments.py`: 37 tests nuevos
+### Cómo leer un test para entender el diseño
 
-**Decisiones tecnicas clave:**
+Cuando leas un test, hazte estas preguntas:
 
-- el fallback de comentarios esta ordenado diferente al de posts: `reddit34` primero porque tiene `sort=new`, timestamps, `depth` y `parent_id`; `reddit3` como parcial sin metadatos de anidamiento; `reddapi` degradado sin timestamps ni ids de comentario
-- reddit34 devuelve `created` como ISO 8601 string, no unix; el normalizer aplica `fromisoformat` con sustitucion de timezone antes de convertir
-- reddit3 no tiene `depth`/`parent_id` en sus campos directos; derivarlos sinteticamente desde la posicion del arbol no es equivalente a un valor real; decision: `None` para ambos + `ContextQuality.partial`
-- si todos los providers fallan para un post, ese post queda fuera del dict de resultados; el pipeline no se rompe
+1. ¿Qué comportamiento específico está verificando?
+2. ¿Por qué ese comportamiento importa para el sistema?
+3. ¿Qué decisión de diseño refleja?
+4. ¿Qué pasaría si ese comportamiento cambiara?
 
-**Spec canonica:** `openspec/specs/thread-context-extraction/spec.md`
-
-**Archivo:** `openspec/changes/archive/2026-03-28-thread-context-extraction/`
-
-**Verificacion:** PASS — 14/14 tasks completas, 107 tests pasando, 7/7 escenarios de spec cubiertos; el primer verify detecto discrepancia de wording en artefactos sobre reddit3 y depth, resuelta alineando design y tasks sin cambiar codigo
+Los tests que responden bien a esas preguntas son especificación ejecutable. Los tests que solo verifican que `assert result == 42` sin contexto son menos informativos.
 
 ---
 
-### Change 2 — `candidate-memory-and-uniqueness` — ARCHIVADO 2026-03-27
+## 17. Decisiones de diseño y trade-offs
 
-**Alcance:** memoria operativa minima y unicidad por post para que el pipeline diario no reprocese decisiones finales y pueda reintentar Telegram sin volver a llamar a la IA.
+### 17.1 Monolito modular vs microservicios
 
-**Lo que implemento:**
+**Decisión**: un solo proceso Python con módulos internos.
 
-- `shared/contracts.py`: `PostDecision` enum (`sent`, `rejected`, `pending_delivery`) y `PostRecord`
-- `persistence/store.py`: `CandidateStore` con SQLite — init, upserts, transiciones de estado, consulta de decididos y pendientes de entrega
-- `main.py`: integracion del store en el pipeline — exclusion de decididos, recorte a 8, placeholders comentados para changes 3-5
-- `config/settings.py`: campo `db_path` para la ruta del fichero SQLite
-- `tests/test_persistence/test_store.py`: 20 tests unitarios
+**Por qué**: el sistema ejecuta una vez al día. Los módulos no tienen requisitos distintos de escalado. La complejidad de comunicación entre servicios no compra nada aquí.
 
-**Decisiones tecnicas clave:**
+**Trade-off**:
+- Ventaja: despliegue simple, sin infraestructura de mensajería, sin problemas de latencia entre servicios
+- Coste: si el sistema creciera mucho (múltiples subreddits, múltiples canales, análisis histórico), el monolito empezaría a tener problemas de acoplamiento interno
 
-- `get_decided_post_ids()` devuelve `sent` + `rejected` pero NO `pending_delivery`; los posts en `pending_delivery` siguen elegibles para reintento sin re-evaluar la IA
-- todos los writes usan upsert (`INSERT ... ON CONFLICT DO UPDATE`) — idempotentes por diseno
-- `opportunity_data` en `PostRecord` guarda el JSON del resultado IA para reintentar Telegram sin re-llamar al modelo
-- el estado transitorio se llama `pending_delivery`, no `approved`; el nombre comunica exactamente la semantica: la IA dijo si, Telegram no ha confirmado aun
+**Cuándo cambiaría**: si partes distintas del sistema necesitaran escalarse independientemente o tener ciclos de deployment separados.
 
-**Spec canonica:** `openspec/specs/candidate-memory/spec.md`
+### 17.2 Contratos Pydantic explícitos
 
-**Archivo:** `openspec/changes/archive/2026-03-27-candidate-memory-and-uniqueness/`
+**Decisión**: todos los datos entre módulos pasan por modelos Pydantic en `shared/contracts.py`.
 
-**Verificacion:** PASS CON ADVERTENCIAS — 16/16 tasks completas, 70 tests pasando; advertencias no bloqueantes sobre ausencia de tests de integracion entre runs
+**Por qué**: las APIs de Reddit son heterogéneas. DeepSeek puede devolver estructuras inesperadas. Sin validación explícita, los errores se propagan silenciosamente.
+
+**Trade-off**:
+- Ventaja: validación temprana, documentación implícita, errores en el punto de origen no en el punto de uso
+- Coste: obliga a pensar los contratos antes de implementar. Añadir un campo nuevo requiere actualizar el modelo.
+
+### 17.3 Contenedor efímero + cron externo
+
+**Decisión**: no tener un proceso persistente. El sistema arranca, ejecuta y termina.
+
+**Por qué**: el caso de uso es batch diario. Un servidor 24/7 para ejecutar una vez al día añade complejidad de monitorización, reconnection y gestión de estado en memoria sin ningún beneficio.
+
+**Cómo funciona**: un cron en el VPS host ejecuta `docker-compose up` a una hora específica. El contenedor corre el pipeline y termina. El volumen Docker mantiene la base de datos SQLite entre ejecuciones.
+
+**Trade-off**:
+- Ventaja: operaciones simples, sin gestión de procesos colgados, coste mínimo de infraestructura
+- Coste: no puede reaccionar a eventos en tiempo real. No puede ejecutarse más frecuentemente que el intervalo del cron.
+
+### 17.4 SQLite en lugar de base de datos cliente-servidor
+
+**Decisión**: SQLite como única persistencia.
+
+**Por qué**: el pipeline es de un solo proceso. SQLite no tiene overhead de conexión de red, no requiere proceso separado, y el archivo puede versionarse o inspeccionarse con herramientas estándar.
+
+**Trade-off**:
+- Ventaja: simplicidad brutal. Cero configuración. Cero infraestructura adicional.
+- Coste: sin concurrencia de escritura. Sin consultas analíticas complejas eficientes. Sin acceso desde múltiples máquinas.
+
+### 17.5 Comentarios solo para posts ya seleccionados
+
+**Decisión**: no pedir comentarios en la colección inicial. Solo para los posts que ya pasaron el filtrado upstream.
+
+**Por qué**: las llamadas a APIs de comentarios consumen cuota significativamente más rápido que las de posts. Pedir comentarios para 20+ candidatos cuando solo 8 pasarán al evaluador sería malgastar cuota en datos que nunca se usarán.
+
+**Trade-off**:
+- Ventaja: ahorro de cuota de API
+- Coste: los filtros upstream (ya procesados, is_complete, recency) trabajan sin contexto de comentarios. Puede que se descarte un post que hubiera merecido revisarse si se hubieran visto sus comentarios primero.
+
+### 17.6 Evaluación en dos fases: DECIDE → GENERA
+
+**Decisión**: el system prompt exige que el modelo primero decida si acepta o rechaza, y solo entonces genere contenido.
+
+**Por qué**: sin este orden, el modelo tiende a generar una respuesta plausible y luego racionalizar la aceptación. Con el orden inverso, el resultado es un sesgo hacia aceptar más de lo que debería.
+
+**Trade-off**:
+- Ventaja: mayor precisión en la decisión de aceptación
+- Coste: el prompt es más largo y explícito. El sistema depende de que el modelo siga el orden indicado.
+
+### 17.7 Weekend guard en el código, no en el cron
+
+**Decisión**: `main.py` comprueba explícitamente si el día actual es fin de semana y hace `return` antes de ejecutar nada.
+
+**Por qué**: si solo dependieras del cron para controlar cuándo ejecuta, un cambio de cron podría hacer que el sistema ejecutara en fin de semana sin que ninguna lógica en el código lo impidiera. La invariante de negocio ("solo días laborables") no debe delegarse completamente a infraestructura.
+
+**Trade-off**:
+- Ventaja: la lógica de negocio está en el código, es testeable y es verificable
+- Coste: pequeña redundancia entre el cron y el guard interno
 
 ---
 
-## 17. Como mantener viva esta guia
+## 18. Qué enseña este proyecto sobre desarrollo con IA
 
-Si esta guia quiere seguir siendo util cuando lleguen nuevas implementaciones, tiene que actualizarse con reglas claras y no a golpe de intuicion.
+### La IA no escribe el proyecto por ti
 
-### 17.1 Jerarquia de verdad documental
+Este proyecto se construyó con asistencia de modelos de lenguaje (Claude, GPT). Pero la IA no diseñó la arquitectura, no decidió los trade-offs y no implementó los casos límite. El desarrollador hizo todo eso.
 
-Cuando haya contradicciones, actualiza la guia siguiendo este orden:
+La IA fue útil para:
+- debatir alternativas de diseño antes de decidir
+- implementar código a partir de una especificación detallada
+- escribir tests para comportamientos ya pensados
+- identificar errores en código que el desarrollador presentó
+- revisar consistencia entre documentación y código
 
-1. `docs/product/` para verdad funcional
-2. `docs/architecture.md` y `docs/integrations/` para verdad tecnica
-3. `openspec/` para el plan vigente por change
-4. `src/` y `tests/` para implementacion real materializada
-5. `TFM/diario.md` y notas historicas como contexto, nunca como fuente vigente por defecto
+No fue útil como reemplazo del criterio de ingeniería. Una IA sin criterio propio produce código que "funciona" pero no diseños que resisten el tiempo.
 
-### 17.2 Regla editorial clave
+### SDD: especifica antes de implementar
 
-Cada actualizacion debe distinguir SIEMPRE entre:
+El proceso de construcción usó Spec-Driven Development (SDD). Antes de implementar cualquier módulo había:
 
-- **producto**: lo que `auto-reddit` hace o debe hacer
-- **herramienta de trabajo**: lo que ayuda a pensar, documentar, analizar o programar
-- **flujo declarado por el autor**: decisiones de proceso no demostrables solo con el repo
+1. Discovery del problema
+2. Proposal del change
+3. Spec funcional con escenarios Given/When/Then
+4. Design técnico
+5. Tasks de implementación
+6. Verificación post-implementación
+7. Archivo
 
-Si se mezclan esas tres capas, la guia pierde valor academico y tecnico.
+Este ciclo existe porque la IA ejecuta muy bien instrucciones precisas y muy mal instrucciones ambiguas. Cuanto más detallada la especificación, mejor el resultado. Cuanto más ambigua, más revisión necesaria.
 
-### 17.3 Cuando actualizar cada bloque
+**La lección práctica**: cuando uses IA para implementar, no pidas "implementa el módulo de evaluación". Pide "implementa la función `_evaluate_single_raw` que recibe un `ThreadContext`, llama a DeepSeek con el modelo especificado, valida la respuesta con `AIRawResponse` y devuelve `AcceptedOpportunity` o `RejectedPost`. Si la validación falla, lanza `ValidationError`. Los campos `post_id`, `title` y `link` del resultado se construyen desde el `ThreadContext`, nunca se solicitan al modelo."
 
-- actualiza la seccion 4 cuando cambie el nivel de madurez real de un modulo
-- actualiza la seccion 9 cuando entren o salgan tools, skills o reglas de agente que afecten al proceso
-- actualiza la seccion 10 cuando un placeholder pase a tener implementacion real o aparezcan nuevos modulos
-- actualiza la seccion 11 cuando un flujo previsto pase a ser un flujo ejecutable
-- actualiza la seccion 12 cuando un riesgo cambie de estado o aparezca una mitigacion nueva
-- actualiza la seccion 14 cuando una incognita quede resuelta o nazcan otras nuevas
+La segunda instrucción produce código útil a la primera o segunda iteración. La primera produce algo que hay que reescribir.
 
-### 17.4 Como anadir futuros changes SDD sin romper la guia
+### Los agentes necesitan contexto, no solo inteligencia
 
-Cuando se implemente un nuevo change, no reescribas la guia completa. Haz esto:
+El proyecto usa herramientas de contexto persistente (Engram para memoria entre sesiones) y análisis estructural del código (GitNexus para navegar el repositorio como grafo). Estas herramientas no hacen que la IA sea más inteligente; la hacen más informada.
 
-1. anade el change al mapa de proceso de la seccion 9
-2. refleja en la seccion 10 que archivos o modulos se materializaron
-3. mueve en la seccion 11 lo que ya sea flujo ejecutable
-4. revisa secciones 12 y 14 para cerrar riesgos y abrir nuevos pendientes
-5. anade una entrada en la seccion 16 con los datos del change archivado
+Sin contexto, el agente trabaja sobre lo que le cuentas en esa sesión. Con contexto, puede recuperar decisiones pasadas, entender el impacto de sus cambios y no repetir errores ya corregidos.
 
-### 17.5 Que no hacer
+La lección: la calidad del output de un agente IA depende tanto del contexto que le das como de la instrucción concreta.
 
-- no copiar trozos enteros de `README.md`, `docs/` u `openspec/` si no aportan sintesis
-- no presentar tooling del autor como si fuera parte obligatoria del runtime del producto
-- no ocultar limites de verificacion: si algo no se pudo demostrar desde repo o fuente publica, debe etiquetarse
-- no dejar convivir sin nota decisiones historicas y decisiones vigentes
+### Los hardening changes tienen tanto valor como los features
+
+De los 13 changes del proyecto, cuatro (8, 9, 10, 11) no añadieron funcionalidad nueva. Cerraron la brecha entre lo que el sistema decía que hacía y lo que realmente hacía:
+
+- el guard de fin de semana estaba documentado pero no implementado
+- `review_window_days` era un setting decorativo (no llegaba al código)
+- `DB_PATH` no apuntaba al volumen Docker
+- no había CI automatizado
+
+Para un junior, la tentación es medir el progreso en funcionalidades. La ingeniería madura mide también la confiabilidad: que el sistema haga lo que dice que hace.
+
+---
+
+## 19. Errores de lectura comunes en juniors
+
+### Error 1: confundir carpetas con funcionalidad
+
+Ver `delivery/`, `evaluation/`, `reddit/` y asumir que el sistema está completamente implementado sin leer el código. O al contrario: ver que hay carpetas con nombres de módulos y asumir que están vacías. El árbol de archivos es una pista, no una respuesta.
+
+### Error 2: asumir que lo que dice la documentación es lo que hace el código
+
+Este repo tiene documentación actualizada y coherente con el código porque hubo changes específicos dedicados a alinearlos. En proyectos reales, esa alineación no siempre existe. Siempre verifica en el código, especialmente para comportamientos críticos.
+
+### Error 3: ignorar los tests como fuente de comprensión
+
+Los tests son la especificación más precisa del sistema. Si quieres saber exactamente cómo funciona el selector de entrega, lee `test_selector.py`. Te dirá exactamente qué casos se cubren y cómo.
+
+### Error 4: mezclar cuatro verdades distintas
+
+En este proyecto hay cuatro fuentes de verdad con roles distintos:
+
+| Fuente | Rol |
+|---|---|
+| `docs/product/product.md` | qué debe hacer el producto |
+| `docs/architecture.md` | cómo está organizado el sistema |
+| `openspec/changes/archive/` | cómo se construyó |
+| `src/auto_reddit/` | qué hace hoy |
+
+Mezclarlas lleva a confusión. Un junior que lee `TFM/diario.md` y toma las decisiones del día 1 como vigentes está leyendo historia como si fuera presente.
+
+### Error 5: ignorar los enums como decisiones de diseño
+
+Ver `OpportunityType` con cuatro valores y pensar "ah, es una lista de strings". Los enums cerrados son contratos que limitan intencionalmente el espacio de valores posibles. Si el negocio necesita un quinto tipo, requiere una decisión explícita de añadirlo al enum, no simplemente añadir un string libre.
+
+### Error 6: no distinguir errores transitorios de permanentes
+
+Ver `except Exception: return None` y pensar que el sistema silenacia errores. La distinción entre errores que se reintenten y errores que se saltan es una decisión de diseño con consecuencias en la consistencia del estado. Lee el manejo de excepciones despacio.
+
+### Error 7: subestimar la complejidad del fallback chain
+
+Ver `reddit3 → reddit34 → reddapi` y pensar "ah, tres APIs de backup". La estrategia es más sutil: el orden difiere entre posts y comentarios, la calidad varía por proveedor, y esa calidad afecta el comportamiento del evaluador IA downstream. Todo el `ContextQuality` enum existe precisamente para comunicar esa variación.
+
+### Error 8: creer que `main.py` es el mejor punto de entrada para entender el sistema
+
+`main.py` es el mejor punto de entrada para entender el flujo. Pero para entender el sistema, el mejor punto de entrada es `shared/contracts.py`. Los contratos te dicen qué existe y cómo está representado antes de entender cómo se crea o se transforma.
+
+---
+
+## 20. Evolución histórica del proyecto
+
+> **Nota**: esta sección es histórica. Describe cómo se construyó el proyecto, no cómo funciona hoy. Para entender el estado actual, lee las secciones anteriores.
+
+### Origen y motivación
+
+El proyecto surgió de una experiencia en una empresa que trabaja con Odoo. La observación inicial: el equipo de marketing perdía conversaciones relevantes en Reddit porque monitorizarlo a mano era irregular y costoso.
+
+La primera definición del sistema fue mucho más amplia que la versión actual: incluía publicación automática, análisis de múltiples subreddits y un backlog editorial. A lo largo del proceso de discovery, el alcance se redujo deliberadamente hasta un sistema que detecta y prepara, nunca publica.
+
+### La evolución del modelo de estados de persistencia
+
+La primera versión del modelo de estados incluía `approved` como estado intermedio entre la evaluación IA y la entrega Telegram. El problema: `approved` no añadía valor real porque cualquier cosa que la IA aceptaba pasaba directamente a entrega. Era un estado administrativo sin consecuencias en el flujo.
+
+`approved` fue eliminado, y el modelo quedó en tres estados: `pending_delivery` (IA aceptó, entrega pendiente), `sent` (entregado), `rejected` (rechazado).
+
+Esta simplificación es un ejemplo de diseño hacia adelante: cuando un estado no tiene consecuencias distintas de las de otro estado, elimínalo.
+
+### Los 13 changes en cuatro fases
+
+**Fase 1 — pipeline principal (changes 1-5, 27-28/03/2026)**
+
+1. `reddit-candidate-collection`: colección de posts con fallback chain
+2. `candidate-memory-and-uniqueness`: SQLite, modelo de estados, idempotencia
+3. `thread-context-extraction`: comentarios con fallback chain y ContextQuality
+4. `ai-opportunity-evaluation`: evaluador DeepSeek con prompt de dos fases
+5. `telegram-daily-delivery`: selector, renderer, cliente Telegram, deliver_daily
+
+**Fase 2 — integración, smoke y hardening (changes 6-10, 28-29/03/2026)**
+
+6. `operational-integration-tests`: tests de integración entre fases del pipeline
+7. `telegram-smoke-tests`: smoke tests live contra la Bot API real
+8. `runtime-documented-truth-alignment`: cerrar cuatro derives entre documentación y runtime
+9. `environment-persistence-execution-hardening`: contrato de despliegue Docker cerrado
+10. `minimum-ci-baseline`: GitHub Actions automatizando la suite en cada push y PR
+
+**Fase 3 — alineación semántica (change 11, 30/03/2026)**
+
+11. `settings-govern-runtime`: documentar la semántica de settings con distinción pre-IA/post-IA
+
+**Fase 4 — limpieza de artefactos históricos (changes 12-13, 30/03/2026)**
+
+12. `connect-or-remove-half-landed-logic`: eliminar marcadores `# Change N` del código activo
+13. `docs-information-architecture-cleanup`: reorganizar la arquitectura de información documental
+
+### Por qué los changes 8-13 son tan valiosos pedagógicamente
+
+Los cambios de funcionalidad (1-5) son los que un junior suele considerar "el trabajo real". Los changes de hardening y alineación (6-13) son los que distinguen un sistema que funciona de un sistema en el que se puede confiar.
+
+Change 8 cerró cuatro derives entre documentación y comportamiento real. Change 9 cerró un bug silencioso de despliegue que no producía error pero perdía datos. Change 10 añadió la red de seguridad que detecta regresiones automáticamente. Change 11 documentó semántica que hasta entonces era implícita.
+
+Ninguno de esos cambios añadió funcionalidad nueva. Todos hacen el sistema más confiable, predecible y mantenible.
+
+---
+
+## 21. Glosario técnico
+
+**adaptador**: módulo cuya responsabilidad es absorber la heterogeneidad de una fuente externa y entregar un contrato homogéneo al resto del sistema. `reddit/client.py` y `reddit/comments.py` son adaptadores.
+
+**blast radius**: conjunto de símbolos y módulos que se ven afectados cuando cambias uno concreto. Antes de tocar un contrato compartido, conviene medir el blast radius.
+
+**boundary isolation test**: test que verifica que una fase del pipeline no llama a otra fase que no le corresponde. Usa una función sentinel que lanza `AssertionError` si se invoca.
+
+**cap**: límite configurable. `daily_review_limit` es el cap pre-evaluación IA; `max_daily_opportunities` es el cap post-evaluación IA.
+
+**CI baseline**: primer nivel de integración continua automatizada. En este proyecto es el workflow de GitHub Actions que ejecuta la suite en cada push y PR a `main`.
+
+**computed field**: campo de un modelo Pydantic que se calcula automáticamente a partir de otros campos. `is_complete` en `RedditCandidate` es un computed field.
+
+**conftest.py**: archivo especial de pytest que configura el entorno antes de la colección de tests. En este proyecto establece defaults dummy para las variables de entorno obligatorias, permitiendo que los tests corran en CI sin `.env`.
+
+**contrato**: estructura de datos compartida entre módulos. En este repo los contratos son los modelos Pydantic de `shared/contracts.py`.
+
+**ContextQuality**: enum que indica la riqueza del contexto de hilo extraído según el proveedor. `full` (reddit34), `partial` (reddit3), `degraded` (reddapi).
+
+**cursor**: token opaco que una API devuelve para indicar el punto de inicio de la siguiente página. Cada proveedor de Reddit usa un campo diferente.
+
+**decisión final**: estado en el modelo de persistencia que no puede revertirse. `sent` y `rejected` son decisiones finales en este sistema.
+
+**dos fases en el prompt**: patrón de diseño de prompts donde el modelo primero DECIDE (acepta/rechaza) y luego GENERA contenido. Evita que la IA escriba una respuesta plausible y luego racionalice la aceptación.
+
+**efímero**: que existe temporalmente y termina. El contenedor Docker de este sistema es efímero: arranca, ejecuta y termina.
+
+**enum cerrado**: enumeración con valores fijos definidos en código. Si la IA devuelve un valor que no está en el enum, Pydantic lanza `ValidationError`.
+
+**env-gated test**: test que se salta automáticamente si no existe una variable de entorno específica. Útil para smoke tests que no deben ejecutarse en CI.
+
+**extra="ignore"**: configuración de pydantic-settings que permite variables adicionales en `.env` sin que `Settings` falle. Necesario porque `.env` puede contener variables de smoke que `Settings` no declara.
+
+**fallback chain**: cadena ordenada de proveedores. Si el primero falla, se intenta el siguiente. Posts: `reddit3 → reddit34 → reddapi`. Comentarios: `reddit34 → reddit3 → reddapi`.
+
+**gap silencioso**: error de configuración que no produce error ni advertencia pero altera el comportamiento. `DB_PATH` apuntando a la capa efímera del contenedor es el ejemplo canónico.
+
+**idempotencia**: propiedad de una operación que produce el mismo resultado si se ejecuta varias veces. Los upserts de SQLite en este sistema son idempotentes.
+
+**is_complete**: computed field de `RedditCandidate`. `True` solo si todos los campos mínimos del contrato están presentes y no son `None`. El contrato mínimo incluye `post_id`, `title`, `url`, `permalink`, `subreddit`, `created_utc` (distinto de cero), `source_api`, y además que `selftext` y `author` no sean `None`. `num_comments` no forma parte del contrato mínimo y no afecta a `is_complete`.
+
+**knob decorativo**: setting que existe en `Settings` y en `.env.example` pero cuyo valor no llega a gobernar el runtime porque el código usa una constante hardcodeada en lugar de leerlo. `review_window_days` era un knob decorativo antes del change 8.
+
+**monolito modular**: una sola aplicación con módulos internos bien separados. Sin microservicios.
+
+**normalizer**: función que transforma la respuesta heterogénea de una API externa al contrato propio del sistema.
+
+**pending_delivery**: estado transitorio en el modelo de persistencia. Significa que la IA aceptó el post pero Telegram aún no confirmó la entrega.
+
+**prompt cacheado**: system prompt estático que los modelos modernos pueden mantener en caché de prefijo para reducir latencia y coste.
+
+**purge_expired**: método de `CandidateStore` que elimina registros `pending_delivery` con TTL expirado al final del ciclo de entrega.
+
+**retry-first selection**: política de priorización en el selector de entregas. Los registros con intentos fallidos de entrega previos se seleccionan antes que los nuevos dentro del cap diario.
+
+**runtime governance**: alineación entre los settings declarados y el comportamiento observable del sistema. Un setting que gobierna de verdad el runtime cambia el comportamiento cuando se cambia su valor.
+
+**SDD (Spec-Driven Development)**: metodología de desarrollo donde la especificación precede a la implementación. Ciclo: discovery → proposal → spec → design → tasks → apply → verify → archive.
+
+**sent solo tras confirmación**: el estado `sent` no se escribe en SQLite hasta que Telegram confirma la entrega. Un fallo de red no produce un post marcado como enviado sin haberlo entregado.
+
+**split truth**: situación en que dos settings distintos controlan el mismo concepto con el mismo valor por defecto. Es una trampa de mantenimiento: actualizar uno y olvidar el otro produce comportamiento divergente silencioso.
+
+**structured output**: respuesta de un modelo de lenguaje forzada a cumplir un esquema JSON. En este proyecto DeepSeek devuelve un JSON validado por `AIRawResponse`.
+
+**TTL (time to live)**: tiempo de vida de un registro. En este sistema, los registros `pending_delivery` tienen TTL semanal que varía según el día de la semana en que se tomó la decisión.
+
+**upsert**: operación de base de datos que inserta si no existe o actualiza si ya existe. Evita duplicados sin necesidad de consultar antes de escribir.
+
+**weekend guard**: lógica en `main.py` que comprueba si el día actual es fin de semana y hace `return` antes de ejecutar nada. Está en el código, no solo en el cron.
+
+---
+
+## 22. Changelog editorial de esta guía
+
+### Qué se cambió en esta reescritura
+
+**Contradicciones resueltas**
+
+- Los módulos `evaluator.py`, `telegram.py`, `renderer.py`, `selector.py` y `delivery/__init__.py` estaban descritos como placeholders en la versión anterior. En la nueva versión se describen como lo que son: módulos completamente implementados.
+
+- Los settings defaults aparecían como `max_daily_opportunities = 10` y `daily_review_limit = 10` en algunas secciones. El valor actual es 8 en ambos casos, alineado con el análisis de cuota documentado en `docs/integrations/reddit/api-strategy.md`.
+
+- El conteo de tests era inconsistente a lo largo del documento (270, 273, 295, 339, 395, 396 aparecían en distintas secciones). El conteo actual es 396 (4 skipped).
+
+- La sección de flujos decía "como el código del producto aún no está implementado". El pipeline completo está implementado y archivado en los 13 changes. Esa afirmación era un artefacto del momento en que se escribió esa sección.
+
+**Estructura reorganizada**
+
+- Se eliminó la mezcla entre estado actual e histórico en las mismas secciones. La historia va en la sección 20, claramente marcada.
+
+- Se eliminaron las referencias a módulos como "placeholders" y se reemplazaron por descripciones del código actual.
+
+- Las secciones de "zonas pendientes" que decían "RESUELTA" se consolidaron en la sección histórica o se eliminaron.
+
+- La sección de OpenSpec, SDD, skills, GitNexus, Engram y MCP (sección 9 en la versión anterior) se condensó y se movió a su lugar apropiado en sección 18 (desarrollo con IA) y sección 7 (estructura del repositorio), en lugar de ocupar una sección de primer nivel desproporcionada.
+
+**Contenido eliminado**
+
+- El historial detallado de todos los changes (sección 16 de la versión anterior) se condensó significativamente. Los artefactos completos de cada change están en `openspec/changes/archive/`.
+
+- Las referencias al tooling personal del autor (qué modelos usa para qué fases) se eliminaron del cuerpo principal. No aportan valor didáctico al lector; son contexto del autor, no del sistema.
+
+- Los bloques de código que mostraban versiones intermedias del `main.py` con comentarios `# Change N (pendiente)` se eliminaron. Eran capturas históricas, no código actual.
+
+**Contenido añadido**
+
+- Sección de ruta recomendada de lectura del código.
+- Explicación en profundidad de cada módulo con patrones de diseño concretos.
+- Sección de manejo de errores transitorios vs permanentes.
+- Sección de integraciones externas con análisis de por qué se usa cada API.
+- Sección de errores de lectura comunes en juniors, basada en las trampas reales que tiene el repo.
+- Glosario técnico reorganizado por orden alfabético.
+
+**Contenido marcado explícitamente como histórico**
+
+- La sección de evolución del proyecto está en sección 20, con aviso explícito al inicio.
+- Las referencias a versiones intermedias del código se han movido a la sección histórica.
+
+### Pendientes de verificación manual
+
+El sistema prompt completo de `evaluator.py` (~280 líneas) no se transcribió en esta guía. Si el sistema prompt tiene cambios relevantes para el comportamiento del evaluador, conviene revisar `src/auto_reddit/evaluation/evaluator.py` directamente y actualizar la descripción de la sección 10.
+
+Los snapshots JSON en `docs/integrations/reddit/*/raw/` no se leyeron para esta guía. Si se han actualizado, las descripciones de las estructuras de respuesta de cada proveedor en la sección 10 deberían verificarse.
