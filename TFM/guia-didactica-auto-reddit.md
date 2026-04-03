@@ -5,7 +5,7 @@
 
 Esta guía usa `auto-reddit` como hilo conductor para enseñar ingeniería de software. No es un manual de onboarding ni una descripción del producto. Es una guía de aprendizaje construida sobre un proyecto real y terminado.
 
-Como apoyo visual del proyecto, el repositorio incluye una presentación HTML en `TFM/presentacion.html`. Puede abrirse localmente desde ese fichero y, cuando el repositorio tenga GitHub Pages activo, su URL esperada será `https://prodelaya.github.io/auto-reddit/TFM/presentacion.html`.
+Como apoyo visual del proyecto, el repositorio incluye una presentación HTML en `TFM/presentacion.html`. Puede abrirse localmente desde ese fichero y ya está publicada y disponible públicamente en GitHub Pages en `https://prodelaya.github.io/auto-reddit/TFM/presentacion.html`.
 
 Al terminar de leerla deberías ser capaz de:
 

@@ -151,7 +151,7 @@ Este proyecto no expone una interfaz web publica. El sistema corre en un VPS y s
 
 Ademas, el repositorio incluye una presentacion HTML del proyecto en `TFM/presentacion.html`.
 Se puede abrir localmente directamente desde ese fichero en cualquier navegador.
-Cuando quede desplegada con GitHub Pages, su URL esperada sera:
+La presentacion ya esta publicada y disponible publicamente en GitHub Pages en esta URL:
 
 https://prodelaya.github.io/auto-reddit/TFM/presentacion.html
 
