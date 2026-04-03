@@ -1,7 +1,7 @@
 # Initiative: post-pipeline-alignment-hardening
 
 ## Status
-active
+completed — 2026-03-30
 
 ## Vision
 Cerrar la brecha entre el pipeline ya archivado y su realidad operativa actual, dejando runtime, configuracion, ejecucion operacional, CI y documentacion alineados con una unica verdad mantenible.
@@ -27,37 +27,37 @@ Cerrar la brecha entre el pipeline ya archivado y su realidad operativa actual, 
 ## Candidate Changes
 
 ### 1. runtime-documented-truth-alignment
-Status: proposed
+Status: archived
 Goal: Alinear el comportamiento runtime con la verdad documental vigente en los puntos donde hoy existe divergencia observable.
 Dependencies: none
 Why separate: Fija la linea base funcional antes de endurecer ejecucion, CI o configuracion.
 
 ### 2. environment-persistence-execution-hardening
-Status: proposed
+Status: archived
 Goal: Definir y endurecer exactamente como debe ejecutarse el sistema con `.env`, volumen persistente SQLite y planificacion externa.
 Dependencies: runtime-documented-truth-alignment
 Why separate: Es un outcome operacional/deployment distinto del comportamiento de negocio del runtime.
 
 ### 3. minimum-ci-baseline
-Status: proposed
+Status: archived
 Goal: Introducir una base minima de CI que valide el proyecto con `uv` y la suite segura por defecto.
 Dependencies: runtime-documented-truth-alignment
 Why separate: CI es una capacidad transversal de verificacion, no un ajuste del runtime ni del despliegue.
 
 ### 4. settings-govern-runtime
-Status: proposed
+Status: archived
 Goal: Garantizar que los settings soportados gobiernan el runtime real y que no queden parametros documentados pero ignorados.
 Dependencies: runtime-documented-truth-alignment
 Why separate: Es un cierre de contrato de configuracion, diferente de despliegue, CI o limpieza documental.
 
 ### 5. connect-or-remove-half-landed-logic
-Status: proposed
+Status: archived
 Goal: Resolver conceptos y artefactos runtime-adjacent que quedaron a medio aterrizar y hoy generan ruido o superficie falsa.
 Dependencies: settings-govern-runtime
 Why separate: Conviene hacerlo despues de cerrar la autoridad del runtime/config para no borrar o consolidar en falso.
 
 ### 6. docs-information-architecture-cleanup
-Status: proposed
+Status: archived
 Goal: Reordenar la documentacion para que la verdad vigente, el historico y el planning queden claramente separados y navegables.
 Dependencies: runtime-documented-truth-alignment, environment-persistence-execution-hardening, minimum-ci-baseline, settings-govern-runtime, connect-or-remove-half-landed-logic
 Why separate: Es una capa de informacion y mantenibilidad; debe consolidar las decisiones cerradas por los changes previos.
