@@ -145,6 +145,18 @@ La base de datos SQLite vive en un volumen Docker (`sqlite_data:/data`). Los dat
 docker volume ls
 ```
 
+## Acceso al despliegue operativo
+
+Este proyecto no expone una interfaz web publica. El sistema corre en un VPS y su salida operativa real se entrega en Telegram, que es el canal donde el equipo consulta cada ejecucion diaria y revisa las oportunidades detectadas.
+
+Canal operativo real:
+
+https://t.me/+wp1xd6Rgik9lNWQ0
+
+Referencia visual del canal en produccion:
+
+![Canal operativo de Telegram](assets/demo1.jpg)
+
 ---
 
 ## Estructura del proyecto
