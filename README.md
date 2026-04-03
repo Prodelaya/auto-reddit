@@ -87,6 +87,7 @@ El modelo operativo es un **contenedor efimero**: arranca, ejecuta el pipeline c
 #### Paso 1 — Preparar el entorno
 
 ```bash
+# Si el puerto 22 (SSH) está bloqueado, usar HTTPS:
 git clone https://github.com/Prodelaya/auto-reddit.git
 cd auto-reddit
 cp .env.example .env
@@ -94,35 +95,37 @@ cp .env.example .env
 # DEEPSEEK_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, REDDIT_API_KEY
 ```
 
-#### Paso 2 — Construir la imagen
+#### Paso 2 — Instalar Docker (si no está instalado)
 
 ```bash
-docker compose build
+sudo apt install -y docker.io docker-compose-v2
 ```
 
-#### Paso 3 — Verificar que funciona
+#### Paso 3 — Construir y verificar
 
 ```bash
-docker compose run --rm auto-reddit
+sudo docker compose up --build
 ```
 
-El contenedor arranca, ejecuta el pipeline y termina. En fin de semana el pipeline se omite automaticamente (guard en `main.py`, no en el cron).
+El contenedor arranca, ejecuta el pipeline completo y termina. Si termina con `exited with code 0` y los mensajes llegan a Telegram, el despliegue es correcto. En fin de semana el pipeline se omite automaticamente (guard en `main.py`, no en el cron).
 
 #### Paso 4 — Configurar el cron
 
-La ejecucion diaria la controla un cron externo del VPS, no el contenedor. Ejemplo para ejecutar a las 08:00 UTC todos los dias:
+La ejecucion diaria la controla un cron externo del servidor, no el contenedor:
 
 ```bash
-crontab -e
+sudo crontab -e
 ```
 
-Anadir:
+Anadir (ejemplo para las 10:30 hora del servidor):
 
 ```
-0 8 * * * cd /path/to/auto-reddit && docker compose run --rm auto-reddit >> /var/log/auto-reddit.log 2>&1
+30 10 * * * cd /opt/auto-reddit && docker compose up >> /var/log/auto-reddit.log 2>&1
 ```
 
 El guard de fin de semana esta en el codigo (`main.py`), no en el cron, asi que la entrada puede correr los 7 dias sin problema: el script decide por si solo si ejecutar o no.
+
+La guia de despliegue completa esta en [`docs/deployment.md`](docs/deployment.md).
 
 #### Ver logs
 
