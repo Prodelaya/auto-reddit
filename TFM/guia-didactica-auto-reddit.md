@@ -41,6 +41,7 @@ Al terminar de leerla deberías ser capaz de:
 20. [Evolución histórica del proyecto](#20-evolución-histórica-del-proyecto)
 21. [Glosario técnico](#21-glosario-técnico)
 22. [Changelog editorial de esta guía](#22-changelog-editorial-de-esta-guía)
+23. [Despliegue en servidor Ubuntu propio](#23-despliegue-en-servidor-ubuntu-propio)
 
 ---
 
@@ -1534,3 +1535,79 @@ Ninguno de esos cambios añadió funcionalidad nueva. Todos hacen el sistema má
 El sistema prompt completo de `evaluator.py` (~280 líneas) no se transcribió en esta guía. Si el sistema prompt tiene cambios relevantes para el comportamiento del evaluador, conviene revisar `src/auto_reddit/evaluation/evaluator.py` directamente y actualizar la descripción de la sección 10.
 
 Los snapshots JSON en `docs/integrations/reddit/*/raw/` no se leyeron para esta guía. Si se han actualizado, las descripciones de las estructuras de respuesta de cada proveedor en la sección 10 deberían verificarse.
+
+---
+
+## 23. Despliegue en servidor Ubuntu propio
+
+*Añadida el 03/04/2026. Documenta el primer despliegue real del sistema en producción.*
+
+### Contexto
+
+El despliegue se realizó en un servidor Ubuntu 24.04 propio (no un proveedor cloud), con acceso SSH directo. La ruta elegida fue `/opt/auto-reddit`, convención estándar para aplicaciones de sistema en Linux.
+
+### Proceso completo
+
+**1. Clonar el repositorio**
+
+El puerto 22 (SSH hacia GitHub) estaba bloqueado en el servidor. Se usó HTTPS:
+
+```bash
+cd /opt
+sudo git clone https://github.com/Prodelaya/auto-reddit.git
+cd auto-reddit
+```
+
+**2. Instalar Docker**
+
+El servidor no tenía Docker instalado. Se instaló con apt:
+
+```bash
+sudo apt install -y docker.io docker-compose-v2
+```
+
+Versiones resultantes: Docker 28.2.2, Docker Compose 2.37.1.
+
+**3. Configurar variables de entorno**
+
+```bash
+sudo cp .env.example .env
+sudo nano .env
+# Rellenar: DEEPSEEK_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, REDDIT_API_KEY
+```
+
+**4. Primera ejecución**
+
+```bash
+sudo docker compose up --build
+```
+
+Resultado: imagen construida, pipeline ejecutado, 45 candidatos recolectados, 6 aceptados por la IA, 6 mensajes entregados a Telegram, `exited with code 0`.
+
+**5. Cron para ejecución diaria**
+
+```bash
+sudo crontab -e
+```
+
+Línea añadida:
+
+```
+30 10 * * * cd /opt/auto-reddit && docker compose up >> /var/log/auto-reddit.log 2>&1
+```
+
+El pipeline se ejecuta cada día a las 10:30 hora del servidor. El guard de fin de semana está en `main.py`, no en el cron.
+
+### Cosas que aprender de este despliegue
+
+**El puerto 22 puede estar bloqueado.** En servidores propios o corporativos es habitual que el firewall bloquee el puerto SSH saliente hacia GitHub. HTTPS es la alternativa directa; no requiere configuración adicional para repos públicos.
+
+**Los 429 son normales, no son errores del despliegue.** Los proveedores de la API de Reddit tienen rate limits estrictos. El sistema tiene lógica de fallback entre tres proveedores (`reddit34` → `reddit3` → `reddapi`). Ver los 429 en los logs no significa que el despliegue haya fallado; significa que el sistema está funcionando como se diseñó.
+
+**El log no se crea hasta la primera ejecución del cron.** Si se lanza el pipeline manualmente con `docker compose up`, los logs van a la terminal, no al fichero `/var/log/auto-reddit.log`. Ese fichero lo crea el cron la primera vez que se ejecuta.
+
+**El volumen Docker persiste entre ejecuciones.** La base de datos SQLite vive en `auto-reddit_sqlite_data`. Los posts ya entregados no se reenvían aunque el contenedor muera y se vuelva a levantar. Esto es una decisión de diseño deliberada, no un efecto secundario.
+
+### Referencia
+
+La guía operativa completa con todos los comandos exactos está en [`docs/deployment.md`](../docs/deployment.md).

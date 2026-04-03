@@ -1762,3 +1762,36 @@ script decide por si solo si ejecutar o no.
 
 Commits:
 - `73556a7`: `docs: add step-by-step VPS deployment guide`
+
+---
+
+## Entrada 26
+
+**Fecha:** 03/04/2026
+
+### Primer despliegue real en servidor Ubuntu propio
+
+Se desplegó auto-reddit por primera vez en un servidor Ubuntu 24.04 de producción real (servidor propio, no un proveedor cloud). El sistema quedó operativo y ejecutando el pipeline diario de forma autónoma.
+
+### Lo que se hizo
+
+1. **Clonar el repo:** el puerto 22 (SSH de GitHub) estaba bloqueado en el servidor, por lo que se clonó con HTTPS en lugar de SSH.
+2. **Instalar Docker:** el servidor no tenía Docker. Se instaló `docker.io` y `docker-compose-v2` con apt. Versiones: Docker 28.2.2, Compose 2.37.1.
+3. **Configurar `.env`:** se copió `.env.example` y se rellenaron las 4 variables obligatorias.
+4. **Primera ejecución:** `sudo docker compose up --build`. El pipeline completó con éxito: 45 candidatos recolectados, 6 aceptados por la IA, 6 entregados a Telegram. `exited with code 0`.
+5. **Cron configurado:** `sudo crontab -e` con la entrada `30 10 * * * cd /opt/auto-reddit && docker compose up >> /var/log/auto-reddit.log 2>&1`. Se ejecutará cada día a las 10:30.
+
+### Lo que quedó claro
+
+- El puerto 22 puede estar bloqueado en servidores propios o corporativos. HTTPS es la alternativa fiable para clonar.
+- Los `429 Too Many Requests` de los proveedores de Reddit son normales y esperados; el sistema tiene lógica de fallback entre proveedores. No son errores del despliegue.
+- El log `/var/log/auto-reddit.log` no se crea hasta la primera ejecución vía cron. Las ejecuciones manuales con `docker compose up` no escriben en ese fichero.
+- La ruta de instalación elegida fue `/opt/auto-reddit`, que es la convención estándar para aplicaciones de sistema en Linux.
+
+### Artefactos generados
+
+- `docs/deployment.md`: guía completa del despliegue real con todos los comandos exactos.
+- README actualizado con los comandos reales (HTTPS, `sudo`, paso de instalación de Docker).
+
+Commits:
+- pendiente de commit
