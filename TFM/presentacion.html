@@ -1,0 +1,1874 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto-Reddit | Presentacion producto</title>
+  <style>
+    :root {
+      --odoo: #714B67;
+      --odoo-dark: #503547;
+      --reddit: #FF4500;
+      --gray: #6C757D;
+      --text: #23313b;
+      --muted: #5d6972;
+      --line: #d9dde2;
+      --surface: #ffffff;
+      --surface-soft: #f5f7fa;
+      --bg: #eef1f5;
+      --success: #2b8a57;
+      --shadow: 0 20px 60px rgba(35, 49, 59, 0.12);
+      --radius: 28px;
+      --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      --font-body: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "SFMono-Regular", "Cascadia Code", "Fira Code", Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: var(--font-body);
+      background: radial-gradient(circle at top left, rgba(113, 75, 103, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(255, 69, 0, 0.12), transparent 28%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    .deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      padding: 28px;
+      isolation: isolate;
+    }
+
+    .deck::before,
+    .deck::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .deck::before {
+      background-image:
+        linear-gradient(rgba(113, 75, 103, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(113, 75, 103, 0.045) 1px, transparent 1px),
+        radial-gradient(rgba(35, 49, 59, 0.06) 0.6px, transparent 0.8px);
+      background-size: 72px 72px, 72px 72px, 11px 11px;
+      background-position: center;
+      opacity: 0.3;
+      z-index: -2;
+    }
+
+    .deck::after {
+      inset: 18px;
+      border: 1px solid rgba(113, 75, 103, 0.08);
+      border-radius: 40px;
+      z-index: -1;
+    }
+
+    .brand-bar {
+      position: absolute;
+      top: 16px;
+      left: 28px;
+      right: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .brand-chip,
+    .key-hint {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 999px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(35, 49, 59, 0.08);
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .brand-chip img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+    }
+
+    .slides {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: clamp(20px, 2.2vh, 28px);
+      padding: 84px 70px 96px;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 34px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateX(36px) scale(0.985);
+      transition: opacity 0.46s cubic-bezier(0.22, 1, 0.36, 1), transform 0.46s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(113, 75, 103, 0.045), transparent 40%, rgba(255, 69, 0, 0.035));
+      pointer-events: none;
+    }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border: 1px solid rgba(113, 75, 103, 0.08);
+      border-radius: 24px;
+      pointer-events: none;
+      opacity: 0.65;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+      pointer-events: auto;
+      z-index: 2;
+      box-shadow: 0 28px 68px rgba(35, 49, 59, 0.14);
+    }
+
+    .slide-header,
+    .slide-footer,
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .slide-header,
+    .slide-footer {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+
+    .slide-header {
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(113, 75, 103, 0.1);
+    }
+
+    .slide-footer {
+      padding-top: 12px;
+      border-top: 1px solid rgba(113, 75, 103, 0.08);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(113, 75, 103, 0.1);
+      color: var(--odoo);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      width: fit-content;
+      border: 1px solid rgba(113, 75, 103, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+    }
+
+    .eyebrow.reddit {
+      background: rgba(255, 69, 0, 0.1);
+      color: var(--reddit);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2.55rem, 4.7vw, 4.8rem);
+      line-height: 1.06;
+      letter-spacing: -0.04em;
+      max-width: 11ch;
+      font-weight: 700;
+      text-wrap: balance;
+    }
+
+    h2 {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 3vw, 3.2rem);
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+      max-width: 16ch;
+      font-weight: 700;
+      text-wrap: balance;
+    }
+
+    .card h2, .panel h2, .quote h2 {
+      max-width: 22ch;
+    }
+
+    h3 {
+      font-family: var(--font-body);
+      font-size: 1.08rem;
+      color: var(--odoo-dark);
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+    }
+
+    .lede {
+      font-size: clamp(1rem, 1.3vw, 1.25rem);
+      line-height: 1.7;
+      max-width: 62ch;
+      color: var(--muted);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.92em;
+      padding: 0.16em 0.42em;
+      border-radius: 999px;
+      background: rgba(113, 75, 103, 0.08);
+      border: 1px solid rgba(113, 75, 103, 0.08);
+    }
+
+    .accent {
+      color: var(--reddit);
+    }
+
+    .accent-odoo {
+      color: var(--odoo);
+    }
+
+    .content {
+      display: grid;
+      gap: clamp(22px, 2.4vh, 32px);
+      align-content: center;
+      min-height: 0;
+    }
+
+    .slide[data-title="Flujo del sistema"] .content,
+    .demo-slide .content {
+      align-content: start;
+    }
+
+    .two-col,
+    .three-col,
+    .asymmetric,
+    .demo-grid,
+    .flow-grid,
+    .comparison-grid,
+    .value-grid,
+    .closing-grid {
+      display: grid;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .two-col {
+      grid-template-columns: 1.1fr 0.9fr;
+    }
+
+    .three-col {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .asymmetric {
+      grid-template-columns: 1.2fr 0.8fr;
+      align-items: stretch;
+    }
+
+    .flow-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 14px;
+    }
+
+    .comparison-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .value-grid {
+      grid-template-columns: 1.05fr 0.95fr;
+    }
+
+    .demo-grid {
+      grid-template-columns: 1.15fr 0.85fr;
+    }
+
+    .closing-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .card,
+    .metric,
+    .flow-step,
+    .panel,
+    .quote,
+    .link-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 10px 26px rgba(35, 49, 59, 0.06);
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      min-height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before,
+    .metric::before,
+    .flow-step::before,
+    .panel::before,
+    .quote::before,
+    .link-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 24px;
+      right: 24px;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(113, 75, 103, 0.25), rgba(255, 69, 0, 0.18));
+      opacity: 0.8;
+    }
+
+    .card.soft,
+    .panel.soft {
+      background: var(--surface-soft);
+    }
+
+    .slide[data-title="Solucion"] .card {
+      padding: 16px 20px;
+      gap: 8px;
+    }
+
+    .slide[data-title="Solucion"] .content.comparison-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+    }
+
+    .slide[data-title="Solucion"] .content.comparison-grid > :first-child {
+      grid-column: 1 / -1;
+    }
+
+    .slide[data-title="Solucion"] .card h2 {
+      font-size: clamp(1.55rem, 2.1vw, 2.3rem);
+      line-height: 1.04;
+    }
+
+    .slide[data-title="Solucion"] .card ul {
+      gap: 6px;
+    }
+
+    .slide[data-title="Solucion"] .card li {
+      font-size: 0.91rem;
+      line-height: 1.42;
+    }
+
+    .metric {
+      gap: 10px;
+    }
+
+    .value-grid .panel .three-col .metric {
+      padding: 16px 18px;
+      gap: 6px;
+    }
+    .value-grid .panel .three-col .metric span {
+      font-size: 0.88rem;
+    }
+
+    .metric strong {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 3vw, 3.4rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+    }
+
+    .metric span,
+    .card p,
+    .panel p,
+    .flow-step p,
+    .quote p,
+    li,
+    .link-card p {
+      font-size: 0.98rem;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .stack-list,
+    .chip-list,
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip,
+    .stack-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(113, 75, 103, 0.1);
+      color: var(--odoo);
+      border: 1px solid rgba(113, 75, 103, 0.14);
+    }
+
+    .chip.reddit,
+    .stack-pill.reddit {
+      background: rgba(255, 69, 0, 0.1);
+      color: var(--reddit);
+      border-color: rgba(255, 69, 0, 0.16);
+    }
+
+    .chip.gray,
+    .stack-pill.gray {
+      background: rgba(108, 117, 125, 0.12);
+      color: var(--gray);
+      border-color: rgba(108, 117, 125, 0.18);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.06fr) minmax(300px, 0.94fr);
+      gap: clamp(24px, 2.8vw, 42px);
+      align-items: stretch;
+      min-height: 0;
+    }
+
+    .cover-slide {
+      padding-top: 88px;
+      padding-bottom: 90px;
+    }
+
+    .cover-slide::before {
+      background:
+        linear-gradient(135deg, rgba(113, 75, 103, 0.07), transparent 42%, rgba(255, 69, 0, 0.06)),
+        radial-gradient(circle at 76% 34%, rgba(255, 69, 0, 0.09), transparent 28%),
+        radial-gradient(circle at 12% 18%, rgba(113, 75, 103, 0.08), transparent 24%);
+    }
+
+    .cover-slide .slide-header {
+      gap: 14px;
+    }
+
+    .cover-slide .slide-footer {
+      margin-top: auto;
+    }
+
+    .cover-slide .footer-meta > span:first-child {
+      max-width: 64ch;
+    }
+
+    .cover-slide h1 {
+      font-size: clamp(2.25rem, 4vw, 4.35rem);
+      max-width: 10.2ch;
+    }
+
+    .cover-slide .lede {
+      max-width: 56ch;
+      font-size: clamp(0.98rem, 1.18vw, 1.12rem);
+      line-height: 1.58;
+    }
+
+    .cover-slide .statement {
+      max-width: 38rem;
+    }
+
+    .cover-slide .split-title {
+      position: relative;
+      padding-left: 28px;
+    }
+
+    .cover-slide .split-title::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(113, 75, 103, 0.3), rgba(255, 69, 0, 0.26));
+    }
+
+    .hero-visual {
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: clamp(12px, 2vw, 26px);
+      isolation: isolate;
+      border-radius: 30px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.08)),
+        linear-gradient(90deg, rgba(113, 75, 103, 0.05) 1px, transparent 1px),
+        linear-gradient(rgba(113, 75, 103, 0.05) 1px, transparent 1px);
+      background-size: auto, 28px 28px, 28px 28px;
+      border: 1px solid rgba(113, 75, 103, 0.08);
+    }
+
+    .ring,
+    .signal,
+    .halo {
+      position: absolute;
+      border-radius: 50%;
+    }
+
+    .ring {
+      width: clamp(260px, 26vw, 350px);
+      aspect-ratio: 1;
+      top: 50%;
+      left: 50%;
+      border: 2px dashed rgba(113, 75, 103, 0.28);
+      animation: slow-spin 28s linear infinite;
+    }
+
+    .signal {
+      width: clamp(180px, 18vw, 240px);
+      aspect-ratio: 1;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(255, 69, 0, 0.18), rgba(255, 69, 0, 0.03));
+    }
+
+    .halo {
+      width: clamp(320px, 31vw, 410px);
+      aspect-ratio: 1;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(113, 75, 103, 0.14), transparent 62%);
+    }
+
+    .hero-badge {
+      position: relative;
+      z-index: 1;
+      width: min(100%, 345px);
+      padding: clamp(22px, 2.2vw, 28px);
+      background: linear-gradient(140deg, rgba(113, 75, 103, 0.98), rgba(80, 53, 71, 0.98));
+      color: white;
+      border-radius: 32px;
+      box-shadow: 0 24px 40px rgba(80, 53, 71, 0.34);
+      display: grid;
+      gap: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .hero-badge::before {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 22px;
+      pointer-events: none;
+    }
+
+    .hero-badge img {
+      width: 76px;
+      height: 76px;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.2));
+    }
+
+    .hero-badge strong {
+      font-family: var(--font-display);
+      font-size: 2.4rem;
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .stat-box {
+      padding: 16px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .stat-box strong {
+      display: block;
+      font-size: 1.3rem;
+    }
+
+    .statement {
+      padding: 22px 24px;
+      border-left: 5px solid var(--reddit);
+      background: linear-gradient(90deg, rgba(255, 69, 0, 0.09), rgba(255, 255, 255, 0));
+      border-radius: 0 22px 22px 0;
+      font-size: 1.18rem;
+      font-weight: 700;
+      line-height: 1.45;
+      box-shadow: inset 0 0 0 1px rgba(255, 69, 0, 0.08);
+    }
+
+    .panel > :is(h2, h3),
+    .card > :is(h2, h3),
+    .quote > :is(h2, h3),
+    .link-card > :is(h2, h3),
+    .highlight-box > strong,
+    .flow-step > h3,
+    .metric > strong {
+      margin-bottom: 10px;
+    }
+
+    .quote {
+      background: linear-gradient(145deg, rgba(113, 75, 103, 0.98), rgba(80, 53, 71, 0.98));
+      color: white;
+      border: 0;
+    }
+
+    .quote::before {
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.18));
+    }
+
+    .quote p,
+    .quote small {
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .flow-step {
+      position: relative;
+      gap: 16px;
+      padding-top: 48px;
+    }
+
+    .flow-step::before {
+      content: attr(data-step);
+      position: absolute;
+      top: 18px;
+      left: 22px;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--odoo);
+      color: white;
+      font-size: 0.85rem;
+      font-weight: 800;
+      z-index: 1;
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      top: 32px;
+      right: -7px;
+      width: 14px;
+      height: 2px;
+      background: rgba(113, 75, 103, 0.22);
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .split-title {
+      display: grid;
+      gap: clamp(14px, 1.8vh, 20px);
+      align-content: center;
+      min-width: 0;
+    }
+
+    .architecture-diagram {
+      display: grid;
+      gap: 16px;
+      min-height: 100%;
+    }
+
+    .arch-layer {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 14px;
+      align-items: center;
+      padding: 18px 20px;
+      border-radius: 24px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    }
+
+    .arch-label {
+      font-size: 0.9rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--odoo);
+    }
+
+    .tradeoff {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tradeoff::before {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--odoo), var(--reddit));
+    }
+
+    .demo-shot {
+      overflow: hidden;
+      padding: 14px;
+      background: linear-gradient(180deg, rgba(113, 75, 103, 0.08), rgba(64, 154, 255, 0.08));
+      border: 1px solid rgba(113, 75, 103, 0.16);
+    }
+
+    .demo-shot::after {
+      content: "Prueba operativa";
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(113, 75, 103, 0.12);
+      color: var(--odoo);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      z-index: 2;
+    }
+
+    .telegram-mockup {
+      position: relative;
+      border-radius: 26px;
+      border: 1px solid rgba(89, 116, 139, 0.22);
+      background: #d9e5f0;
+      box-shadow: 0 18px 34px rgba(35, 49, 59, 0.16);
+      overflow: hidden;
+    }
+
+    .telegram-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      background: linear-gradient(180deg, #ffffff, #f4f7fb);
+      border-bottom: 1px solid rgba(89, 116, 139, 0.16);
+    }
+
+    .telegram-topbar-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .telegram-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: linear-gradient(135deg, #55a7ff, #2f7fd6);
+      color: #fff;
+      font-size: 0.86rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    }
+
+    .telegram-channel {
+      min-width: 0;
+    }
+
+    .telegram-channel strong,
+    .telegram-channel span {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .telegram-channel strong {
+      font-size: 0.98rem;
+      color: #1d2f3f;
+      font-weight: 800;
+    }
+
+    .telegram-channel span {
+      margin-top: 2px;
+      color: #7a8b99;
+      font-size: 0.82rem;
+    }
+
+    .telegram-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #90a0ae;
+      font-size: 1rem;
+      flex: 0 0 auto;
+    }
+
+    .telegram-actions span {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: rgba(137, 157, 177, 0.12);
+      border: 1px solid rgba(137, 157, 177, 0.14);
+    }
+
+    .telegram-body {
+      padding: 18px 18px 16px;
+      display: grid;
+      gap: 14px;
+      min-height: 240px;
+      background-color: #d7e4ef;
+      background-image:
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.42) 0, rgba(255, 255, 255, 0.42) 2px, transparent 2px),
+        radial-gradient(circle at 78% 32%, rgba(255, 255, 255, 0.28) 0, rgba(255, 255, 255, 0.28) 2px, transparent 2px),
+        radial-gradient(circle at 35% 70%, rgba(120, 151, 179, 0.18) 0, rgba(120, 151, 179, 0.18) 3px, transparent 3px),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+      background-size: 120px 120px, 160px 160px, 220px 220px, auto;
+    }
+
+    .telegram-date {
+      justify-self: center;
+      padding: 5px 10px;
+      border-radius: 10px;
+      background: rgba(82, 110, 135, 0.18);
+      color: #5c7082;
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .telegram-bubble {
+      max-width: 88%;
+      padding: 10px 12px 8px;
+      border-radius: 18px;
+      display: grid;
+      gap: 10px;
+      border: 1px solid rgba(89, 116, 139, 0.14);
+      background: #ffffff;
+      box-shadow: 0 8px 18px rgba(56, 78, 96, 0.08);
+    }
+
+    .telegram-bubble.incoming {
+      justify-self: start;
+      border-top-left-radius: 8px;
+    }
+
+    .telegram-message-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .telegram-author {
+      font-size: 0.83rem;
+      font-weight: 800;
+      color: #2f7fd6;
+    }
+
+    .telegram-time {
+      font-size: 0.72rem;
+      color: #96a5b3;
+      white-space: nowrap;
+    }
+
+    .telegram-codecard {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 14px;
+      background: #f5f8fb;
+      border: 1px solid #dde6ee;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      color: #344655;
+      font-family: var(--font-body);
+    }
+
+    .telegram-line {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+
+    .telegram-line strong {
+      font-size: 0.92rem;
+      line-height: 1.1;
+    }
+
+    .telegram-line span {
+      min-width: 0;
+    }
+
+    .telegram-line a {
+      color: #2f7fd6;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .telegram-bubble-meta {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      font-size: 0.71rem;
+      color: #97a6b4;
+    }
+
+    .telegram-compose {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 16px 13px;
+      background: rgba(240, 245, 249, 0.98);
+      border-top: 1px solid rgba(89, 116, 139, 0.14);
+    }
+
+    .telegram-compose strong {
+      color: #5f7282;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .telegram-compose span {
+      color: #7a8b99;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .telegram-send {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #56a8ff, #2f7fd6);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 900;
+      box-shadow: 0 8px 18px rgba(47, 127, 214, 0.28);
+    }
+
+    .link-card a {
+      color: var(--odoo);
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .demo-grid > .content {
+      grid-auto-rows: minmax(0, auto);
+    }
+
+    .link-card a.telegram {
+      color: var(--reddit);
+    }
+
+    .footer-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      color: var(--gray);
+      font-size: 0.86rem;
+      letter-spacing: 0.03em;
+    }
+
+    .progress-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 160px;
+      margin-left: auto;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(108, 117, 125, 0.14);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 10%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--odoo), var(--reddit));
+      transition: width 0.3s ease;
+    }
+
+    .controls {
+      position: absolute;
+      right: 28px;
+      bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 30;
+    }
+
+    .nav-btn {
+      appearance: none;
+      border: 0;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--odoo), var(--odoo-dark));
+      color: white;
+      font-size: 1.4rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 18px 30px rgba(80, 53, 71, 0.28);
+      transition: transform 0.22s ease, opacity 0.2s ease, box-shadow 0.22s ease;
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 34px rgba(80, 53, 71, 0.34);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .tiny {
+      font-size: 0.84rem;
+      color: var(--gray);
+    }
+
+    .highlight-box {
+      gap: 14px;
+      padding: 24px;
+      border-radius: 26px;
+      background: linear-gradient(145deg, rgba(255, 69, 0, 0.08), rgba(113, 75, 103, 0.08));
+      border: 1px solid rgba(113, 75, 103, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .highlight-box strong {
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--odoo-dark);
+    }
+
+    .demo-slide .content > .content,
+    .final-slide .content,
+    .positioning-slide .content {
+      align-content: stretch;
+    }
+
+    .positioning-slide .panel,
+    .final-slide .panel.soft,
+    .final-slide .card {
+      border-color: rgba(113, 75, 103, 0.16);
+    }
+
+    .final-slide::before {
+      background:
+        linear-gradient(135deg, rgba(113, 75, 103, 0.065), transparent 42%, rgba(255, 69, 0, 0.05)),
+        radial-gradient(circle at 82% 18%, rgba(255, 69, 0, 0.09), transparent 24%);
+    }
+
+    .final-slide .panel.soft {
+      background: linear-gradient(180deg, rgba(245, 247, 250, 0.92), rgba(255, 255, 255, 0.96));
+    }
+
+    .final-slide .card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 247, 250, 0.95));
+    }
+
+    .split-title > .eyebrow {
+      margin-bottom: 4px;
+    }
+
+    .hero-badge p {
+      font-size: 0.92rem;
+      line-height: 1.52;
+      color: rgba(255,255,255,0.88);
+      padding-right: 4px;
+      word-break: break-word;
+    }
+
+    .quote h3 {
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 0.82rem;
+    }
+
+    .metric-unit {
+      font-style: normal;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: -6px;
+    }
+
+    @keyframes slow-spin {
+      from {
+        transform: translate(-50%, -50%) rotate(0deg);
+      }
+
+      to {
+        transform: translate(-50%, -50%) rotate(360deg);
+      }
+    }
+
+    @media (max-width: 1120px) {
+      body {
+        overflow: auto;
+      }
+
+      .deck {
+        height: auto;
+        min-height: 100vh;
+        padding: 18px;
+      }
+
+      .deck::after {
+        inset: 12px;
+      }
+
+      .slide {
+        position: relative;
+        min-height: calc(100vh - 36px);
+        height: auto;
+        margin-bottom: 18px;
+        padding: 84px 28px 94px;
+        transform: none;
+        display: none;
+      }
+
+      .slide.active {
+        display: grid;
+      }
+
+      .hero,
+      .two-col,
+      .three-col,
+      .asymmetric,
+      .flow-grid,
+      .comparison-grid,
+      .value-grid,
+      .demo-grid,
+      .closing-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step::after {
+        display: none;
+      }
+
+      .telegram-bubble {
+        max-width: 100%;
+      }
+
+      .telegram-topbar,
+      .telegram-compose {
+        flex-wrap: wrap;
+      }
+
+      .arch-layer {
+        grid-template-columns: 1fr;
+      }
+
+      .brand-bar {
+        left: 18px;
+        right: 18px;
+      }
+
+      .cover-slide .split-title {
+        padding-left: 20px;
+      }
+
+      .controls {
+        right: 18px;
+        bottom: 18px;
+      }
+    }
+
+    @media (max-height: 820px) {
+      .slide {
+        padding: 72px 60px 80px;
+        gap: clamp(14px, 1.8vh, 22px);
+      }
+      .cover-slide {
+        padding-top: 72px;
+        padding-bottom: 72px;
+      }
+      h1 {
+        font-size: clamp(1.9rem, 3.6vw, 3.6rem);
+      }
+      h2 {
+        font-size: clamp(1.6rem, 2.4vw, 2.6rem);
+      }
+      .telegram-body {
+        min-height: 180px;
+      }
+      .flow-step {
+        padding-top: 40px;
+        gap: 10px;
+      }
+      .hero-badge {
+        padding: clamp(16px, 1.6vw, 20px);
+        gap: 12px;
+      }
+    }
+
+    @media (max-height: 720px) {
+      .deck {
+        padding: 16px;
+      }
+      .slide {
+        padding: 56px 46px 60px;
+        gap: 10px;
+      }
+      .cover-slide {
+        padding-top: 58px;
+        padding-bottom: 60px;
+      }
+      h1 {
+        font-size: clamp(1.55rem, 3vw, 2.8rem);
+      }
+      h2 {
+        font-size: clamp(1.3rem, 2vw, 2rem);
+      }
+      .lede {
+        font-size: 0.92rem;
+        line-height: 1.5;
+      }
+      .telegram-body {
+        min-height: 150px;
+      }
+      .flow-step {
+        padding-top: 34px;
+        gap: 6px;
+      }
+      .hero-badge {
+        padding: 12px 14px;
+        gap: 8px;
+      }
+      .hero-badge strong {
+        font-size: 1.7rem;
+      }
+      .hero-badge img {
+        width: 48px;
+        height: 48px;
+      }
+      .stat-row {
+        display: none;
+      }
+      .card, .metric, .flow-step, .panel, .quote, .link-card {
+        padding: 16px 18px;
+        gap: 8px;
+      }
+      .brand-bar {
+        top: 10px;
+      }
+      .controls {
+        bottom: 16px;
+        right: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <div class="brand-bar">
+      <div class="brand-chip">
+        <img src="../assets/auto-reddit-logo.png" alt="Logo Auto-Reddit">
+        <span>Auto-Reddit | Halltic</span>
+      </div>
+      <div class="key-hint">Teclas: &#8592; / &#8594;</div>
+    </div>
+
+    <main class="slides" aria-live="polite">
+      <section class="slide active cover-slide" data-title="Portada">
+        <div class="slide-header"></div>
+        <div class="content hero">
+          <div class="split-title">
+            <h1>Convierte el ruido de <span class="accent">Reddit</span> en oportunidades accionables para <span class="accent-odoo">Halltic</span>.</h1>
+            <p class="lede">Auto-Reddit monitoriza <code>r/Odoo</code>, filtra la conversaci&oacute;n relevante y entrega al equipo una selecci&oacute;n lista para decidir en Telegram, sin depender de revisi&oacute;n manual continua.</p>
+            <div class="chip-list">
+              <span class="chip">Radar operativo</span>
+              <span class="chip gray">Caso real en Halltic</span>
+              <span class="chip reddit">Humano en el loop</span>
+            </div>
+            <div class="statement">Detecta antes. Prioriza mejor. Llega al equipo con el contexto suficiente para actuar.</div>
+          </div>
+          <div class="hero-visual">
+            <div class="halo"></div>
+            <div class="ring"></div>
+            <div class="signal"></div>
+            <div class="hero-badge">
+              <img src="../assets/auto-reddit-logo.png" alt="Auto-Reddit">
+              <strong>Auto-Reddit</strong>
+              <p>No compite por automatizaci&oacute;n total. Detecta antes, prioriza mejor y llega al equipo con contexto suficiente para actuar.</p>
+              <div class="stat-row">
+                <div class="stat-box">
+                  <strong>Reddit</strong>
+                  <small>Captura</small>
+                </div>
+                <div class="stat-box">
+                  <strong>Filtro</strong>
+                  <small>Prioriza</small>
+                </div>
+                <div class="stat-box">
+                  <strong>Telegram</strong>
+                  <small>Entrega</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta"></div>
+      </section>
+
+      <section class="slide" data-title="Origen y motivacion">
+        <div class="slide-header">
+          <span class="eyebrow">01 · Oportunidad</span>
+        </div>
+        <div class="content two-col">
+          <div class="panel soft">
+            <h2>En Halltic nos dimos cuenta de que Reddit es el sitio número 1 de consultas sobre Odoo.</h2>
+            <p class="lede">Halltic es una consultora tecnológica especializada en implementar Odoo. Su negocio crece por reputación técnica — y <code>r/Odoo</code> concentra miles de empresas que preguntan exactamente sobre el ERP que Halltic instala. Cada pregunta sin respuesta es una oportunidad que otro se lleva.</p>
+            <div class="statement" style="font-size: 0.98rem; margin-top: 4px;">Una pregunta técnica en <code>r/Odoo</code> es, con frecuencia, alguien que necesita exactamente lo que Halltic ofrece.</div>
+          </div>
+          <div class="quote">
+            <h3>Propuesta de producto</h3>
+            <p>Construir un radar operativo que aumente la capacidad comercial del equipo sin automatizar la decisi&oacute;n final ni comprometer el criterio humano.</p>
+            <small>Se&ntilde;al temprana, priorizaci&oacute;n y entrega directa a operaci&oacute;n.</small>
+            <div class="chip-list" style="margin-top: 8px;">
+              <span class="chip" style="background:rgba(255,255,255,0.14);color:#fff;border-color:rgba(255,255,255,0.18);">Detección temprana</span>
+              <span class="chip" style="background:rgba(255,255,255,0.14);color:#fff;border-color:rgba(255,255,255,0.18);">Criterio humano</span>
+              <span class="chip" style="background:rgba(255,255,255,0.14);color:#fff;border-color:rgba(255,255,255,0.18);">Canal operativo</span>
+            </div>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>La oportunidad aparece donde ya existe dolor operativo y urgencia de respuesta.</span>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Problema">
+        <div class="slide-header">
+          <span class="eyebrow reddit">02 · Problema</span>
+        </div>
+        <div class="content asymmetric">
+          <div class="panel">
+            <h2>Revisar Reddit a mano no es un proceso sostenible.</h2>
+            <ul>
+              <li>Las oportunidades aparecen entre muchas publicaciones irrelevantes.</li>
+              <li>La se&ntilde;al es temporal: llegar tarde reduce el valor de respuesta.</li>
+              <li>La revisi&oacute;n manual consume foco del equipo y genera inconsistencias.</li>
+              <li>Sin trazabilidad, cuesta justificar por qu&eacute; una oportunidad merece atenci&oacute;n.</li>
+            </ul>
+            <div class="statement" style="font-size: 0.94rem; border-left-color: var(--gray); background: linear-gradient(90deg, rgba(108,117,125,0.08), transparent); margin-top: 4px;">
+  Sin sistema: revisión manual irregular, sin prioridad, sin trazabilidad. Las oportunidades llegan tarde o no llegan.
+</div>
+          </div>
+          <div class="three-col">
+            <div class="metric">
+              <strong>8</strong>
+              <em class="metric-unit">posts / día</em>
+              <span>El sistema revisa hasta 8 candidatos diarios en <code>r/Odoo</code> sin intervención manual.</span>
+            </div>
+            <div class="metric">
+              <strong>L – V</strong>
+              <em class="metric-unit">automático</em>
+              <span>El guard de fin de semana está en el código, no en el cron. El sistema decide solo.</span>
+            </div>
+            <div class="metric">
+              <strong>0</strong>
+              <em class="metric-unit">publicaciones</em>
+              <span>Ninguna acción autónoma en Reddit. El equipo mantiene el control editorial siempre.</span>
+            </div>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>Problema central: descubrimiento de oportunidades no escalable.</span>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Solucion">
+        <div class="slide-header">
+          <span class="eyebrow">03 · Soluci&oacute;n</span>
+        </div>
+        <div class="content comparison-grid">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:10px 14px; border-radius:20px; background:var(--surface-soft); border:1px solid var(--line);">
+  <div>
+    <p style="margin:0; font-size:0.76rem; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:var(--gray);">⏱ Sin auto-reddit</p>
+    <p style="margin:6px 0 0; font-size:0.86rem; line-height:1.45; color:var(--muted);">Revisión manual, sin criterio de prioridad, llegada tarde a cada conversación.</p>
+  </div>
+  <div>
+    <p style="margin:0; font-size:0.76rem; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:var(--odoo);">✓ Con auto-reddit</p>
+    <p style="margin:6px 0 0; font-size:0.86rem; line-height:1.45; color:var(--muted);">Cola priorizada cada mañana, contexto preparado, cero publicación sin criterio humano.</p>
+  </div>
+</div>
+          <div class="card soft">
+            <h2>Auto-Reddit detecta, filtra y entrega. El equipo decide.</h2>
+            <ul>
+              <li>Recopila contenido de Reddit a trav&eacute;s de RapidAPI.</li>
+              <li>Normaliza y valida datos con contratos tipados.</li>
+              <li>Prioriza relevancia, oportunidad y contexto comercial para reducir ruido.</li>
+              <li>Entrega resultados claros por Telegram para revisi&oacute;n y decisi&oacute;n humana.</li>
+            </ul>
+          </div>
+          <div class="card soft">
+            <h2>Lo que el sistema nunca har&aacute;.</h2>
+            <ul>
+              <li>No publica autom&aacute;ticamente en Reddit.</li>
+              <li>No sustituye el criterio del equipo de Halltic.</li>
+              <li>No intenta cubrir todas las comunidades; se centra en un caso de alto valor.</li>
+              <li>No prioriza volumen; prioriza calidad y accionabilidad.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>La IA filtra mejor; el equipo mantiene la &uacute;ltima palabra.</span>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Flujo del sistema">
+        <div class="slide-header">
+          <span class="eyebrow">04 · Flujo</span>
+        </div>
+        <div class="content">
+          <h2>No automatiza la respuesta. Reduce el tiempo entre detectar una oportunidad y actuar con criterio.</h2>
+          <div class="flow-grid">
+            <article class="flow-step" data-step="1">
+              <h3>Captura</h3>
+              <p>Consulta a Reddit mediante RapidAPI para traer nuevas conversaciones en <code>r/Odoo</code>.</p>
+            </article>
+            <article class="flow-step" data-step="2">
+              <h3>Filtrado</h3>
+              <p>Limpieza y normalizaci&oacute;n de datos para evitar ruido y trabajar con estructura consistente.</p>
+            </article>
+            <article class="flow-step" data-step="3">
+              <h3>Priorizaci&oacute;n</h3>
+              <p>Un modelo ayuda a estimar si existe una oportunidad plausible y resume el motivo para ahorrar lectura.</p>
+            </article>
+            <article class="flow-step" data-step="4">
+              <h3>Persistencia</h3>
+              <p>SQLite conserva ejecuciones y resultados para trazabilidad ligera y coste bajo.</p>
+            </article>
+            <article class="flow-step" data-step="5">
+              <h3>Entrega</h3>
+              <p>Telegram recibe mensajes claros y accionables listos para que el equipo decida.</p>
+            </article>
+          </div>
+          <div class="highlight-box">
+            <strong>Del ruido a la acci&oacute;n</strong>
+            <p>5 pasos para convertir r/Odoo en una fuente de oportunidades priorizadas y accionables cada ma&ntilde;ana.</p>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta"></div>
+      </section>
+
+      <section class="slide" data-title="Valor para la empresa">
+        <div class="slide-header">
+          <span class="eyebrow">05 · Valor para Halltic</span>
+        </div>
+        <div class="content value-grid">
+          <div class="panel soft">
+            <h2>Beneficio directo para Halltic y para el equipo que responde.</h2>
+            <div class="three-col">
+              <div class="metric">
+                <strong>Menos fricci&oacute;n</strong>
+                <span>El equipo deja de rastrear manualmente y recibe una selecci&oacute;n priorizada.</span>
+              </div>
+              <div class="metric">
+                <strong>M&aacute;s foco</strong>
+                <span>La energ&iacute;a comercial se desplaza de buscar a evaluar y responder con mejor contexto.</span>
+              </div>
+              <div class="metric">
+                <strong>Canal real</strong>
+                <span>La salida se integra en Telegram, un canal operativo y f&aacute;cil de consultar.</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Por qu&eacute; encaja con Halltic</h3>
+            <p>Halltic gana un radar temprano sobre conversaciones donde Odoo ya est&aacute; presente, con un coste t&eacute;cnico contenido y sin automatismos agresivos que puedan afectar reputaci&oacute;n, tono o criterio comercial.</p>
+            <div class="chip-list" style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--line);">
+              <span class="chip">Sin automatismos agresivos</span>
+              <span class="chip gray">Coste técnico contenido</span>
+              <span class="chip reddit">Canal que el equipo ya usa</span>
+            </div>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>Valor empresarial: eficiencia, oportunidad y control.</span>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Arquitectura y stack">
+        <div class="slide-header">
+          <span class="eyebrow">06 · Base del producto</span>
+        </div>
+        <div class="content two-col">
+          <div class="panel">
+            <h2>Una base ligera para operar hoy y evolucionar sin fricci&oacute;n.</h2>
+            <p class="lede">La arquitectura prioriza mantenimiento, coste contenido y despliegue sencillo: validaci&oacute;n fuerte, persistencia simple, integraciones bien delimitadas y automatizaci&oacute;n suficiente para que el sistema sea utilizable de verdad.</p>
+            <div class="chip-list" style="margin-top: 18px;">
+              <span class="chip">Ligero por dise&ntilde;o</span>
+              <span class="chip gray">Sin sobredise&ntilde;o</span>
+              <span class="chip reddit">Evolutivo</span>
+            </div>
+          </div>
+          <div class="architecture-diagram">
+            <div class="arch-layer">
+              <div class="arch-label">Ingesta</div>
+              <div class="stack-list">
+                <span class="stack-pill reddit">RapidAPI Reddit</span>
+                <span class="stack-pill">Python</span>
+                <span class="stack-pill gray">Pydantic</span>
+              </div>
+            </div>
+            <div class="arch-layer">
+              <div class="arch-label">Inteligencia</div>
+              <div class="stack-list">
+                <span class="stack-pill">DeepSeek</span>
+                <span class="stack-pill gray">SDK OpenAI</span>
+              </div>
+            </div>
+            <div class="arch-layer">
+              <div class="arch-label">Persistencia</div>
+              <div class="stack-list">
+                <span class="stack-pill gray">SQLite</span>
+              </div>
+            </div>
+            <div class="arch-layer">
+              <div class="arch-label">Entrega</div>
+              <div class="stack-list">
+                <span class="stack-pill reddit">Telegram Bot API</span>
+              </div>
+            </div>
+            <div class="arch-layer">
+              <div class="arch-label">Operaci&oacute;n</div>
+              <div class="stack-list">
+                <span class="stack-pill">uv</span>
+                <span class="stack-pill gray">Docker</span>
+                <span class="stack-pill">VPS + cron</span>
+                <span class="stack-pill gray">GitHub Actions</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>Complejidad m&iacute;nima para acelerar adopci&oacute;n, operaci&oacute;n y evoluci&oacute;n del producto.</span>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Decisiones y trade-offs">
+        <div class="slide-header">
+          <span class="eyebrow">07 · Criterio de dise&ntilde;o</span>
+        </div>
+        <div class="content three-col">
+          <div class="card tradeoff">
+            <h3>Ligero por dise&ntilde;o</h3>
+            <p>Menor coste operativo y menos fricci&oacute;n para validar uso real. Trade-off: no est&aacute; pensado para cargas distribuidas altas, porque hoy no las necesita.</p>
+          </div>
+          <div class="card tradeoff">
+            <h3>Operaci&oacute;n predecible</h3>
+            <p>Contenedor ef&iacute;mero y cron externo para ejecutar cuando aporta valor. Trade-off: el servicio no es siempre residente, y precisamente eso reduce coste y complejidad.</p>
+          </div>
+          <div class="card tradeoff">
+            <h3>Criterio antes que automatismo</h3>
+            <p>La IA act&uacute;a como filtro, no como actuador. Eso reduce riesgo reputacional y mantiene control humano. Trade-off: sigue habiendo revisi&oacute;n manual, pero sobre una se&ntilde;al mucho mejor.</p>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>La diferenciaci&oacute;n est&aacute; en la calidad de criterio y en c&oacute;mo entra en operaci&oacute;n, no en automatizar por automatizar.</span>
+        </div>
+      </section>
+
+      <section class="slide demo-slide" data-title="Demo real">
+        <div class="slide-header">
+          <span class="eyebrow reddit">08 · Demo real</span>
+        </div>
+        <div class="content demo-grid">
+          <div class="card demo-shot">
+            <div class="telegram-mockup" aria-label="Mockup visual del canal de Telegram con oportunidades detectadas">
+              <div class="telegram-topbar">
+                <div class="telegram-topbar-main">
+                  <div class="telegram-avatar">AR</div>
+                  <div class="telegram-channel">
+                    <strong>Auto-Reddit | Halltic</strong>
+                    <span>canal · actualizaciones automatizadas</span>
+                  </div>
+                </div>
+                <div class="telegram-actions" aria-hidden="true">
+                  <span>&#128269;</span>
+                  <span>&#8942;</span>
+                </div>
+              </div>
+              <div class="telegram-body">
+                <div class="telegram-date">📬 Resumen del d&iacute;a · 31/03/2026 · 8 revisados · 5 oportunidades</div>
+                <div class="telegram-bubble incoming">
+                  <div class="telegram-message-head">
+                    <span class="telegram-author">Auto-Reddit Bot</span>
+                    <span class="telegram-time">09:41</span>
+                  </div>
+                  <div class="telegram-codecard">
+                    <div class="telegram-line"><strong>&#128279;</strong><span>Copiar/pegar falla en hoja de c&aacute;lculo (Samsung tablet) · Ver en Reddit</span></div>
+                    <div class="telegram-line"><strong>&#128204;</strong><span>Funcionalidad</span></div>
+                    <div class="telegram-line"><strong>&#128161;</strong><span>Problema m&oacute;vil en Odoo, sin soluci&oacute;n visible</span></div>
+                    <div class="telegram-line"><strong>&#128196;</strong><span>En una Samsung A9 no funciona copiar/pegar en la hoja</span></div>
+                    <div class="telegram-line"><strong>&#128172;</strong><span>Sin comentarios visibles</span></div>
+                    <div class="telegram-line"><strong>&#9997;&#65039;</strong><span>ES: Probar Chrome y revisar versi&oacute;n de la app</span></div>
+                    <div class="telegram-line"><strong>&#9997;&#65039;</strong><span>EN: Try Chrome instead of app; check latest app version</span></div>
+                    <div class="telegram-line"><strong>&#9888;&#65039;</strong><span>Falta confirmar versi&oacute;n exacta y si solo ocurre en la app</span></div>
+                    <div class="telegram-line"><strong>&#128270;</strong><span>Revisar dispositivo, navegador y release de Odoo</span></div>
+                  </div>
+                  <div class="telegram-bubble-meta">
+                    <span>entregado por Bot API</span>
+                    <span>09:41</span>
+                  </div>
+                </div>
+              </div>
+              <div class="telegram-compose">
+                <strong>Estado del canal</strong>
+                <span>Solo lectura · revisado en Telegram</span>
+              </div>
+            </div>
+          </div>
+          <div class="content">
+            <div>
+              <h2>La prueba de producto ya vive en Telegram.</h2>
+              <p class="lede">El sistema est&aacute; desplegado y entregando oportunidades reales. Accede al canal o al repositorio para verlo en funcionamiento.</p>
+            </div>
+            <div class="link-card">
+              <h3>Repositorio GitHub</h3>
+              <p><a href="https://github.com/Prodelaya/auto-reddit" target="_blank" rel="noopener noreferrer">https://github.com/Prodelaya/auto-reddit</a></p>
+            </div>
+            <div class="link-card">
+              <h3>Canal / acceso operativo en Telegram</h3>
+              <p><a class="telegram" href="https://t.me/+wp1xd6Rgik9lNWQ0" target="_blank" rel="noopener noreferrer">https://t.me/+wp1xd6Rgik9lNWQ0</a></p>
+            </div>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>Demo real con activos locales del proyecto.</span>
+        </div>
+      </section>
+
+      <section class="slide positioning-slide" data-title="Posicionamiento del producto">
+        <div class="slide-header">
+          <span class="eyebrow">09 · Posicionamiento</span>
+        </div>
+        <div class="content closing-grid">
+          <div class="panel">
+            <h2>Por qu&eacute; Auto-Reddit puede ganar adopci&oacute;n dentro de Halltic.</h2>
+            <ul>
+              <li>Ataca un problema real con impacto inmediato en foco comercial.</li>
+              <li>Se integra en un canal que el equipo ya puede consultar sin fricci&oacute;n.</li>
+              <li>Introduce IA solo donde mejora criterio y velocidad.</li>
+              <li>Permite crecer en m&eacute;tricas, fuentes y cobertura sin rehacer la base.</li>
+            </ul>
+          </div>
+          <div class="card soft">
+            <h3>Por qu&eacute; Auto-Reddit gana</h3>
+            <p>No compite por automatizaci&oacute;n total. Compite por detectar antes, priorizar mejor y llegar al equipo con el contexto suficiente para actuar con criterio.</p>
+            <ul style="margin-top: 16px;">
+              <li>Primero en detectar la conversación relevante en <code>r/Odoo</code>.</li>
+              <li>Oportunidad priorizada con contexto, no un listado genérico.</li>
+              <li>Entregada en el canal donde el equipo ya opera y decide.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>Producto peque&ntilde;o, enfoque claro y evidencia operativa desde el primer caso de uso.</span>
+        </div>
+      </section>
+
+      <section class="slide final-slide" data-title="Cierre y siguientes pasos">
+        <div class="slide-header">
+          <span class="eyebrow">10 · Cierre</span>
+        </div>
+        <div class="content closing-grid">
+          <div class="panel soft">
+            <h2>Resultado: un radar listo para seguir madurando como producto.</h2>
+            <p class="lede">Auto-Reddit ya demuestra la promesa central: detectar conversaciones valiosas antes, filtrarlas con criterio y entregarlas donde Halltic puede decidir y actuar.</p>
+            <div class="chip-list" style="margin-top: 18px;">
+              <span class="chip">Valor inmediato</span>
+              <span class="chip gray">Base evolutiva</span>
+              <span class="chip reddit">Human-in-the-loop</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Tres apuestas de producto</h3>
+            <div class="three-col" style="margin-top: 12px; gap: 12px;">
+              <div class="card soft" style="padding: 16px; gap: 8px;">
+                <h3 style="font-size:0.82rem;">Tracción medible</h3>
+                <p>Métricas de oportunidades atendidas para cerrar el loop de valor.</p>
+              </div>
+              <div class="card soft" style="padding: 16px; gap: 8px;">
+                <h3 style="font-size:0.82rem;">Señal más rica</h3>
+                <p>Ampliar fuentes solo si el caso de Halltic demuestra retorno real.</p>
+              </div>
+              <div class="card soft" style="padding: 16px; gap: 8px;">
+                <h3 style="font-size:0.82rem;">Confianza del equipo</h3>
+                <p>Explicabilidad y observabilidad para adopción sin fricción.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="slide-footer footer-meta">
+          <span>Auto-Reddit propone; Halltic decide con contexto, control y mejor timing.</span>
+        </div>
+      </section>
+    </main>
+
+    <div class="controls" aria-label="Controles de navegacion">
+      <button class="nav-btn" id="prevBtn" type="button" aria-label="Slide anterior">&#8592;</button>
+      <button class="nav-btn" id="nextBtn" type="button" aria-label="Slide siguiente">&#8594;</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const total = slides.length;
+
+      slides.forEach((slide) => {
+        const footer = slide.querySelector('.slide-footer');
+        if (!footer) return;
+
+        const meta = document.createElement('div');
+        meta.className = 'progress-wrap';
+        meta.innerHTML = [
+          '<span class="counter">1 / ' + total + '</span>',
+          '<div class="progress-bar" aria-hidden="true"><div class="progress-fill"></div></div>'
+        ].join('');
+        footer.appendChild(meta);
+      });
+
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      let index = 0;
+
+      function render() {
+        slides.forEach((slide, i) => {
+          slide.classList.toggle('active', i === index);
+          slide.setAttribute('aria-hidden', i === index ? 'false' : 'true');
+
+          const counter = slide.querySelector('.counter');
+          const fill = slide.querySelector('.progress-fill');
+          if (counter) {
+            counter.textContent = (index + 1) + ' / ' + total;
+          }
+          if (fill) {
+            fill.style.width = (((index + 1) / total) * 100) + '%';
+          }
+        });
+
+        prevBtn.disabled = index === 0;
+        nextBtn.disabled = index === total - 1;
+        document.title = 'Auto-Reddit | ' + slides[index].dataset.title;
+      }
+
+      function goTo(nextIndex) {
+        if (nextIndex < 0 || nextIndex >= total) return;
+        index = nextIndex;
+        render();
+      }
+
+      prevBtn.addEventListener('click', () => goTo(index - 1));
+      nextBtn.addEventListener('click', () => goTo(index + 1));
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+          goTo(index + 1);
+        }
+        if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+          goTo(index - 1);
+        }
+        if (event.key === 'Home') {
+          goTo(0);
+        }
+        if (event.key === 'End') {
+          goTo(total - 1);
+        }
+      });
+
+      render();
+    }());
+  </script>
+</body>
+</html>
