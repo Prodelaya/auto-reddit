@@ -1795,3 +1795,46 @@ Se desplegó auto-reddit por primera vez en un servidor Ubuntu 24.04 de producci
 
 Commits:
 - pendiente de commit
+
+---
+
+## Entrada 27
+
+**Fecha:** 04/04/2026
+
+### Presentacion HTML: cierre visual y narrativo
+
+En esta sesion se cerro y pulo la presentacion HTML del proyecto para dejarla lista como pieza de apoyo del TFM y del repositorio. El trabajo no fue solo "maquetar slides": se hizo una pasada real de producto, claridad narrativa y consistencia visual para que la presentacion explicara bien que hace `auto-reddit`, que no hace y por que su propuesta de valor es creible.
+
+### Decisiones visuales y de producto
+
+Se tomaron decisiones concretas para que la presentacion no pareciera una exportacion generica:
+
+- se reforzo una linea visual propia, alineada con el universo Odoo + Reddit pero sin caer en una identidad demasiado cargada
+- se priorizo legibilidad real en pantalla completa, con jerarquia tipografica clara y ritmo entre slides
+- se ajusto el discurso para vender bien el producto sin traicionar el alcance real del sistema
+- se insistio en el mensaje clave del proyecto: la IA propone, pero el humano decide y publica
+
+### Mockup de Telegram en lugar de captura cruda
+
+Una decision importante fue no depender de una captura de pantalla cruda de Telegram como pieza principal de la demo visual. En su lugar se opto por un mockup mas controlado y limpio, capaz de enseñar mejor la estructura del mensaje, el tipo de informacion que recibe el equipo y el valor del flujo operativo sin arrastrar ruido visual innecesario.
+
+Esta decision mejora la presentacion por dos motivos:
+
+1. evita que una captura real condicione demasiado el diseno de la slide
+2. comunica mejor el producto que una imagen tomada "tal cual" del canal
+
+### Fixes de layout, responsive y contenido
+
+Durante el pulido tambien se hicieron varios ajustes finos para que la presentacion aguantara mejor distintos tamanos de pantalla y no dependiera de un unico viewport ideal:
+
+- correcciones de layout para equilibrar bloques, tarjetas y zonas de aire
+- mejoras responsive para evitar cortes o densidad excesiva en resoluciones mas pequenas
+- limpieza de textos para eliminar redundancias y hacer el relato mas directo
+- ajustes de contenido para que cada slide tuviera una idea principal clara
+
+### Preparacion del despliegue en GitHub Pages
+
+Ademas de la propia presentacion, en esta sesion se dejo preparado el repositorio para poder publicarla mediante GitHub Pages con GitHub Actions. Se anadio el workflow de despliegue estatico y se actualizaron documentos del repo para dejar referenciada la presentacion HTML y su futura URL publica esperada.
+
+Importante: en el momento de esta entrada la presentacion queda **preparada para publicarse**, pero no se afirma que ya este publicada. La publicacion real depende de activar GitHub Pages en la configuracion del repositorio y de que el workflow se ejecute sobre `main`.

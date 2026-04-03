@@ -149,6 +149,12 @@ docker volume ls
 
 Este proyecto no expone una interfaz web publica. El sistema corre en un VPS y su salida operativa real se entrega en Telegram, que es el canal donde el equipo consulta cada ejecucion diaria y revisa las oportunidades detectadas.
 
+Ademas, el repositorio incluye una presentacion HTML del proyecto en `TFM/presentacion.html`.
+Se puede abrir localmente directamente desde ese fichero en cualquier navegador.
+Cuando quede desplegada con GitHub Pages, su URL esperada sera:
+
+https://prodelaya.github.io/auto-reddit/TFM/presentacion.html
+
 Canal operativo real:
 
 https://t.me/+wp1xd6Rgik9lNWQ0
