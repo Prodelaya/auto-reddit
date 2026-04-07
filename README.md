@@ -130,11 +130,20 @@ La guia de despliegue completa esta en [`docs/deployment.md`](docs/deployment.md
 #### Ver logs
 
 ```bash
-# Logs de la ultima ejecucion
+
+# Logs acumulados de las ejecuciones del cron
 cat /var/log/auto-reddit.log
 
-# O ver los logs del ultimo contenedor
+# Seguir los logs en tiempo real
+tail -f /var/log/auto-reddit.log
+
+# Ver los logs del contenedor desde la carpeta del proyecto
+cd /opt/auto-reddit
 docker compose logs auto-reddit
+
+# Ver solo los últimos logs del contenedor
+cd /opt/auto-reddit
+docker compose logs --tail=200 auto-reddit
 ```
 
 #### Persistencia
