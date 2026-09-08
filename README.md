@@ -4,19 +4,13 @@
 
 # auto-reddit
 
-## Descripcion general del proyecto
+> Proyecto académico y personal aplicado a un flujo real.
 
-auto-reddit es un sistema de deteccion diaria de oportunidades de participacion en Reddit para equipos de marketing y contenido que trabajan con Odoo.
+auto-reddit detecta oportunidades de contenido en Reddit, las filtra y evalúa, y entrega el contexto y borradores de respuesta en Telegram para revisión humana. El primer alcance usa `r/Odoo` como fuente de candidatos.
 
-El producto resuelve un problema operativo concreto: seguir manualmente Reddit para detectar posts donde una empresa con experiencia en Odoo puede aportar valor es costoso en tiempo y dificil de sistematizar. auto-reddit automatiza esa vigilancia y entrega cada dia un conjunto de oportunidades filtradas y evaluadas, directamente en Telegram, con el contexto suficiente para que un humano decida si intervenir.
+El principio rector es claro: **la IA propone, la persona revisa y decide**. El sistema no publica en Reddit de forma autónoma; reduce el trabajo de detección y preparación sin sustituir el criterio ni la acción final humana.
 
-El principio rector del producto es claro: **la IA propone, el humano decide y publica**. El sistema nunca publica en Reddit de forma autonoma. Su unica funcion es reducir el trabajo de deteccion y preparacion, dejando el criterio y la accion final siempre en manos del equipo.
-
-El usuario principal es el equipo de marketing y contenido. La fuente de datos del primer slice es `r/Odoo`.
-
-La referencia operativa vigente para la integracion con Reddit es `docs/integrations/reddit/api-strategy.md`.
-
-Mapa completo de documentacion para maintainers: [`docs/README.md`](docs/README.md).
+La estrategia de integración con Reddit se documenta en [`docs/integrations/reddit/api-strategy.md`](docs/integrations/reddit/api-strategy.md). El mapa de documentación para mantenimiento está en [`docs/README.md`](docs/README.md).
 
 ---
 
@@ -154,23 +148,11 @@ La base de datos SQLite vive en un volumen Docker (`sqlite_data:/data`). Los dat
 docker volume ls
 ```
 
-## Acceso al despliegue operativo
+## Presentación pública
 
-Este proyecto no expone una interfaz web publica. El sistema corre en un VPS y su salida operativa real se entrega en Telegram, que es el canal donde el equipo consulta cada ejecucion diaria y revisa las oportunidades detectadas.
-
-Ademas, el repositorio incluye una presentacion HTML del proyecto en `TFM/presentacion.html`.
-Se puede abrir localmente directamente desde ese fichero en cualquier navegador.
-La presentacion ya esta publicada y disponible publicamente en GitHub Pages en esta URL:
+El repositorio incluye una presentación HTML del proyecto en `TFM/presentacion.html`, disponible como demo pública:
 
 https://prodelaya.github.io/auto-reddit/TFM/presentacion.html
-
-Canal operativo real:
-
-https://t.me/+wp1xd6Rgik9lNWQ0
-
-Referencia visual del canal en produccion:
-
-![Canal operativo de Telegram](assets/demo1.jpg)
 
 ---
 
